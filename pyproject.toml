@@ -1,0 +1,151 @@
+#' https://setuptools.readthedocs.io/en/latest/setuptools.html#metadata
+
+
+# https://setuptools.pypa.io/en/latest/references/keywords.html
+
+### LAYOUT:
+#' project_root/                 # Project root: 'plotastic'
+#' ├── .gitattributes
+#' ├── .gitignore
+#' ├── LICENSE
+#' ├── MANIFEST.in
+#' ├── README.md
+#' ├── pyproject.toml
+#' ├── requirements.txt
+#' ├── (setup.cfg) # No longer needed, but still supported
+#' ├── (paper.md) # For publication
+#' ├── ...
+#' └── src/                      # Source root
+#'    └── package/               # Package root: 'plotastic'
+#'        ├── __init__.py
+#'        ├── .vscode
+#'        ├── py.typed
+#'        ├── ...
+#'        ├── (module.py)
+#'        ├── subpkg1/           # Subpackage root: 'plotastic.dimensions'
+#'        │   ├── __init__.py
+#'        │   ├── ...
+#'        │   └── module1.py
+#'        └── subpkg2/           # Subpackage root: 'plotastic.plotting'
+#'            ├── __init__.py
+#'            ├── ...
+#'            └── module2.py
+
+[build-system] # =======================================================
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+
+[project] # ============================================================
+name = "mkshg"
+version = "0.1.0" # ' <major>.<minor>.<patch>.<build_number>
+authors = [{ name = "Martin Kuric", email = "martin.kur4@gmail.com" }]
+description = "SHG analysis"
+readme = "README.md"
+license = { file = "LICENSE" } # ' or { text = "GPLv3" }
+keywords = [
+    "plotting",
+    # "statistics",
+    "data analysis",
+    # "data visualization",
+    # "data science",
+    "data",
+    "science",
+    "visualization",
+    "microscopy",
+    "SHG",
+]
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    # "Development Status :: 5 - Production/Stable",
+    "Framework :: IPython",
+    "Framework :: Jupyter",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "Intended Audience :: Healthcare Industry",
+    # "Intended Audience :: Financial and Insurance Industry",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Programming Language :: Python :: 3.11",
+]
+### Dependencies
+#' Specify version only if concrete incompatibilities exist
+requires-python = ">=3.11"
+dependencies = [
+    #*Ipython
+    "ipython",
+    "ipywidgets",
+    #* Core
+    "numpy",
+    "pandas==1.5.3", #!! pingouin Not working with pandas 2.0 yet
+    # * Plotting
+    "matplotlib",
+    "seaborn<=0.12.2", #!! 0.13 has issues with hue
+    "pyvista",
+    "trame", #' required for interactive pyvista plots
+    "trame_vtk",
+    "trame-vuetify",
+    # "plotly",
+    # "nbformat", #> required by plotly
+    #* Statistics
+    "scipy",
+    #* Image processing
+    "scikit-image",
+    "PyWavelets",  #' For wavelet denoising
+    # "opencv-python",
+    
+    # "statannot",   #' Superseded by statannotations
+#     "statannotations",
+#     "pingouin",
+#     #* Excel
+#     "xlsxwriter",    #' For saving results to excel
+#     "openpyxl",      #' Optional for Pandas, but error when not installed
+#     #* Misc
+#     "joblib",      #' Caching
+#     "colour",      #' For custom colour maps
+#     "ipynbname",   #' Used by utils
+#     "icecream",    #' Better than print (and maybe later logging)
+]
+
+### Dynamic fields
+# dynamic = ["version"]
+
+
+[project.optional-dependencies] # ======================================
+### Install with:
+# '   $ pip install sampleproject[dev]
+dev = [
+    "pytest",
+    "ipytest",
+    "pytest-cov",   # * Displays how much of code was covered by testing
+    "pytest-xdist", # * Parallel testing
+    "nbconvert",    # * For converting notebooks to markdown
+    "build",        # * For building the package into dist
+    "twine",        # * For uploading to PyPI
+]
+
+
+[project.urls] # =======================================================
+# "Homepage" = "https://github.com/markur4/plotastic"
+# "Documentation" = "https://github.com/markur4/plotastic"
+# "Source Code" = "https://github.com/markur4/plotastic"
+# "Bug Reports" = "https://github.com/markur4/plotastic/issues"
+# "Funding" = "https://donate.pypi.org"
+
+
+[tool.setuptools] # ====================================================
+# package-data = { "example_data" = ["*.xlsx"]}
+include-package-data = true # ? Defaults to true, should I keep this?
+
+[tool.setuptools.packages.find]
+where = ["src"] # ? it also worked without this..? 
+
+### Package-data handled in MANIFEST.in
+# [tool.setuptools.exclude-package-data]
+# plotastic = [".vscode"]
+
+# [tool.setuptools.package-data]
+# "*" = ["LICENSE"]
+# plotastic = ["example_data/*.xlsx"]
