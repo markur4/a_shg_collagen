@@ -164,15 +164,15 @@ class PreProcess:
 
         return np.array(stack_denoised)
 
-    def get_background_by_percentile(self, percentile=10) -> np.ndarray:
+    def get_background_by_percentile(self, percentile=10) -> np.float64:
         """Defines background as percentile of the stack"""
         return np.percentile(self.stack, percentile, axis=0)
 
-    def get_background_by_threshold(self, threshold=0.05) -> np.ndarray:
+    def get_background_by_threshold(self, threshold=0.05) -> np.float64:
         """Defines background as threshold * max value"""
         return self.stack.max() * threshold
 
-    def subtract(self, background):
+    def subtract(self, background: float):
         """subtracts value from stack and sets negative values to 0"""
         stack_bg = self.stack - background
         ### Set negative values to 0

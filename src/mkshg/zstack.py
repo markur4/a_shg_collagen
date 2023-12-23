@@ -9,7 +9,7 @@ import vtk
 from vtk.util import numpy_support
 import pyvista as pv
 
-from .import_and_preprocess import PreProcess
+from mkshg.import_and_preprocess import PreProcess
 
 # %%
 
@@ -17,10 +17,9 @@ from .import_and_preprocess import PreProcess
 class ZStack(PreProcess):
     def __init__(self, **preprocess_kwargs):
         super().__init__(**preprocess_kwargs)
-        
+
         ### Fill z
         self.stack_zfilled = self.fill_z()
-        
 
     # ==================================================================
     # == Utils =========================================================
@@ -48,18 +47,27 @@ class ZStack(PreProcess):
     # ==================================================================
     # == Plotting ======================================================
 
-    def mip(self, axis: int = 0, show=True, ret=False) -> np.ndarray:
+    def mip(
+        self,
+        axis: int = 0,
+        show=True,
+        ret=False,
+        savefig: str = "mip.png",
+        colormap: str = "gist_ncar",
+    ) -> np.ndarray:
         """Maximum intensity projection across certain axis"""
         #!! Overrides PreProcess.mip()
-        p = self.stack_zfilled.max(axis=axis)
+        mip = self.stack_zfilled.max(axis=axis)
 
         if show:
-            plt.imshow(p, cmap="gist_ncar")
-
-        if show:
+            plt.imshow(mip, cmap=colormap)
             plt.show()
+
+        if savefig:
+            plt.imsave(fname=savefig, arr=mip, cmap=colormap)
+            
         if ret:
-            return p
+            return mip
 
     @property
     def stack_vtk(self):
@@ -119,7 +127,7 @@ class ZStack(PreProcess):
 
     def makegif_rotate(
         self,
-        path: str = "rotate.gif",
+        fname: str = "rotate.gif",
         angle_per_frame=1,
     ):
         ### Initialize plotter
@@ -135,9 +143,9 @@ class ZStack(PreProcess):
         pl.camera.clipping_range = (1000, 5000)
 
         ### Open gif
-        if not path.endswith(".gif"):
-            path += ".gif"
-        pl.open_gif(path)
+        if not fname.endswith(".gif"):
+            fname += ".gif"
+        pl.open_gif(fname)
 
         ### Rotate & Write
         for angle in range(0, 360, angle_per_frame):
@@ -150,10 +158,9 @@ class ZStack(PreProcess):
         pl.close()
 
 
-
 if __name__ == "__main__":
     pass
-    #%%
+    # %%
     ### Import from a txt file.
     # > Rough
     # path =
@@ -169,7 +176,7 @@ if __name__ == "__main__":
         z_dist=2 * 0.250,  # stepsize * 0.250 µm
         x_µm=1.5 * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
     )
-    #%%
+    # %%
     Z = ZStack(path=path, **kws)
     Z.stack.shape
     Z.mip()
@@ -185,4 +192,11 @@ if __name__ == "__main__":
     # %%
     Z2.mip()
     # %%
-    Z2.makegif_rotate(angle_per_frame=3)
+    Z2.mip(axis=2)
+    # %%
+    Z2.plot_volume()
+
+    # %%
+    # Z2.makegif_rotate(angle_per_frame=3)
+
+# %%

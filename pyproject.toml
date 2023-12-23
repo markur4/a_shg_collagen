@@ -83,16 +83,20 @@ dependencies = [
     # * Plotting
     "matplotlib",
     "seaborn<=0.12.2", #!! 0.13 has issues with hue
-    "pyvista",
-    "trame", #' required for interactive pyvista plots
-    "trame_vtk",
-    "trame-vuetify",
+    # "pyimagej",
     # "plotly",
     # "nbformat", #> required by plotly
     #* Statistics
     "scipy",
     #* Image processing
+    "pyvista",
+    "trame", #' required for interactive pyvista plots
+    "trame_vtk",
+    "trame-vuetify",
+    "sklearn",
+    "napari[all]", #!! python -m pip install "napari[all]"
     "scikit-image",
+    "scikit-learn",
     "PyWavelets",  #' For wavelet denoising
     # "opencv-python",
     

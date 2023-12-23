@@ -1,6 +1,7 @@
 # reports and Analyses
 REPORT
 ANALYSES
+.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
