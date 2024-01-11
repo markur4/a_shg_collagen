@@ -15,11 +15,18 @@ from mkshg.import_and_preprocess import PreProcess
 
 
 class ZStack(PreProcess):
-    def __init__(self, **preprocess_kwargs):
+    def __init__(self, z_dist, **preprocess_kwargs,):
         super().__init__(**preprocess_kwargs)
+        
+        ### Z-distance
+        self.z_dist = z_dist
+        
+        self.spacing = (self.x_µm, self.y_µm)
+
 
         ### Fill z
         self.stack_zfilled = self.fill_z()
+
 
     # ==================================================================
     # == Utils =========================================================
