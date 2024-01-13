@@ -109,10 +109,6 @@ class PreProcess:
             "subtract_bg_kws": subtract_bg_kws,
             "scalebar_micrometer": scalebar_micrometer,
         }
-        print("kws:")
-        pprint(self.preprocess_kws)
-        print(list(self.preprocess_kws.keys()))
-        print(self.preprocess_kws["scalebar_micrometer"])
 
         ### Document History of processing steps
         self._history: OrderedDict = self._init_history(**self.preprocess_kws)
@@ -218,6 +214,10 @@ class PreProcess:
     def __iter__(self):
         return iter(self.stack)
 
+    def __getitem__(self, val:slice) -> np.ndarray:
+        return self.stack[val]
+
+
     #
     # == __repr__ ======================================================
 
@@ -232,10 +232,10 @@ class PreProcess:
         adj = PreProcess._adj
 
         return [
-            adj("min, max") + f"{S.min():.3f}, {S.max():.3f}",
-            adj("mean ± std") + f"{S.mean():.3f} ± {S.std():.3f}",
-            adj("median, IQR")
-            + f"{np.median(S):.3f}, {np.quantile(S, .25):.3f} - {np.quantile(S, .75):.3f}",
+            adj("min, max") + f"{S.min():.1e}, {S.max():.1e}",
+            adj("mean ± std") + f"{S.mean():.1e} ± {S.std():.1e}",
+            adj("median (IQR)")
+            + f"{np.median(S):.1e} ({np.quantile(S, .25):.1e} - {np.quantile(S, .75):.1e})",
         ]
 
     @property
@@ -248,12 +248,8 @@ class PreProcess:
         ### Check if background was subtracted
         bg_subtracted = str(self.preprocess_kws["subtract_bg"])
 
-        # > Ignore background to get better brightness statistics
-        S_BG = S[S > 0]
-        print("S_BG")
-        print(S_BG)        
-        print("S")
-        print(S)
+        # > Ignore background (0), or it'll skew statistics when bg is subtracted
+        S_BG = S[S > 0.0]
 
         ### Fill info
         ID = OrderedDict()
@@ -271,8 +267,8 @@ class PreProcess:
 
         ID["Distance"] = [
             "=== Distances [µm] ===",
-            adj("pixel size") + f"{self.pixel_size:.2f}",
-            adj("width, height") + f"{self.x_µm:.2f}, {self.y_µm:.2f}",
+            adj("pixel size xy") + f"{self.pixel_size:.2f}",
+            adj("x, y") + f"{self.x_µm:.2f}, {self.y_µm:.2f}",
         ]
 
         ID["History"] = [
@@ -492,7 +488,7 @@ if __name__ == "__main__":
         * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
     )
     Z = PreProcess(
-        path,
+        path=path,
         subtract_bg=False,
         scalebar_micrometer=50,
         **kws,

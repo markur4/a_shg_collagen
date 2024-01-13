@@ -13,8 +13,8 @@ import seaborn as sns
 from skimage import filters
 from sklearn.ensemble import RandomForestClassifier
 
-from import_and_preprocess import PreProcess
-from zstack import ZStack
+from mkshg.import_and_preprocess import PreProcess
+from mkshg.zstack import ZStack
 
 # %%
 

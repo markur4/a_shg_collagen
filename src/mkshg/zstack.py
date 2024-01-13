@@ -51,6 +51,25 @@ class ZStack(PreProcess):
         stack = np.array(stack)
         return stack
 
+    # == __repr__ ======================================================
+    
+    @property
+    def _info_ZStack(self):
+        
+        adj = self._adj
+        ID = self._info
+        
+        ### Append Z Information to "Distance"
+        ID["Distance"] = ID["Distance"] + [
+            adj("pixel size z") + f"{self.z_dist}",
+            adj("z") + f"{self.z_dist * self.stack.shape[0]}",
+        ]
+        
+        return ID
+    
+    def __repr__(self) -> str:
+        return self._info_to_str(self._info_ZStack)
+
     # ==================================================================
     # == Plotting ======================================================
 
@@ -187,6 +206,9 @@ if __name__ == "__main__":
     Z = ZStack(path=path, **kws)
     Z.stack.shape
     Z.mip()
+    
+    #%%
+    Z
 
     # %%
     Z2 = ZStack(
