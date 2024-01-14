@@ -4,6 +4,7 @@
 import numpy as np
 
 import matplotlib.pyplot as plt
+plt.rcParams["figure.dpi"] = 250
 
 import vtk
 from vtk.util import numpy_support
@@ -15,18 +16,20 @@ from mkshg.import_and_preprocess import PreProcess
 
 
 class ZStack(PreProcess):
-    def __init__(self, z_dist, **preprocess_kwargs,):
+    def __init__(
+        self,
+        z_dist,
+        **preprocess_kwargs,
+    ):
         super().__init__(**preprocess_kwargs)
-        
+
         ### Z-distance
         self.z_dist = z_dist
-        
-        self.spacing = (self.x_µm, self.y_µm)
 
+        self.spacing = (self.x_µm, self.y_µm)
 
         ### Fill z
         self.stack_zfilled = self.fill_z()
-
 
     # ==================================================================
     # == Utils =========================================================
@@ -41,7 +44,7 @@ class ZStack(PreProcess):
         thickness_pixel = int(round(thickness_pixel))
 
         ### Duplicate images n times so that each layer has thickness
-        ### of thickness µm
+        # ' of µm
         stack = []
         for img in self.stack:
             for _ in range(thickness_pixel):
@@ -52,48 +55,30 @@ class ZStack(PreProcess):
         return stack
 
     # == __repr__ ======================================================
-    
+
     @property
     def _info_ZStack(self):
-        
         adj = self._adj
         ID = self._info
-        
+
         ### Append Z Information to "Distance"
         ID["Distance"] = ID["Distance"] + [
             adj("pixel size z") + f"{self.z_dist}",
             adj("z") + f"{self.z_dist * self.stack.shape[0]}",
         ]
-        
+
         return ID
-    
+
     def __repr__(self) -> str:
         return self._info_to_str(self._info_ZStack)
 
     # ==================================================================
     # == Plotting ======================================================
 
-    def mip(
-        self,
-        axis: int = 0,
-        show=True,
-        ret=False,
-        savefig: str = "mip.png",
-        colormap: str = "gist_ncar",
-    ) -> np.ndarray:
+    def mip(self, **mip_kws) -> np.ndarray | None:
         """Maximum intensity projection across certain axis"""
         #!! Overrides PreProcess.mip()
-        mip = self.stack_zfilled.max(axis=axis)
-
-        if show:
-            plt.imshow(mip, cmap=colormap)
-            plt.show()
-
-        if savefig:
-            plt.imsave(fname=savefig, arr=mip, cmap=colormap)
-            
-        if ret:
-            return mip
+        return self._mip(self.stack_zfilled, **mip_kws)
 
     @property
     def stack_vtk(self):
@@ -189,43 +174,61 @@ if __name__ == "__main__":
     # %%
     ### Import from a txt file.
     # > Rough
-    # path =
-    # "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1
-    # healthy z-stack rough/"
-    # kws = dict(
-    #     z_dist=10 * 0.250,  # stepsize * 0.250 µm
-    #     x_µm=1.5 * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
-    # )
-    # > Detailed
-    path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
     kws = dict(
-        z_dist=2 * 0.250,  # stepsize * 0.250 µm
+        z_dist=10 * 0.250,  # stepsize * 0.250 µm
         x_µm=1.5 * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
     )
+
     # %%
-    Z = ZStack(path=path, **kws)
-    Z.stack.shape
-    Z.mip()
-    
-    #%%
+    Z = ZStack(
+        path=path,
+        denoise=False,
+        subtract_bg=True,
+        scalebar_micrometer=10,
+        **kws,
+    )
     Z
 
     # %%
+    Z.mip(axis=0)
+    Z.mip(axis=1)
+    Z.mip(axis=2)
+
+    # %%
+    ### make gif with denoised!
     Z2 = ZStack(
         path=path,
         denoise=True,
-        background_subtract=0.06,
-        scalebar_μm=20,
+        subtract_bg=True,
+        scalebar_micrometer=10,
         **kws,
     )
+    Z2
     # %%
     Z2.mip()
     # %%
-    Z2.mip(axis=2)
-    # %%
-    Z2.plot_volume()
+    # Z2.plot_volume()
 
     # %%
-    # Z2.makegif_rotate(angle_per_frame=3)
+    Z2.makegif_rotate(fname="rotate_rough_scalebar=10", angle_per_frame=3)
 
-# %%
+    # %%
+    ### make gif for detailed!
+        # > Detailed
+    path_detailed = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    kws_detailed = dict(
+        z_dist=2 * 0.250,  # stepsize * 0.250 µm
+        x_µm=1.5 * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
+    )
+    
+    Z_d = ZStack(
+        path=path_detailed,
+        denoise=True,
+        subtract_bg=True,
+        scalebar_micrometer=10,
+        **kws_detailed,
+    )
+    Z_d
+    #%%
+    Z_d.makegif_rotate(fname="rotate_detailed_scalebar=10", angle_per_frame=3)

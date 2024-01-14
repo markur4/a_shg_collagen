@@ -70,7 +70,7 @@ class PreProcess:
         normalize=True,
         subtract_bg: bool = False,
         subtract_bg_kws: dict = dict(method="triangle", sigma=1.5),
-        scalebar_micrometer: int = 50,
+        scalebar_micrometer: int = 10,
     ) -> None:
         """Import a z-stack from a folder. Performs normalization.
 
@@ -145,8 +145,12 @@ class PreProcess:
         if not isinstance(
             preprocess_kws["scalebar_micrometer"], (type(False), type(None))
         ):
+            # self.stack = self.add_scalebar(
+            #     µm=preprocess_kws["scalebar_micrometer"]
+            # )
+
             self.stack = self.add_scalebar(
-                width_µm=preprocess_kws["scalebar_micrometer"]
+                Indexes=[0], µm=preprocess_kws["scalebar_micrometer"]
             )
         return self.stack
 
@@ -214,9 +218,8 @@ class PreProcess:
     def __iter__(self):
         return iter(self.stack)
 
-    def __getitem__(self, val:slice) -> np.ndarray:
+    def __getitem__(self, val: slice) -> np.ndarray:
         return self.stack[val]
-
 
     #
     # == __repr__ ======================================================
@@ -391,8 +394,14 @@ class PreProcess:
         self, method="triangle", sigma: float = None, **kws
     ) -> np.float64:
         ### Blur if sigma is given
+        # > Improves thresholding by decreasing variance of bg
+
+        ### Get stack
+        stack = self.stack
+
+        ### Blur
         if not sigma is None:
-            stack = filters.gaussian(self.stack, sigma=sigma)
+            stack = filters.gaussian(stack, sigma=sigma)
 
         ### Apply Filters
         if method == "otsu":
@@ -423,22 +432,100 @@ class PreProcess:
     #
     # == Annotations ===================================================
 
-    def add_scalebar(self, width_µm=50, thickness_µm=3) -> np.ndarray:
-        """Burns a scalebar into the bottom right corner of the image"""
-        pixelwidth = int(round(width_µm / self.pixel_size))
-        pixelthickness = int(round(thickness_µm / self.pixel_size))
+    def _add_scalebar_to_img(
+        self,
+        img: np.ndarray = None,
+        I: int = None,
+        μm: int = 10,
+        thickness_μm=3,
+    ) -> np.ndarray:
+        """Add scalebar to an image selected by its index within the
+        self.stack"""
+
+        ### Get Image, if not given
+        if img is None:
+            if I is None:
+                raise ValueError("Either img or index (I) must be given")
+            img = self.stack[I]
+
+        ### Convert µm to pixels
+        len_px = int(round(μm / self.pixel_size))
+        thickness_px = int(round(thickness_μm / self.pixel_size))
+
+        ### Define Scalebar as an array
+        # > Color is derived from img colormap
+        bar_color = self.stack.max() * 1
+        scalebar = np.zeros((thickness_px, len_px))
+        scalebar[:, :] = bar_color
+
+        ### Add Frame around scalebar with two pixels thickness
+        frame_color = self.stack.max() * 0.9
+        t = 3  # Thickness of frame in pixels
+        scalebar[0 : t + 1, :] = frame_color
+        scalebar[-t:, :] = frame_color
+        scalebar[:, 0 : t + 1] = frame_color
+        scalebar[:, -t:] = frame_color
+
+        ### Define padding from bottom right corner
+        pad_x = int(self.stack.shape[2] * 0.05)
+        pad_y = int(self.stack.shape[1] * 0.05)
+
+        ### Add scalebar to the bottom right of the image
+        # !! Won't work if nan are at scalebar position
+        img[-pad_y - thickness_px : -pad_y, -pad_x - len_px : -pad_x] = scalebar
+        return img
+
+    def annotate_barsize(
+        self,
+        μm: int = 10,
+        thickness_µm=3,
+        color="black",
+    ) -> np.ndarray:
+        """Adds length of scalebar to image as text during plotting"""
+
+        text = f"{μm} µm"
+        # offsetbox = TextArea(text, minimumdescent=False)
 
         pad_x = int(self.stack.shape[2] * 0.05)
         pad_y = int(self.stack.shape[1] * 0.05)
 
-        value = self.stack.max() * 0.8
+        x = self.stack.shape[2] - pad_x - thickness_µm / self.pixel_size * 2
+        y = self.stack.shape[1] - pad_y - thickness_µm / self.pixel_size
 
-        ### Add scalebar to the bottom image
+        coords = "data"
+
+        plt.annotate(
+            text,
+            xy=(x, y),
+            xycoords=coords,
+            xytext=(x, y),
+            textcoords=coords,
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            color=color,
+        )
+
+    def add_scalebar(
+        self,
+        all=False,
+        Indexes: list = [0],
+        μm: int = 10,
+        thickness_μm=3,
+    ) -> np.ndarray:
+        """Adds scalebar to images in stack. By default, adds only to
+        the first image, but can be changed with indexes."""
+
+        if all:
+            Indexes = range(self.stack.shape[0])
+
         stack = self.stack
-        stack[
-            0, -pad_y - pixelthickness : -pad_y, -pad_x - pixelwidth : -pad_x
-        ] = value
-
+        for i in Indexes:
+            stack[i] = self._add_scalebar_to_img(
+                I=i,
+                μm=μm,
+                thickness_μm=thickness_μm,
+            )
         return stack
 
     #
@@ -455,17 +542,34 @@ class PreProcess:
     #
     # == Basic Visualization ===========================================
 
-    def mip(self, axis: int = 0, show=True, ret=False) -> np.ndarray:
+    @staticmethod
+    def _mip(
+        stack: np.ndarray,
+        axis: int = 0,
+        show=True,
+        return_array=False,
+        savefig: str = "mip.png",
+        colormap: str = "gist_ncar",
+    ) -> np.ndarray | None:
         """Maximum intensity projection across certain axis"""
-        p = self.stack.max(axis=axis)
+        mip = stack.max(axis=axis)
 
         if show:
-            plt.imshow(p, cmap="gist_ncar")
-
-        if show:
+            plt.imshow(
+                mip,
+                cmap=colormap,
+                interpolation="none",
+            )
             plt.show()
-        if ret:
-            return p
+
+        if savefig:
+            plt.imsave(fname=savefig, arr=mip, cmap=colormap, dpi=300)
+
+        if return_array:
+            return mip
+
+    def mip(self, **mip_kws) -> np.ndarray | None:
+        return self._mip(self.stack, **mip_kws)
 
 
 if __name__ == "__main__":
@@ -473,20 +577,20 @@ if __name__ == "__main__":
     # %%
     ### Import from a txt file.
     # > Rough
-    # path =
-    # "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1
-    # healthy z-stack rough/"
-    # kws = dict(
-    #     z_dist=10 * 0.250,  # stepsize * 0.250 µm
-    #     x_µm=1.5 * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
-    # )
-    # > Detailed
-    path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
     kws = dict(
-        # z_dist=2 * 0.250,  # stepsize * 0.250 µm
+        # z_dist=10 * 0.250,  # > stepsize * 0.250 µm
         x_µm=1.5
-        * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
+        # > fast axis amplitude 1.5 V * calibration 115.4 µm/V
+        * 115.4,
     )
+    # > Detailed
+    # path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    # kws = dict(
+    #     # z_dist=2 * 0.250,  # > stepsize * 0.250 µm
+    #     x_µm=1.5
+    #     * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
+    # )
     Z = PreProcess(
         path=path,
         subtract_bg=False,
@@ -532,7 +636,7 @@ if __name__ == "__main__":
     Z_bg
 
     # %%
-    HÄÄÄÄ
+    # HÄÄÄÄ
 
     # %%
     Z.mip(axis=0, show=True)  # ' z-axis
