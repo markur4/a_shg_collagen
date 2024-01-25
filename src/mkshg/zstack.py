@@ -4,6 +4,7 @@
 import numpy as np
 
 import matplotlib.pyplot as plt
+
 plt.rcParams["figure.dpi"] = 250
 
 import vtk
@@ -19,9 +20,9 @@ class ZStack(PreProcess):
     def __init__(
         self,
         z_dist,
-        **preprocess_kwargs,
+        **preprocess_kws,
     ):
-        super().__init__(**preprocess_kwargs)
+        super().__init__(**preprocess_kws)
 
         ### Z-distance
         self.z_dist = z_dist
@@ -46,7 +47,7 @@ class ZStack(PreProcess):
         ### Duplicate images n times so that each layer has thickness
         # ' of µm
         stack = []
-        for img in self.stack:
+        for img in self.imgs:
             for _ in range(thickness_pixel):
                 stack.append(img)
 
@@ -54,7 +55,7 @@ class ZStack(PreProcess):
         stack = np.array(stack)
         return stack
 
-    # == __repr__ ======================================================
+    # == __str__ ======================================================
 
     @property
     def _info_ZStack(self):
@@ -64,12 +65,12 @@ class ZStack(PreProcess):
         ### Append Z Information to "Distance"
         ID["Distance"] = ID["Distance"] + [
             adj("pixel size z") + f"{self.z_dist}",
-            adj("z") + f"{self.z_dist * self.stack.shape[0]}",
+            adj("z") + f"{self.z_dist * self.imgs.shape[0]}",
         ]
 
         return ID
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return self._info_to_str(self._info_ZStack)
 
     # ==================================================================
@@ -215,13 +216,13 @@ if __name__ == "__main__":
 
     # %%
     ### make gif for detailed!
-        # > Detailed
+    # > Detailed
     path_detailed = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
     kws_detailed = dict(
         z_dist=2 * 0.250,  # stepsize * 0.250 µm
         x_µm=1.5 * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
     )
-    
+
     Z_d = ZStack(
         path=path_detailed,
         denoise=True,
@@ -230,5 +231,5 @@ if __name__ == "__main__":
         **kws_detailed,
     )
     Z_d
-    #%%
+    # %%
     Z_d.makegif_rotate(fname="rotate_detailed_scalebar=10", angle_per_frame=3)

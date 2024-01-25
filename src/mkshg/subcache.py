@@ -99,7 +99,10 @@ class SubCache(Memory):
             path_to_item = os.path.split(
                 os.path.relpath(item.path, start=self.store_backend.location)
             )
-            result = self.store_backend.load_item(path_to_item)
+            try:
+                result = self.store_backend.load_item(path_to_item)
+            except KeyError:
+                continue
             input_args = self.store_backend.get_metadata(path_to_item).get(
                 "input_args"
             )
@@ -116,27 +119,54 @@ class SubCache(Memory):
         return self.cache(f, **mem_kwargs)
 
 
+# ======================================================================
+
 if __name__ == "__main__":
+    pass
+    # %%
+    ### Define Home directory
     home = os.path.join(
         os.path.expanduser("~"),
         ".cache",
     )
+    print(home)
 
+    ### Define this location as cache
+    here = os.path.join(".", ".cache")
+
+    ### A test funciton to test caching
     def sleep(seconds):
         import time
 
         time.sleep(seconds)
 
-    MEM = SubCache(location=home, subcache_dir="plotastic", verbose=True)
+    # %%
+    # == Cache HOME ====================================================
+    MEM = SubCache(location=home, subcache_dir="subcachetest", verbose=True)
 
     sleep = MEM.subcache(sleep)
     # %%
-    ### First time slow, next time fast
-    sleep(1.4)
+    sleep(1.4)  # > First time slow, next time fast
     # %%
-    MEM.list_dirs()
+    MEM.list_dirs(detailed=True)
     # %%
-    MEM.clear()
+    MEM.list_objects()
+
+    # %%
+    # == Cache HERE =====================================================
+    MEM2 = SubCache(location=here, subcache_dir="subcachetest", verbose=True)
+
+    sleep = MEM2.subcache(sleep)
+    # %%
+    MEM2.list_dirs(detailed=True)
+    # %%
+    MEM2.list_objects()
+
+    # %%
+    sleep(1.5) # > First time slow, next time fast
+
+    # %%
+    MEM2.clear()
 
     # %%
     ### Using different cache allows clearance of only that cache

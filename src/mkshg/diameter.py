@@ -25,6 +25,8 @@ import skimage.morphology as morph
 from skimage import draw
 from skimage import filters
 
+# import skimage.measure as measure
+
 # from skimage import data
 # from skimage.util import invert
 
@@ -32,21 +34,32 @@ from skimage import filters
 
 # > Internal
 from mkshg.import_and_preprocess import PreProcess
+from mkshg.segmentation import Segmentation
 
 # %%
 
 
-class Diameter(PreProcess):
-    def __init__(self, use_mip=True, **preprocess_kwargs):
-        ### Don't burn a scalebar, otherwise its size will be included
-        preprocess_kwargs["scalebar_micrometer"] = False
+class Diameter(Segmentation):
+    def __init__(
+        self,
+        prune: int | None = None,
+        **preprocess_kws,
+    ):
+        super().__init__(**preprocess_kws)
+        
+        ### Collect kws
+        self.kws_diameter = {
+            "prune": prune,
+        }
 
-        super().__init__(**preprocess_kwargs)
+        ### Document History
+        # todo: add history
 
-        # TODO: Implement Segmentation
-        self.segmented = np.zeros(self.stack.shape)
+        # ### Segment Image
+        # # TODO: Implement Segmentation
+        # self.segmented = np.zeros(self.imgs.shape)
 
-        ### List the stacks for processing
+        ### Intermediates of Diameter Analysis
         self.edt = np.zeros(self.segmented.shape)
         self.skeleton = np.zeros(self.segmented.shape)
 
@@ -54,66 +67,52 @@ class Diameter(PreProcess):
         self.intersects_disks = np.zeros(self.segmented.shape)
 
         self.skeleton_edt = np.zeros(self.segmented.shape)
-        self.skeleton_edt_nointer = np.zeros(self.segmented.shape)
+        self.skeleton_edt_nointersect = np.zeros(self.segmented.shape)
 
+        ### Results of Diameter Analysis
         self.diameters_micro = []
         self.diameters_micro_flat = []
         self.diameters_px = []
         self.diameters_px_flat = []
 
         ### Execute transform pipeline
-        self.measure_fiber_width(use_mip=use_mip)
+        self.measure_fiber_width(**self.kws_diameter)
 
     def measure_fiber_width(
         self,
         # sigma: float = 1,
-        use_mip=True,
+        # use_mip=True,
+        prune=None,
         skelet_method="zhang",
         **edt_kws,
     ) -> None:
         """Pipeline for measuring fiber width"""
 
-        ### Perform Analysis on MIP or on each image individually?
-        # > Advantages of MIP:
-        # - Higher Quality (less noise, stronger signal)
-        # - Thresholding on mip is robuster, higher background, ignores
-        # ' weak signals
-        # - Orientation of fibers now irrelevant
-        # - Less computation time
-        # > Disadvantages of MIP:
-        # - If too many fibers, segmentation becomes impossible
-
-        self.stack_mip = np.array(
-            [
-                self.mip(
-                    show=False,
-                    savefig=False,
-                    return_array=True,
-                )
-            ]
-        )
-        if use_mip:
-            self._stack_use = self.stack_mip
-        else:
-            self._stack_use = self.stack
-
-        ### Start with segmented stack
-        self.segmented = self.segmentation(
-            self._stack_use, thresh_per_img=True, sigma=4
-        )
+        # ### Start with segmented stack
+        # self.segmented = self.segmentation(
+        #     self._imgs_use, thresh_per_img=True, sigma=4
+        # )
 
         ### Distance Transform
         self.edt = self.distance_transform(
-            self.segmented,
+            self.segmented,  # > Start with segmented stack
             **edt_kws,
         )
 
         ### Skeletonize
-        self.skeleton = self.skeletonize(
-            # self.st_distance,
+        self.skeleton_raw = self.skeletonize(
             self.segmented,
             method=skelet_method,
         )
+        ### Prune: Remove short spurs and branches
+        self.skeleton_pruned = self.prune_skeleton(
+            self.skeleton_raw,
+            size=prune if prune else 3,
+        )
+        if prune:
+            self.skeleton = self.skeleton_pruned
+        else:
+            self.skeleton = self.skeleton_raw
 
         ### Intersections
         # > Detect Intersections
@@ -127,24 +126,24 @@ class Diameter(PreProcess):
         self.skeleton_edt = self.skeleton * self.edt
         # > Removing Intersections leaves skeleton with gaps, intensity
         # ' of skeleton is half the diameter
-        self.skeleton_edt_nointer = self.remove_intersections(
+        self.skeleton_edt_nointersect = self.remove_intersections(
             skeleton=self.skeleton_edt,
             intersects_disks=self.intersects_disks,
         )
 
         ### Calculate Diameters
         self.diameters_px = self.calc_diameters(
-            skeldist=self.skeleton_edt_nointer
+            skeldist=self.skeleton_edt_nointersect
         )
         self.diameters_px_flat = np.concatenate(self.diameters_px)
 
         self.diameters_micro = self.calc_diameters(
-            skeldist=self.skeleton_edt_nointer, in_µm=True
+            skeldist=self.skeleton_edt_nointersect, in_µm=True
         )
         self.diameters_micro_flat = np.concatenate(self.diameters_micro)
 
     #
-    # == Pipeline =========================================================
+    # == Pipeline ======================================================
 
     @staticmethod
     def segmentation(
@@ -180,7 +179,7 @@ class Diameter(PreProcess):
             # > Smoothen edges to reduce false intersections
             stack[i] = sp.signal.medfilt(
                 stack[i].astype(np.uint8),
-                kernel_size=5,
+                kernel_size=7,
             )
             stack[i] = stack[i].astype(bool)
 
@@ -192,11 +191,11 @@ class Diameter(PreProcess):
         stack"""
 
         ### Calculate distance transform
-        stack = np.zeros(S.shape)  # Init empty stack
+        imgs = np.zeros(S.shape)  # Init empty stack
         for i, img in enumerate(S):
-            stack[i] = sp.ndimage.distance_transform_edt(img, **edt_kws)
+            imgs[i] = sp.ndimage.distance_transform_edt(img, **edt_kws)
 
-        return stack
+        return imgs
 
     @staticmethod
     def skeletonize(S: np.ndarray, method="zhang") -> np.ndarray:
@@ -206,6 +205,57 @@ class Diameter(PreProcess):
         stack = np.zeros(S.shape)
         for i, img in enumerate(S):
             stack[i] = morph.skeletonize(img, method=method)
+
+        return stack
+
+    # @staticmethod
+    def prune_skeleton(
+        self,
+        skeleton: np.ndarray,
+        size: int,
+    ) -> np.ndarray:
+        """Prune skeleton to remove spurs and branches by removing pixels
+        from the end of the skeleton. Size determines how many pixels"""
+
+        # stack = np.zeros(skeleton.shape)  # Init empty stack
+        # for i, img in enumerate(skeleton):
+        #     pass
+
+        ###
+        # from mkshg.dse_pruning import skel_pruning_DSE
+
+        # ### Prune skeleton
+        # stack = np.zeros(skeleton.shape)  # Init empty stack
+        # for i, img in enumerate(skeleton):
+        #     stack[i] = skel_pruning_DSE(img, self.edt[i], 100)
+
+        ###
+        kernel = np.array(
+            [
+                [1, 1, 1],
+                [1, 10, 1],
+                [1, 1, 1],
+            ],
+        )
+        ### Prune for each image
+        stack = np.zeros(skeleton.shape)
+        for i, img in enumerate(skeleton):
+            ### Convert to int to make faster
+            img = img.astype(np.uint8)
+
+            ### Prune the skeleton
+            for _ in range(size):
+                # > Count the number of neighbors for each pixel
+                neighbors = sp.ndimage.convolve(
+                    img,
+                    weights=kernel,
+                    mode="constant",
+                    cval=0,
+                )
+                # > Remove end points (pixels with only one neighbor)
+                img = np.where(neighbors > 11, img, 0)
+
+            stack[i] = img
 
         return stack
 
@@ -316,29 +366,35 @@ class Diameter(PreProcess):
     ):
         """Plot histogram of fiber width"""
 
-
-        diameters = (
-            self.diameters_px_flat if I is None else self.diameters_px[I]
-        )
+        ### If one image is picked from stack, use those
+        diameters = self.diameters_px_flat
+        if not I is None:
+            diameters = self.diameters_px[I]
 
         ### Convert to µm
         if in_μm:
             diameters = diameters * self.pixel_size
 
-        # bins_auto = int(round(max(diameters)))
-        # bins = bins_auto if bins == "max" else bins
-
         ### Plot
-        fig, ax = plt.subplots(figsize=(4, 2))
+        fig, ax = plt.subplots(figsize=(4, 2.5))
         KWS = dict(
             bins=bins,
             log=True,
         )
         KWS.update(kws)
 
-        ax = plt.hist(diameters, **KWS)
+        plt.hist(diameters, **KWS)  # Goes into axes
 
         ### Edit plot
+        if not I is None:
+            plt.title(
+                f"Distribution of distance values in Skeleton\nin Image {I}"
+            )
+        else:
+            plt.title(
+                "Distribution of distance values in Skeleton\nacross Stack"
+            )
+
         plt.xlabel("Fiber width [µm]")
         plt.ylabel("Count of Pixels in Skeleton")
 
@@ -409,7 +465,7 @@ class Diameter(PreProcess):
 
         ### Image
         if img == "stack":
-            img = self._stack_use[I]
+            img = self._imgs_use[I]
         elif img == "segmented":
             img = self.segmented[I]
         elif img == "distance":
@@ -428,7 +484,7 @@ class Diameter(PreProcess):
 
     def plot_masked_by_segmentation(self, I=0, alpha=0.4):
         """Plot an image masked by segmentation"""
-        img = self._stack_use[I]
+        img = self._imgs_use[I]
         seg = self.segmented[I]
 
         # > Mask
@@ -443,7 +499,7 @@ class Diameter(PreProcess):
         if skel == "skeldist":
             skel = self.skeleton_edt[I]
         elif skel == "skeldist_removed":
-            skel = self.skeleton_edt_nointer[I]
+            skel = self.skeleton_edt_nointersect[I]
 
         inters = self.intersects_disks[I]
         # > Mask
@@ -460,7 +516,7 @@ class Diameter(PreProcess):
         if intersects:
             skel = self.skeleton_edt[I]
         else:
-            skel = self.skeleton_edt_nointer[I]
+            skel = self.skeleton_edt_nointersect[I]
 
         ### Burn Scalebar into image
         skel = self._add_scalebar_to_img(img=skel, µm=10, thickness_μm=3)
@@ -506,55 +562,47 @@ if __name__ == "__main__":
     # path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
     Z = Diameter(
         path=path,
-        use_mip=True,
-        # use_mip=False,
+        use_mip=False,
+        # prune=None,
+        prune=5,
         denoise=True,
-        # denoise=True,  #:: Denoising Improves Segmentation!
         subtract_bg=True,
         subtract_bg_kws=dict(method="triangle", sigma=1.5),
         # scalebar_micrometer=10,
+        # cache=False,
         **kws,
     )
     I = 6  # > example
-    I = 0  # > for mip
+    # I = 0  # > for mip
     # Z.mip()
 
     # %%
     Z
-
     # %%
-    plt.imshow(Z.stack_mip[0], interpolation="none", cmap="gray")
-
-    # %%
-    Z.skeleton_edt_nointer[I]
-
-    # %%
-    skel_rem = Z.skeleton_edt_nointer[I]
-
-    ### Replace nan with 0
-    # skel_rem = np.where(np.isnan(skel_rem), 0, skel_rem)
-    # print(skel_rem.max())
-
-    # %%
-
+    ### Plot with intersections
     Z.plot_segmented_and_skeleton(intersects=True)
-
     # %%
+    ### Plot without intersections
     Z.plot_segmented_and_skeleton(intersects=False)
-
     # %%
     Z.plot_histogram(
         # I=I,
         # bins=50,
         in_µm=True,
     )
-
     # %%
-
-    Data = Z.get_diameters_statistics(in_µm=True)
-
-    # %%
+    ###Plot Diameter Statistics
     Z.plot_diameters_statistics(in_µm=True)
+    # %%
+    # ===================================================================
+
+    # %%
+    print(Z.skeleton.dtype)
+    # print(Z.skeleton.astype(np.uint8))
+    # plt.imshow(Z.skeleton_raw[I].astype(np.uint8), interpolation="none", cmap="gray")
+    # %%
+    print(Z.skeleton_pruned.dtype)
+    # plt.imshow(Z.skeleton_pruned[I], interpolation="none", cmap="gray")
 
     # %%
     def to_long_format(self: Diameter) -> pd.DataFrame:
@@ -574,72 +622,3 @@ if __name__ == "__main__":
 
     # print(len(Data))
     # sns.boxplot(data=Data, y="diameter", x="img", showfliers=False)
-
-    # %%
-    ### Repeat with other data Rough
-    # > Rough
-    def measure_Diameter(path, i=0, **kws):
-        Z = Diameter(
-            path=path,
-            use_mip=False,
-            denoise=True,
-            subtract_bg=True,
-            scalebar_micrometer=10,
-            **kws,
-        )
-
-        print("\n")
-        print("======================================================")
-        print(path)
-
-        o = "diameter2"
-
-        I = 6
-
-        ### Make folder o if not present
-        Path(o).mkdir(parents=True, exist_ok=True)
-
-        ### MIP
-        Z.mip(savefig=Path(o, f"d{i}_1_mip.png"))
-        plt.show()
-
-        ### Example image from Stack
-        plt.imshow(Z[I], interpolation="none", cmap="gist_ncar")
-        plt.savefig(Path(o, f"d{i}_2_example.png"), dpi=300)
-        plt.show()
-
-        ### Disply Skeleton
-        Z.plot_segmented_and_skeleton(I=I, intersects=True)
-        plt.savefig(Path(o, f"d{i}_3_skeleton_intersects.png"), dpi=300)
-        plt.show()
-
-        Z.plot_segmented_and_skeleton(I=I, intersects=False)
-        plt.savefig(Path(o, f"d{i}_4_skeleton_no_intersects.png"), dpi=300)
-        plt.show()
-
-        ### Histogram
-        Z.plot_histogram(
-            # I=I,
-            # bins=50,
-            in_µm=True,
-        )
-        plt.savefig(Path(o, f"d{i}_5_histogram.png"), dpi=300)
-        plt.show()
-
-        ### Statistics
-        Z.plot_diameters_statistics(in_µm=True)
-        plt.savefig(Path(o, f"d{i}_6_statistics.png"), dpi=300)
-        plt.show()
-
-        return Z
-
-    # %%
-
-    paths = [
-        "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/",
-        "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/",
-        "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/3 healthy z-stack rough 2",
-    ]
-
-    # for i, path in enumerate(paths):
-        # Z = measure_Diameter(path, i=i, **kws)

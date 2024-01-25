@@ -1,6 +1,6 @@
 #
 # %%
-
+import os
 from pprint import pprint
 
 from collections import OrderedDict
@@ -15,7 +15,6 @@ import seaborn as sns
 # from matplotlib.animation import FuncAnimation
 # from mpl_toolkits.mplot3d import Axes3D
 
-
 from skimage import restoration
 from skimage import filters
 
@@ -24,42 +23,57 @@ from skimage import filters
 # from pyvista import examples
 
 
+
 # %%
 # == Cache ===========================================================
-location = "./_cachedir"
-
-### Raw joblib
-# from joblib import Memory
-# > https://joblib.readthedocs.io/en/latest/memory.html
-# ### If the folder does not exist, create it, it exists, delete it
-# if not Path(location).exists():
-#     Path(location).mkdir()
-
-
-# memory = Memory(location, verbose=0)
+# location = Path(".", "_cache")
+location = os.path.join(
+    os.path.expanduser("~"),
+    ".cache",
+)
 
 ### Subcache
-# from mkshg.subcache import SubCache
-# memory = SubCache(
-#     location=location,
-#     subcache_dir="preprocess",
-#     verbose=0,
-# )
+from mkshg.subcache import SubCache
+
+MEMORY = SubCache(
+    location=location,
+    subcache_dir="preprocess",
+    verbose=True,
+    compress=9,
+)
 
 
 # %%
-def from_txt(path: str) -> np.ndarray:
+# == IMPORTING =========================================================
+def from_txt(path: str, type=np.float32) -> np.ndarray:
     """Import from a txt file."""
-    return np.loadtxt(path, skiprows=2)
+    return np.loadtxt(path, skiprows=2).astype(type)
 
 
 if __name__ == "__main__":
-    path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_6.txt"
-    img = from_txt(path)
+    t = np.float32
+    # path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_6.txt"
+    # img = from_txt(path, type=t)
+    # print(img.min(), img.max())
+    # plt.imshow(img)
+    # plt.show()
+
+    path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_7.txt"
+    img = from_txt(path, type=t)
+    print(img.min(), img.max())
     plt.imshow(img)
+
+    # %%
+    ### Find smallest difference
+    img_diff = filters.sobel(img)
+    print(img_diff.min(), img_diff.max())
+    plt.imshow(img_diff)
 
 
 # %%
+# == CLASS PREPROCESSING ===============================================
+
+
 class PreProcess:
     def __init__(
         self,
@@ -70,7 +84,9 @@ class PreProcess:
         normalize=True,
         subtract_bg: bool = False,
         subtract_bg_kws: dict = dict(method="triangle", sigma=1.5),
-        scalebar_micrometer: int = 10,
+        scalebar_micrometer: bool |int = False,
+        cache_preprocessing=True,
+        verbose=True,
     ) -> None:
         """Import a z-stack from a folder. Performs normalization.
 
@@ -86,23 +102,29 @@ class PreProcess:
         :type width: float, optional
         """
 
+        self.verbose = verbose
+
         ### Folder of the z-stack
         self.path = Path(path)
         self._check_path()
 
-        ### Import z-stack
-        self.stack: np.ndarray = self.import_stack()
+        ### Import Images
+        if self.verbose:
+            print(f"=> Importing Images from {self.path_short}...")
+        self.imgs: np.ndarray = self.import_imgs(self.path)
+        if self.verbose:
+            print("   Importing Images Done")
 
         ### width, height, depth in µm
         self.x_µm = x_µm
-        self.y_µm = self.stack.shape[1] * self.x_µm / self.stack.shape[2]
-        self.pixel_size = self.x_µm / self.stack.shape[2]
+        self.y_µm = self.imgs.shape[1] * self.x_µm / self.imgs.shape[2]
+        self.pixel_size = self.x_µm / self.imgs.shape[2]
         self.spacing = (self.x_µm, self.y_µm)
 
-        # == Execute Pre-Processing ==
+        # == Pre-Processing ==
 
         ### Collect all preprocessing kws
-        self.preprocess_kws = {
+        self.kws_preprocess = {
             "denoise": denoise,
             "normalize": normalize,
             "subtract_bg": subtract_bg,
@@ -111,48 +133,28 @@ class PreProcess:
         }
 
         ### Document History of processing steps
-        self._history: OrderedDict = self._init_history(**self.preprocess_kws)
+        self.history: OrderedDict = self._init_history(**self.kws_preprocess)
 
-        ### Execute Pre-Processing!
-        self.stack = self._preprocess(**self.preprocess_kws)
+        ### Execute !
+        if self.verbose:
+            print(f"=> Pre-processing: {list(self.history.keys())[1:]} ...")
+        if cache_preprocessing:
+            if self.verbose:
+                print("\tChecking Cache...")
+            self.imgs = self._preprocess_cached(**self.kws_preprocess)
+        else:
+            self.imgs = self._preprocess(**self.kws_preprocess)
+        if self.verbose:
+            print("   Pre-processing Done")
+
+    def _preprocess_cached(self, **preprocess_kws):
+        """Preprocess the z-stack"""
+        preprocess_cached = MEMORY.subcache(_preprocess_main)
+        return preprocess_cached(self, **preprocess_kws)
 
     def _preprocess(self, **preprocess_kws):
         """Preprocess the z-stack"""
-
-        ### Denoise
-        if preprocess_kws["denoise"]:
-            ### Cached
-            # denoise_cached = memory.cache(self.denoise)
-            # self.stack = denoise_cached()
-            self.stack = self.denoise()
-
-        ### Subtract Background
-        if preprocess_kws["subtract_bg"]:
-            kws = preprocess_kws.get("subtract_bg_kws", dict())
-            self.check_arguments(kws, ["method", "sigma"])
-
-            # > Subtract
-            self.stack = self.subtract_background(
-                **preprocess_kws["subtract_bg_kws"]
-            )
-
-        ### Normalize
-        if preprocess_kws["normalize"]:
-            self.stack = self.normalize()
-
-        ### Add Scalebar
-        # > If scalebar_µm is not None
-        if not isinstance(
-            preprocess_kws["scalebar_micrometer"], (type(False), type(None))
-        ):
-            # self.stack = self.add_scalebar(
-            #     µm=preprocess_kws["scalebar_micrometer"]
-            # )
-
-            self.stack = self.add_scalebar(
-                Indexes=[0], µm=preprocess_kws["scalebar_micrometer"]
-            )
-        return self.stack
+        return _preprocess_main(self, **preprocess_kws)
 
     #
     # === HISTORY ====================================================
@@ -162,67 +164,47 @@ class PreProcess:
 
         OD = OrderedDict()
 
+        OD["Image Folder"] = f"'{self.path}'"
+
         if preprocess_kws["denoise"]:
-            OD["Denoised"] = "Non-local means"
+            OD["Denoising"] = "Non-local means"
 
         if preprocess_kws["subtract_bg"]:
             kws = preprocess_kws.get("subtract_bg_kws", dict())
             OD[
-                "BG subtracted"
+                "BG Subtraction"
             ] = f"Calculated threshold (method = {kws['method']}) of blurred images (gaussian filter, sigma = {kws['sigma']}). Subtracted threshold from images and set negative values set to 0"
 
         if preprocess_kws["normalize"]:
-            OD["Normalized"] = "Division by max value"
+            OD[
+                "Normalization"
+            ] = "Division by max value of every image in folder"
 
         if not isinstance(
             preprocess_kws["scalebar_micrometer"], (type(False), type(None))
         ):
             OD[
-                "Scalebar Added"
+                "Scalebar"
             ] = f"Added scalebar of {preprocess_kws['scalebar_micrometer']} µm"
 
         return OD
-
-    @property
-    def history(self) -> dict:
-        return dict(self._history)
 
     def _history_to_str(self) -> str:
         """Returns the history of processing steps"""
 
         string = ""
-        for i, (k, v) in enumerate(self._history.items()):
+        for i, (k, v) in enumerate(self.history.items()):
             string += f"  {i+1}. {k}: ".ljust(23)
             string += v + "\n"
         return string
 
-    def print_history(self) -> None:
-        """Print the history of processing steps"""
-
-        print(self._history_to_str())
-
-    #
-    # == UTILS ====================================================
-
-    @staticmethod
-    def check_arguments(kws: dict, required_keys: list):
-        """Check if all required keys are present in kws"""
-        for k in required_keys:
-            if not k in kws.keys():
-                raise KeyError(f"Missing argument '{k}' in kws: {kws}")
-
-    @property
-    def stack_raw(self) -> np.ndarray:
-        return self.import_stack()
-
-    def __iter__(self):
-        return iter(self.stack)
-
-    def __getitem__(self, val: slice) -> np.ndarray:
-        return self.stack[val]
-
     #
     # == __repr__ ======================================================
+
+    @property
+    def path_short(self) -> str:
+        """Shortened path"""
+        return str(self.path.parent.name + "/" + self.path.name)
 
     @staticmethod
     def _adj(s: str) -> str:
@@ -246,10 +228,10 @@ class PreProcess:
         """String representation of the object for __repr__"""
         ### Shorten variables
         adj = self._adj
-        S = self.stack
+        S = self.imgs
 
         ### Check if background was subtracted
-        bg_subtracted = str(self.preprocess_kws["subtract_bg"])
+        bg_subtracted = str(self.kws_preprocess["subtract_bg"])
 
         # > Ignore background (0), or it'll skew statistics when bg is subtracted
         S_BG = S[S > 0.0]
@@ -259,6 +241,7 @@ class PreProcess:
 
         ID["Data"] = [
             "=== Data ===",
+            adj("folder") + str(self.path.name),
             adj("dtype") + str(S.dtype),
             adj("shape") + str(S.shape),
             adj("images") + str(S.shape[0]),
@@ -285,13 +268,42 @@ class PreProcess:
     def _info_to_str(info: dict | OrderedDict) -> str:
         ### join individual lines
         string = ""
-        for k, v in info.items():
+        for v in info.values():
             string += "\n".join(v) + "\n\n"
 
         return string
 
-    def __repr__(self) -> str:
+    @property
+    def info(self) -> None:
+        """Return string representation of the object"""
+        print(self._info_to_str(self._info))
+
+    def __str__(self) -> str:
         return self._info_to_str(self._info)
+
+    def __repr__(self) -> str:
+        ### Remove memory address so joblib doesn't redo the preprocessing
+        return f'<{self.__class__.__name__} object from image folder: "{self.path_short}">'
+
+    #
+    # == UTILS ====================================================
+
+    @staticmethod
+    def check_arguments(kws: dict, required_keys: list):
+        """Check if all required keys are present in kws"""
+        for k in required_keys:
+            if not k in kws.keys():
+                raise KeyError(f"Missing argument '{k}' in kws: {kws}")
+
+    @property
+    def stack_raw(self) -> np.ndarray:
+        return self.import_imgs()
+
+    def __iter__(self):
+        return iter(self.imgs)
+
+    def __getitem__(self, val: slice) -> np.ndarray:
+        return self.imgs[val]
 
     #
     # == Import ========================================================
@@ -301,11 +313,12 @@ class PreProcess:
         if not self.path.exists():
             raise FileNotFoundError(f"Path {self.path} does not exist.")
 
-    def import_stack(self) -> np.ndarray:
+    @staticmethod
+    def import_imgs(path: Path) -> np.ndarray:
         """Import z-stack from a folder"""
 
         ### Get all txt files
-        txts = list(self.path.glob("*.txt"))
+        txts = list(path.glob("*.txt"))
 
         ### sort txts by number
         txts = sorted(txts, key=lambda x: int(x.stem.split("_")[-1]))
@@ -314,14 +327,14 @@ class PreProcess:
         txts = txts[::-1]
 
         ### Import all txt files
-        stack = []
+        imgs = []
         for txt in txts:
-            stack.append(from_txt(txt))
+            imgs.append(from_txt(txt))
 
         ### Convert to numpy array
-        stack = np.array(stack)
+        imgs = np.array(imgs)
 
-        return stack
+        return imgs
 
     #
     # == Metrics =======================================================
@@ -330,7 +343,7 @@ class PreProcess:
         """Plot the brightness distribution of the z-stack as
         histogram"""
 
-        plt.hist(self.stack.flatten(), bins=75, log=True)
+        plt.hist(self.imgs.flatten(), bins=75, log=True)
         plt.show()
 
     #
@@ -338,16 +351,15 @@ class PreProcess:
 
     def normalize(self) -> np.ndarray:
         """Normalize the z-stack"""
-        return self.stack / self.stack.max()
+        return self.imgs / self.imgs.max()
 
     #
     # == Transforms ====================================================
 
-    def denoise(self) -> np.ndarray:
+    @staticmethod
+    def denoise(imgs: np.ndarray) -> np.ndarray:
         ### List comprehensions are faster
-        sigmas = [
-            np.mean(restoration.estimate_sigma(img)) for img in self.stack
-        ]
+        sigmas = [np.mean(restoration.estimate_sigma(img)) for img in imgs]
         stack_denoised = [
             restoration.denoise_nl_means(
                 img,
@@ -357,7 +369,7 @@ class PreProcess:
                 patch_distance=6,  # 13x13 search area
                 fast_mode=True,
             )
-            for img, sigma in zip(self.stack, sigmas)
+            for img, sigma in zip(imgs, sigmas)
         ]
 
         return np.array(stack_denoised)
@@ -365,69 +377,82 @@ class PreProcess:
     def blur(self, sigma: float = 1, normalize=True) -> np.ndarray:
         """Blur image using a thresholding method"""
 
-        stack = filters.gaussian(self.stack, sigma=sigma)
+        imgs = filters.gaussian(self.imgs, sigma=sigma)
 
         ### The max value is not 1 anymore
         if normalize:
-            stack = stack / stack.max()
+            imgs = imgs / imgs.max()
 
-        return stack
+        return imgs
 
     #
     # == BG Subtract ===================================================
 
     @staticmethod
     def get_background_by_percentile(
-        stack: np.ndarray, percentile=10
+        img: np.ndarray, percentile=10
     ) -> np.float64:
         """Defines background as percentile of the stack"""
-        return np.percentile(stack, percentile, axis=0)
+        return np.percentile(img, percentile, axis=0)
 
     @staticmethod
     def get_background_by_threshold(
-        stack: np.ndarray, threshold=0.05
+        img: np.ndarray, threshold=0.05
     ) -> np.float64:
         """Defines background as threshold * max value"""
-        return stack.max() * threshold
+        return img.max() * threshold
 
+    @staticmethod
     def get_background(
-        self, method="triangle", sigma: float = None, **kws
+        img: np.ndarray, method="triangle", sigma: float = None, **kws
     ) -> np.float64:
         ### Blur if sigma is given
         # > Improves thresholding by decreasing variance of bg
 
-        ### Get stack
-        stack = self.stack
-
         ### Blur
         if not sigma is None:
-            stack = filters.gaussian(stack, sigma=sigma)
+            img = filters.gaussian(img, sigma=sigma)
 
         ### Apply Filters
         if method == "otsu":
-            return filters.threshold_otsu(stack, **kws)
+            return filters.threshold_otsu(img, **kws)
         elif method == "mean":
-            return filters.threshold_mean(stack, **kws)
+            return filters.threshold_mean(img, **kws)
         elif method == "triangle":
-            return filters.threshold_triangle(stack, **kws)
+            return filters.threshold_triangle(img, **kws)
         elif method == "percentile":
-            return self.get_background_by_percentile(stack, **kws)
+            return PreProcess.get_background_by_percentile(img, **kws)
         elif method == "threshold":
-            return self.get_background_by_threshold(stack, **kws)
+            return PreProcess.get_background_by_threshold(img, **kws)
         else:
             raise ValueError(f"Unknown method: {method}")
 
-    def subtract(self, value: float) -> np.ndarray:
+    @staticmethod
+    def subtract(img: np.ndarray, value: float) -> np.ndarray:
         """subtracts value from stack and sets negative values to 0"""
-        stack_bg = self.stack - value
+        img_bg = img - value
         ### Set negative values to 0
-        stack_bg[stack_bg < 0] = 0
+        img_bg[img_bg < 0] = 0
 
-        return stack_bg
+        return img_bg
 
-    def subtract_background(self, method: str, sigma: float) -> np.ndarray:
-        background = self.get_background(method=method, sigma=sigma)
-        return self.subtract(background)
+    @staticmethod
+    def subtract_background(
+        imgs: np.ndarray,
+        method: str,
+        sigma: float,
+        bg_per_img=False,
+    ) -> np.ndarray:
+        if bg_per_img:
+            imgs_bg = np.zeros(imgs.shape)
+            for i, img in enumerate(imgs):
+                bg = PreProcess.get_background(img, method=method, sigma=sigma)
+                imgs_bg[i] = PreProcess.subtract(img, value=bg)
+            return imgs_bg
+
+        else:
+            bg = PreProcess.get_background(imgs, method=method, sigma=sigma)
+            return PreProcess.subtract(imgs, value=bg)
 
     #
     # == Annotations ===================================================
@@ -446,7 +471,7 @@ class PreProcess:
         if img is None:
             if I is None:
                 raise ValueError("Either img or index (I) must be given")
-            img = self.stack[I]
+            img = self.imgs[I]
 
         ### Convert µm to pixels
         len_px = int(round(μm / self.pixel_size))
@@ -454,12 +479,12 @@ class PreProcess:
 
         ### Define Scalebar as an array
         # > Color is derived from img colormap
-        bar_color = self.stack.max() * 1
+        bar_color = self.imgs.max() * 1
         scalebar = np.zeros((thickness_px, len_px))
         scalebar[:, :] = bar_color
 
         ### Add Frame around scalebar with two pixels thickness
-        frame_color = self.stack.max() * 0.9
+        frame_color = self.imgs.max() * 0.9
         t = 3  # Thickness of frame in pixels
         scalebar[0 : t + 1, :] = frame_color
         scalebar[-t:, :] = frame_color
@@ -467,8 +492,8 @@ class PreProcess:
         scalebar[:, -t:] = frame_color
 
         ### Define padding from bottom right corner
-        pad_x = int(self.stack.shape[2] * 0.05)
-        pad_y = int(self.stack.shape[1] * 0.05)
+        pad_x = int(self.imgs.shape[2] * 0.05)
+        pad_y = int(self.imgs.shape[1] * 0.05)
 
         ### Add scalebar to the bottom right of the image
         # !! Won't work if nan are at scalebar position
@@ -486,11 +511,11 @@ class PreProcess:
         text = f"{μm} µm"
         # offsetbox = TextArea(text, minimumdescent=False)
 
-        pad_x = int(self.stack.shape[2] * 0.05)
-        pad_y = int(self.stack.shape[1] * 0.05)
+        pad_x = int(self.imgs.shape[2] * 0.05)
+        pad_y = int(self.imgs.shape[1] * 0.05)
 
-        x = self.stack.shape[2] - pad_x - thickness_µm / self.pixel_size * 2
-        y = self.stack.shape[1] - pad_y - thickness_µm / self.pixel_size
+        x = self.imgs.shape[2] - pad_x - thickness_µm / self.pixel_size * 2
+        y = self.imgs.shape[1] - pad_y - thickness_µm / self.pixel_size
 
         coords = "data"
 
@@ -517,27 +542,27 @@ class PreProcess:
         the first image, but can be changed with indexes."""
 
         if all:
-            Indexes = range(self.stack.shape[0])
+            Indexes = range(self.imgs.shape[0])
 
-        stack = self.stack
+        imgs = self.imgs
         for i in Indexes:
-            stack[i] = self._add_scalebar_to_img(
+            imgs[i] = self._add_scalebar_to_img(
                 I=i,
                 μm=μm,
                 thickness_μm=thickness_μm,
             )
-        return stack
+        return imgs
 
     #
     # == I/O ===========================================================
 
     def save(self, path: str | Path) -> None:
         """Save the z-stack to a folder"""
-        np.save(path, self.stack)
+        np.save(path, self.imgs)
 
     def load(self, path: str | Path) -> None:
         """Load the z-stack from a folder"""
-        self.stack = np.load(path)
+        self.imgs = np.load(path)
 
     #
     # == Basic Visualization ===========================================
@@ -552,6 +577,7 @@ class PreProcess:
         colormap: str = "gist_ncar",
     ) -> np.ndarray | None:
         """Maximum intensity projection across certain axis"""
+        
         mip = stack.max(axis=axis)
 
         if show:
@@ -569,12 +595,52 @@ class PreProcess:
             return mip
 
     def mip(self, **mip_kws) -> np.ndarray | None:
-        return self._mip(self.stack, **mip_kws)
+        return self._mip(self.imgs, **mip_kws)
 
+
+#
+# !!
+# == preprocess_main ===================================================
+def _preprocess_main(
+    preprocess_object: PreProcess,
+    **preprocess_kws,
+) -> np.ndarray:
+    self = preprocess_object
+
+    ### Denoise
+    if self.verbose:
+        print("\tDenoising...")
+    if preprocess_kws["denoise"]:
+        self.imgs = self.denoise(self.imgs)
+
+    ### Subtract Background
+    if preprocess_kws["subtract_bg"]:
+        kws = preprocess_kws.get("subtract_bg_kws", dict())
+        self.check_arguments(kws, ["method", "sigma"])
+
+        # > Subtract
+        self.imgs = self.subtract_background(
+            self.imgs,
+            **preprocess_kws["subtract_bg_kws"],
+        )
+
+    ### Normalize
+    if preprocess_kws["normalize"]:
+        self.imgs = self.normalize()
+
+    ### Add Scalebar
+    # > If scalebar_µm is not None
+    if not preprocess_kws["scalebar_micrometer"] in [0, False, None]:
+        self.imgs = self.add_scalebar(
+            Indexes=[0], µm=preprocess_kws["scalebar_micrometer"]
+        )
+    return self.imgs
+
+
+# %%
+# == TESTS ============================================================
 
 if __name__ == "__main__":
-    pass
-    # %%
     ### Import from a txt file.
     # > Rough
     path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
@@ -597,29 +663,32 @@ if __name__ == "__main__":
         scalebar_micrometer=50,
         **kws,
     )
-    Z.stack.shape
-    Z.stack.max()
+    Z.imgs.shape
+    Z.imgs.max()
     # plt.imshow(zstack.stack[0])
 
     # %%
     ### Check history
+    Z.info
+
+    # %%
+    MEMORY.list_objects()
+
+    # %%
     Z.history
 
     # %%
-    Z.print_history()
+    Z.kws_preprocess
 
     # %%
-    Z.preprocess_kws
+    Z.kws_preprocess["scalebar_micrometer"]
 
     # %%
-    Z.preprocess_kws["scalebar_micrometer"]
-
-    # %%
-    bool(Z.preprocess_kws.get("scalebar_micrometer"))
+    bool(Z.kws_preprocess.get("scalebar_micrometer"))
 
     # %%
     isinstance(
-        Z.preprocess_kws["scalebar_micrometer"], (type(False), type(None))
+        Z.kws_preprocess["scalebar_micrometer"], (type(False), type(None))
     )
 
     # %%
@@ -630,10 +699,13 @@ if __name__ == "__main__":
     Z_bg = PreProcess(path, subtract_bg=True, **kws)
 
     # %%
-    Z
+    Z.info
 
     # %%
     Z_bg
+
+    # %%
+    print(Z)
 
     # %%
     # HÄÄÄÄ
@@ -662,6 +734,12 @@ if __name__ == "__main__":
     #     background_subtract=0.06,  # > In percent of max brightness
     #     **kws,
     # )
+    #%%
+    Z_d.info
+    
+    #%%
+    Z_d.mip()
+    
     # %%
     #:: what's better to flatten background: denoise or blurring?
 
@@ -671,18 +749,18 @@ if __name__ == "__main__":
     # %%
     histkws = dict(bins=200, log=False, alpha=0.4)
 
-    plt.hist(Z.stack.flatten(), label="raw", **histkws)
+    plt.hist(Z.imgs.flatten(), label="raw", **histkws)
     plt.hist(S.flatten(), label="blur", **histkws)
     plt.legend()
 
     # %%
-    plt.hist(Z.stack.flatten(), label="raw", **histkws)
-    plt.hist(Z_d.stack.flatten(), label="denoise", **histkws)
+    plt.hist(Z.imgs.flatten(), label="raw", **histkws)
+    plt.hist(Z_d.imgs.flatten(), label="denoise", **histkws)
     plt.legend()
 
     # %%
     plt.hist(S.flatten(), label="blur", **histkws)
-    plt.hist(Z_d.stack.flatten(), label="denoise", **histkws)
+    plt.hist(Z_d.imgs.flatten(), label="denoise", **histkws)
     plt.legend()
 
     # Z.brightness_distribution()
@@ -690,22 +768,22 @@ if __name__ == "__main__":
     # Z_d_bg.brightness_distribution()
 
     # %%
-    print(filters.threshold_triangle(Z.stack))
+    print(filters.threshold_triangle(Z.imgs))
     print(filters.threshold_triangle(S))
-    print(filters.threshold_triangle(Z_d.stack))
+    print(filters.threshold_triangle(Z_d.imgs))
 
     # %%
     #:: Denoising preserves textures!
-    mip = Z.mip(ret=True)
+    # mip = Z.mip(ret=True)
     # mip_d = Z_d.mip(ret=True)
     # mip_d_bg = Z_d_bg.mip(ret=True)
 
     # %%
-    sns.boxplot(
-        [
-            mip.flatten(),
-            # mip_d.flatten(),
-            mip_d_bg.flatten(),
-        ],
-        showfliers=False,
-    )
+    # sns.boxplot(
+    #     [
+    #         mip.flatten(),
+    #         # mip_d.flatten(),
+    #         mip_d_bg.flatten(),
+    #     ],
+    #     showfliers=False,
+    # )
