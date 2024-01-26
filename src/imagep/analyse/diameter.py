@@ -19,33 +19,25 @@ import seaborn as sns
 ### Analysis
 import scipy as sp
 
-# from scipy import ndimage
 
-import skimage.morphology as morph
-from skimage import draw
-from skimage import filters
+import skimage as ski
 
-# import skimage.measure as measure
 
-# from skimage import data
-# from skimage.util import invert
-
-# from skimage import filters
-
-# > Internal
+# > Local
 from imagep.preprocess.preprocess import PreProcess
-from imagep.segmentation.segmentation import Segmentation
+from imagep.segment.segment import Segment
 
 # %%
 
 
-class FibreDiameter(Segmentation):
+class FibreDiameter(Segment):
     def __init__(
         self,
+        *imgs_args,
         prune: int | None = None,
         **preprocess_kws,
     ):
-        super().__init__(**preprocess_kws)
+        super().__init__(*imgs_args, **preprocess_kws)
         
         ### Collect kws
         self.kws_diameter = {
@@ -204,7 +196,7 @@ class FibreDiameter(Segmentation):
         ### Calculate skeleton
         stack = np.zeros(S.shape)
         for i, img in enumerate(S):
-            stack[i] = morph.skeletonize(img, method=method)
+            stack[i] = ski.morphology.skeletonize(img, method=method)
 
         return stack
 
@@ -310,7 +302,7 @@ class FibreDiameter(Segmentation):
             for x, y in coords:
                 # > Set disk radius to the value of the intersection
                 radius = int(img[x, y])
-                rr, cc = draw.disk((x, y), radius, shape=img.shape)
+                rr, cc = ski.draw.disk((x, y), radius, shape=img.shape)
                 stack[i, rr, cc] = img[x, y]
 
         return stack
@@ -548,9 +540,9 @@ if __name__ == "__main__":
     )
     # %%
     # > Detailed
-    path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
     # > Rough
-    # path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
+    # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
     Z = FibreDiameter(
         path=path,
         use_mip=False,

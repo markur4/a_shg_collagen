@@ -66,14 +66,12 @@ Some things just make everything better. For example, since noise makes
 everything worse, we simply remove that first, using an algorithm that
 perfectly retains textures. Hence, **every** pipeline inherits features
 from the `Preprocessing` class pipeline and starts with those. The goal
-is to equalize images to improve *every* kind further analysis. At this
-level, we also include basic functionalities ,like adding a scalebar.
-The `preprocess` package currently employs these optional processing
-steps (in this order):
+is to equalize images to improve *every* kind further analysis. The
+`preprocess` package currently employs these optional processing steps
+(in this order):
 1. Denoise (non-local means)
 2. Subtract Background
 3. Normalize pixel values (0-1)
-4. Add Scalebar
 
 #### 3. Segmentation
 This is necessary for complex analysis pipelines. 

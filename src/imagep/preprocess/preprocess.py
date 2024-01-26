@@ -14,15 +14,17 @@ import seaborn as sns
 
 import skimage as ski
 
-# import imagep.import_imgs as ii
+
+# > Local
 from imagep.imgs.imgs import Imgs
 import imagep.utils.utils as ut
+# import imagep.utils.scalebar as scalebar
 from imagep.utils.subcache import SubCache
 
 
 # %%
 # == Cache ===========================================================
-location = os.path.join(os.path.expanduser("~"), ".cache", "imagep")
+location = os.path.join(os.path.expanduser("~"), ".cache")
 
 ### Subcache
 CACHE_PREPROCESS = SubCache(
@@ -40,11 +42,12 @@ CACHE_PREPROCESS = SubCache(
 class PreProcess(Imgs):
     def __init__(
         self,
+        *imgs_args,
         denoise=False,
         normalize=True,
         subtract_bg: bool = False,
         subtract_bg_kws: dict = dict(method="triangle", sigma=1.5),
-        scalebar_micrometer: bool | int = False,
+        # scalebar_microns: bool | int = False,
         cache_preprocessing=True,
         **imgs_kws,
     ) -> None:
@@ -55,7 +58,7 @@ class PreProcess(Imgs):
         :type normalize: bool, optional
 
         """
-        super().__init__(**imgs_kws)
+        super().__init__(*imgs_args, **imgs_kws)
 
         ### Collect all preprocessing kws
         self.kws_preprocess = {
@@ -63,7 +66,7 @@ class PreProcess(Imgs):
             "normalize": normalize,
             "subtract_bg": subtract_bg,
             "subtract_bg_kws": subtract_bg_kws,
-            "scalebar_micrometer": scalebar_micrometer,
+            # "scalebar_microns": scalebar_microns,
         }
 
         ### Document History of processing steps
@@ -114,12 +117,12 @@ class PreProcess(Imgs):
                 "Normalization"
             ] = "Division by max value of every image in folder"
 
-        if not isinstance(
-            preprocess_kws["scalebar_micrometer"], (type(False), type(None))
-        ):
-            OD[
-                "Scalebar"
-            ] = f"Added scalebar of {preprocess_kws['scalebar_micrometer']} µm"
+        # if not isinstance(
+        #     preprocess_kws["scalebar_microns"], (type(False), type(None))
+        # ):
+        #     OD[
+        #         "Scalebar"
+        #     ] = f"Added scalebar of {preprocess_kws['scalebar_micronsr']} µm"
 
         return OD
 
@@ -134,11 +137,6 @@ class PreProcess(Imgs):
 
     #
     # == __repr__ ======================================================
-
-    @property
-    def path_short(self) -> str:
-        """Shortened path"""
-        return str(self.path.parent.name + "/" + self.path.name)
 
     @staticmethod
     def _adj(s: str) -> str:
@@ -216,18 +214,10 @@ class PreProcess(Imgs):
         return self._info_to_str(self._info)
 
     def __repr__(self) -> str:
-        ### Remove memory address so joblib doesn't redo the preprocessing
-        return f'<{self.__class__.__name__} object from image folder: "{self.path_short}">'
-
-    #
-    # == Metrics =======================================================
-
-    def brightness_distribution(self) -> None:
-        """Plot the brightness distribution of the z-stack as
-        histogram"""
-
-        plt.hist(self.imgs.flatten(), bins=75, log=True)
-        plt.show()
+        """Remove memory address and class name so joblib doesn't redo
+        the preprocessing
+        """
+        return f'< Images from "{self.path_short}">'
 
     #
     # == Normalize =====================================================
@@ -338,147 +328,105 @@ class PreProcess(Imgs):
             return PreProcess.subtract(imgs, value=bg)
 
     #
-    # == Annotations ===================================================
+    # # == Annotations ===================================================
 
-    def _add_scalebar_to_img(
-        self,
-        img: np.ndarray = None,
-        I: int = None,
-        μm: int = 10,
-        thickness_μm=3,
-    ) -> np.ndarray:
-        """Add scalebar to an image selected by its index within the
-        self.stack"""
 
-        ### Get Image, if not given
-        if img is None:
-            if I is None:
-                raise ValueError("Either img or index (I) must be given")
-            img = self.imgs[I]
 
-        ### Convert µm to pixels
-        len_px = int(round(μm / self.pixel_size))
-        thickness_px = int(round(thickness_μm / self.pixel_size))
+    # def _add_scalebar_to_img(
+    #     self,
+    #     img: np.ndarray = None,
+    #     I: int = None,
+    #     μm: int = 10,
+    #     thickness_μm=3,
+    # ) -> np.ndarray:
+    #     """Add scalebar to an image selected by its index within the
+    #     self.stack"""
 
-        ### Define Scalebar as an array
-        # > Color is derived from img colormap
-        bar_color = self.imgs.max() * 1
-        scalebar = np.zeros((thickness_px, len_px))
-        scalebar[:, :] = bar_color
+    #     ### Get Image, if not given
+    #     if img is None:
+    #         if I is None:
+    #             raise ValueError("Either img or index (I) must be given")
+    #         img = self.imgs[I]
 
-        ### Add Frame around scalebar with two pixels thickness
-        frame_color = self.imgs.max() * 0.9
-        t = 3  # Thickness of frame in pixels
-        scalebar[0 : t + 1, :] = frame_color
-        scalebar[-t:, :] = frame_color
-        scalebar[:, 0 : t + 1] = frame_color
-        scalebar[:, -t:] = frame_color
+    #     ### Convert µm to pixels
+    #     len_px = int(round(μm / self.pixel_size))
+    #     thickness_px = int(round(thickness_μm / self.pixel_size))
 
-        ### Define padding from bottom right corner
-        pad_x = int(self.imgs.shape[2] * 0.05)
-        pad_y = int(self.imgs.shape[1] * 0.05)
+    #     ### Define Scalebar as an array
+    #     # > Color is derived from img colormap
+    #     bar_color = self.imgs.max() * 1
+    #     scalebar = np.zeros((thickness_px, len_px))
+    #     scalebar[:, :] = bar_color
 
-        ### Add scalebar to the bottom right of the image
-        # !! Won't work if nan are at scalebar position
-        img[-pad_y - thickness_px : -pad_y, -pad_x - len_px : -pad_x] = scalebar
-        return img
+    #     ### Add Frame around scalebar with two pixels thickness
+    #     frame_color = self.imgs.max() * 0.9
+    #     t = 3  # Thickness of frame in pixels
+    #     scalebar[0 : t + 1, :] = frame_color
+    #     scalebar[-t:, :] = frame_color
+    #     scalebar[:, 0 : t + 1] = frame_color
+    #     scalebar[:, -t:] = frame_color
 
-    def annotate_barsize(
-        self,
-        μm: int = 10,
-        thickness_µm=3,
-        color="black",
-    ) -> np.ndarray:
-        """Adds length of scalebar to image as text during plotting"""
+    #     ### Define padding from bottom right corner
+    #     pad_x = int(self.imgs.shape[2] * 0.05)
+    #     pad_y = int(self.imgs.shape[1] * 0.05)
 
-        text = f"{μm} µm"
-        # offsetbox = TextArea(text, minimumdescent=False)
+    #     ### Add scalebar to the bottom right of the image
+    #     # !! Won't work if nan are at scalebar position
+    #     img[-pad_y - thickness_px : -pad_y, -pad_x - len_px : -pad_x] = scalebar
+    #     return img
 
-        pad_x = int(self.imgs.shape[2] * 0.05)
-        pad_y = int(self.imgs.shape[1] * 0.05)
+    # def annotate_barsize(
+    #     self,
+    #     μm: int = 10,
+    #     thickness_µm=3,
+    #     color="black",
+    # ) -> np.ndarray:
+    #     """Adds length of scalebar to image as text during plotting"""
 
-        x = self.imgs.shape[2] - pad_x - thickness_µm / self.pixel_size * 2
-        y = self.imgs.shape[1] - pad_y - thickness_µm / self.pixel_size
+    #     text = f"{μm} µm"
+    #     # offsetbox = TextArea(text, minimumdescent=False)
 
-        coords = "data"
+    #     pad_x = int(self.imgs.shape[2] * 0.05)
+    #     pad_y = int(self.imgs.shape[1] * 0.05)
 
-        plt.annotate(
-            text,
-            xy=(x, y),
-            xycoords=coords,
-            xytext=(x, y),
-            textcoords=coords,
-            ha="center",
-            va="bottom",
-            fontsize=10,
-            color=color,
-        )
+    #     x = self.imgs.shape[2] - pad_x - thickness_µm / self.pixel_size * 2
+    #     y = self.imgs.shape[1] - pad_y - thickness_µm / self.pixel_size
 
-    def add_scalebar(
-        self,
-        all=False,
-        Indexes: list = [0],
-        μm: int = 10,
-        thickness_μm=3,
-    ) -> np.ndarray:
-        """Adds scalebar to images in stack. By default, adds only to
-        the first image, but can be changed with indexes."""
+    #     coords = "data"
 
-        if all:
-            Indexes = range(self.imgs.shape[0])
+    #     plt.annotate(
+    #         text,
+    #         xy=(x, y),
+    #         xycoords=coords,
+    #         xytext=(x, y),
+    #         textcoords=coords,
+    #         ha="center",
+    #         va="bottom",
+    #         fontsize=10,
+    #         color=color,
+    #     )
 
-        imgs = self.imgs
-        for i in Indexes:
-            imgs[i] = self._add_scalebar_to_img(
-                I=i,
-                μm=μm,
-                thickness_μm=thickness_μm,
-            )
-        return imgs
+    # def add_scalebar(
+    #     self,
+    #     all=False,
+    #     Indexes: list = [0],
+    #     μm: int = 10,
+    #     thickness_μm=3,
+    # ) -> np.ndarray:
+    #     """Adds scalebar to images in stack. By default, adds only to
+    #     the first image, but can be changed with indexes."""
 
-    #
-    # == I/O ===========================================================
+    #     if all:
+    #         Indexes = range(self.imgs.shape[0])
 
-    def save(self, path: str | Path) -> None:
-        """Save the z-stack to a folder"""
-        np.save(path, self.imgs)
-
-    def load(self, path: str | Path) -> None:
-        """Load the z-stack from a folder"""
-        self.imgs = np.load(path)
-
-    #
-    # == Basic Visualization ===========================================
-
-    @staticmethod
-    def _mip(
-        stack: np.ndarray,
-        axis: int = 0,
-        show=True,
-        return_array=False,
-        savefig: str = "mip.png",
-        colormap: str = "gist_ncar",
-    ) -> np.ndarray | None:
-        """Maximum intensity projection across certain axis"""
-
-        mip = stack.max(axis=axis)
-
-        if show:
-            plt.imshow(
-                mip,
-                cmap=colormap,
-                interpolation="none",
-            )
-            plt.show()
-
-        if savefig:
-            plt.imsave(fname=savefig, arr=mip, cmap=colormap, dpi=300)
-
-        if return_array:
-            return mip
-
-    def mip(self, **mip_kws) -> np.ndarray | None:
-        return self._mip(self.imgs, **mip_kws)
+    #     imgs = self.imgs
+    #     for i in Indexes:
+    #         imgs[i] = self._add_scalebar_to_img(
+    #             I=i,
+    #             μm=μm,
+    #             thickness_μm=thickness_μm,
+    #         )
+    #     return imgs
 
 
 #
@@ -511,12 +459,12 @@ def _preprocess_main(
     if preprocess_kws["normalize"]:
         self.imgs = self.normalize()
 
-    ### Add Scalebar
-    # > If scalebar_µm is not None
-    if not preprocess_kws["scalebar_micrometer"] in [0, False, None]:
-        self.imgs = self.add_scalebar(
-            Indexes=[0], µm=preprocess_kws["scalebar_micrometer"]
-        )
+    # ### Add Scalebar
+    # # > If scalebar_µm is not None
+    # if not preprocess_kws["scalebar_micrometer"] in [0, False, None]:
+    #     self.imgs = self.add_scalebar(
+    #         Indexes=[0], µm=preprocess_kws["scalebar_micrometer"]
+    #     )
     return self.imgs
 
 
@@ -526,7 +474,7 @@ def _preprocess_main(
 if __name__ == "__main__":
     ### Import from a txt file.
     # > Rough
-    path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
+    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
     kws = dict(
         # z_dist=10 * 0.250,  # > stepsize * 0.250 µm
         x_µm=1.5
@@ -534,7 +482,7 @@ if __name__ == "__main__":
         * 115.4,
     )
     # > Detailed
-    # path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
     # kws = dict(
     #     # z_dist=2 * 0.250,  # > stepsize * 0.250 µm
     #     x_µm=1.5
@@ -543,7 +491,7 @@ if __name__ == "__main__":
     Z = PreProcess(
         path=path,
         subtract_bg=False,
-        scalebar_micrometer=50,
+        scalebar_microns=50,
         **kws,
     )
     Z.imgs.shape

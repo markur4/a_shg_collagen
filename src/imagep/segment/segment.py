@@ -1,4 +1,4 @@
-"""Module to Segment image"""
+"""Module to Segment image into regions """
 
 # %%
 import os
@@ -25,6 +25,7 @@ from imagep.preprocess.preprocess import PreProcess
 class Segment(PreProcess):
     def __init__(
         self,
+        *imgs_args,
         mip_binning: bool | int = False,
         smoothen_edges_imgs: bool | str = "median",
         segment_method: str = "random_forest",
@@ -33,7 +34,7 @@ class Segment(PreProcess):
         smoothen_edges_segment: bool | str = "median",
         **preprocess_kws,
     ):
-        super().__init__(**preprocess_kws)
+        super().__init__(*imgs_args, **preprocess_kws)
 
         ### Collect kws
         self.kws_segment = {
@@ -52,11 +53,11 @@ class Segment(PreProcess):
 
         ### Intermediates of Segmentation
         self._imgs = self.imgs  # > Start with preprocessed images
-        self._imgs_mipwin = np.zeros(self.imgs.shape)
-        self._imgs_smooth = np.zeros(self.imgs.shape)
-        self._segm_raw = np.zeros(self.imgs.shape)
-        self._segm_open = np.zeros(self.imgs.shape)
-        self._segm_smooth = np.zeros(self.imgs.shape)
+        self._imgs_mipwin = np.zeros(self.imgs.shape, dtype=self.imgs.dtype)
+        self._imgs_smooth = np.zeros(self.imgs.shape, dtype=self.imgs.dtype)
+        self._segm_raw = np.zeros(self.imgs.shape, dtype=self.imgs.dtype)
+        self._segm_open = np.zeros(self.imgs.shape, dtype=self.imgs.dtype)
+        self._segm_smooth = np.zeros(self.imgs.shape, dtype=self.imgs.dtype)
 
         ### Execute Segmentation
         self.segmented: np.ndarray = self.segment_main(**self.kws_segment)
@@ -112,7 +113,7 @@ class Segment(PreProcess):
     # == MIP binning ===================================================
 
     @staticmethod
-    def mip_binning(S: np.ndarray, windowsize: int = 2) -> np.ndarray:
+    def mip_binning(imgs: np.ndarray, windowsize: int = 2) -> np.ndarray:
         """performs maximum intensity projection along z-axis
 
         Advantages of MIP:
@@ -130,12 +131,12 @@ class Segment(PreProcess):
         """
 
         ### Get n images from stack with stepsize 1
-        stack = np.zeros(S.shape)
-        for i in range(S.shape[0] - windowsize):
-            imgs = S[i : i + windowsize]
+        stack = np.zeros(imgs.shape, dtype=imgs.dtype)
+        for i in range(imgs.shape[0] - windowsize):
+            imgs_window = imgs[i : i + windowsize]
 
             ### MIP
-            stack[i] = np.max(imgs, axis=0)
+            stack[i] = np.max(imgs_window, axis=0)
 
         return stack
 
@@ -236,7 +237,7 @@ class Segment(PreProcess):
 
 # %%
 if __name__ == "__main__":
-    path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
 
     Z = Segment(
         path=path,

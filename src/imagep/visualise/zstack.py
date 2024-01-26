@@ -11,7 +11,9 @@ import vtk
 from vtk.util import numpy_support
 import pyvista as pv
 
+# > Local
 from imagep.preprocess.preprocess import PreProcess
+import imagep.utils.utils as ut
 
 # %%
 
@@ -20,9 +22,27 @@ class ZStack(PreProcess):
     def __init__(
         self,
         z_dist,
+        scalebar: bool = True,
+        *imgs_args,
         **preprocess_kws,
     ):
-        super().__init__(**preprocess_kws)
+        """Visualize Z-stacks.
+        :param z_dist: Distance between two images in µm
+        :type z_dist: float
+        :param scalebar: Switches on scalebar, defaults
+            to True
+        :type scalebar: bool, optional
+        :param imgs_args: positional arguments passed to Imgs class
+        :type imgs_args: tuple
+        :param preprocess_kws: Keyword arguments passed to
+        PreProcess class
+        """
+        super().__init__(*imgs_args, **preprocess_kws)
+
+        ### Burn Scalebar into the first image:
+        self.scalebar = scalebar
+        if scalebar:
+            self.burn_scalebar(all=False, indexes=[0])
 
         ### Z-distance
         self.z_dist = z_dist
@@ -78,8 +98,22 @@ class ZStack(PreProcess):
 
     def mip(self, **mip_kws) -> np.ndarray | None:
         """Maximum intensity projection across certain axis"""
-        #!! Overrides PreProcess.mip()
-        return self._mip(self.stack_zfilled, **mip_kws)
+        #!! Overrides PreProcess.mip(), so that correct z-axis dimension
+        #!! is used
+
+        ### We need an img to add micronlength, but don't duplicate
+        return_array: bool = mip_kws.pop("return_array", False)
+
+        ### Mip
+        mip = ut.mip(self.stack_zfilled, return_array=True, **mip_kws)
+
+        ### Annotate length of scalebar in µm
+        if self.scalebar and mip_kws.get("axis", 0) == 0:
+            self.annot_micronlength_into_plot(img=mip)
+
+        ### Return if initially requested (was popped out of mip_kws)
+        if return_array:
+            return mip
 
     @property
     def stack_vtk(self):
@@ -175,7 +209,7 @@ if __name__ == "__main__":
     # %%
     ### Import from a txt file.
     # > Rough
-    path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
+    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
     kws = dict(
         z_dist=10 * 0.250,  # stepsize * 0.250 µm
         x_µm=1.5 * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
@@ -186,7 +220,6 @@ if __name__ == "__main__":
         path=path,
         denoise=False,
         subtract_bg=True,
-        scalebar_micrometer=10,
         **kws,
     )
     Z
@@ -202,7 +235,6 @@ if __name__ == "__main__":
         path=path,
         denoise=True,
         subtract_bg=True,
-        scalebar_micrometer=10,
         **kws,
     )
     Z2
@@ -217,7 +249,7 @@ if __name__ == "__main__":
     # %%
     ### make gif for detailed!
     # > Detailed
-    path_detailed = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    path_detailed = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
     kws_detailed = dict(
         z_dist=2 * 0.250,  # stepsize * 0.250 µm
         x_µm=1.5 * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
@@ -227,7 +259,6 @@ if __name__ == "__main__":
         path=path_detailed,
         denoise=True,
         subtract_bg=True,
-        scalebar_micrometer=10,
         **kws_detailed,
     )
     Z_d

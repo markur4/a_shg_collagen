@@ -11,8 +11,9 @@ import subprocess as sp
 def makepath(*args) -> str:
     return str(Path(*args))
 
+# :: Check Project Root!
+ROOT = ".."  
 
-ROOT = ".."  # :: Check Project Root!
 PROJ = makepath(ROOT, ".")  # > Project location for editable install
 VENV = makepath(ROOT, "venv")  # > Virtual environment location
 PYTHON = makepath(ROOT, "venv", "bin", "python")  # > Python executable

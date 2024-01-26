@@ -28,7 +28,11 @@ class SubCache(Memory):
     """
 
     def __init__(
-        self, subcache_dir: str, assert_parent: str = None, *args, **kwargs
+        self,
+        subcache_dir: str,
+        assert_parent: str = None,
+        *args,
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
 
@@ -163,7 +167,7 @@ if __name__ == "__main__":
     MEM2.list_objects()
 
     # %%
-    sleep(1.5) # > First time slow, next time fast
+    sleep(1.5)  # > First time slow, next time fast
 
     # %%
     MEM2.clear()

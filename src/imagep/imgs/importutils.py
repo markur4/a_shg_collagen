@@ -36,13 +36,13 @@ def from_txt(
 
 if __name__ == "__main__":
     t = np.float32
-    # path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_6.txt"
+    # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_6.txt"
     # img = from_txt(path, type=t)
     # print(img.min(), img.max())
     # plt.imshow(img)
     # plt.show()
 
-    path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_7.txt"
+    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_7.txt"
     img = from_txt(path, type=t)
     print(img.min(), img.max())
     plt.imshow(img)

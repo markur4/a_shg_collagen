@@ -95,7 +95,7 @@ dependencies = [
     "napari[all]", #!! python -m pip install "napari[all]"
     "scikit-image",
     "scikit-learn",
-    # "PyWavelets",  #' For wavelet denoising
+    "PyWavelets",  #' Required by skimage for denoising
     # "opencv-python",
     
     # "statannot",   #' Superseded by statannotations
