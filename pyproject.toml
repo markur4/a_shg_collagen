@@ -37,10 +37,10 @@ build-backend = "setuptools.build_meta"
 
 
 [project] # ============================================================
-name = "mkshg"
+name = "imagep"
 version = "0.1.0" # ' <major>.<minor>.<patch>.<build_number>
 authors = [{ name = "Martin Kuric", email = "martin.kur4@gmail.com" }]
-description = "SHG analysis"
+description = "Scientific image processing and analysis pipelines for Python"
 readme = "README.md"
 license = { file = "LICENSE" } # ' or { text = "GPLv3" }
 keywords = [
@@ -74,7 +74,6 @@ classifiers = [
 #' Specify version only if concrete incompatibilities exist
 requires-python = ">=3.11"
 dependencies = [
-    #*Ipython
     "ipython",
     "ipywidgets",
     #* Core
@@ -93,11 +92,10 @@ dependencies = [
     "trame", #' required for interactive pyvista plots
     "trame_vtk",
     "trame-vuetify",
-    "sklearn",
     "napari[all]", #!! python -m pip install "napari[all]"
     "scikit-image",
     "scikit-learn",
-    "PyWavelets",  #' For wavelet denoising
+    # "PyWavelets",  #' For wavelet denoising
     # "opencv-python",
     
     # "statannot",   #' Superseded by statannotations

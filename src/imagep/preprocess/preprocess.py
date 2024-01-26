@@ -14,21 +14,18 @@ import seaborn as sns
 
 import skimage as ski
 
-
+# import imagep.import_imgs as ii
+from imagep.imgs.imgs import Imgs
+import imagep.utils.utils as ut
+from imagep.utils.subcache import SubCache
 
 
 # %%
 # == Cache ===========================================================
-# location = Path(".", "_cache")
-location = os.path.join(
-    os.path.expanduser("~"),
-    ".cache",
-)
+location = os.path.join(os.path.expanduser("~"), ".cache", "imagep")
 
 ### Subcache
-from imagep.subcache import SubCache
-
-MEMORY = SubCache(
+CACHE_PREPROCESS = SubCache(
     location=location,
     subcache_dir="preprocess",
     verbose=True,
@@ -37,84 +34,28 @@ MEMORY = SubCache(
 
 
 # %%
-# == IMPORTING =========================================================
-def from_txt(path: str, type=np.float32) -> np.ndarray:
-    """Import from a txt file."""
-    return np.loadtxt(path, skiprows=2).astype(type)
-
-
-if __name__ == "__main__":
-    t = np.float32
-    # path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_6.txt"
-    # img = from_txt(path, type=t)
-    # print(img.min(), img.max())
-    # plt.imshow(img)
-    # plt.show()
-
-    path = "/Users/martinkuric/_REPOS/a_shg_collagen/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_7.txt"
-    img = from_txt(path, type=t)
-    print(img.min(), img.max())
-    plt.imshow(img)
-
-    # %%
-    ### Find smallest difference
-    img_diff = ski.filters.sobel(img)
-    print(img_diff.min(), img_diff.max())
-    plt.imshow(img_diff)
-
-
-# %%
 # == CLASS PREPROCESSING ===============================================
 
 
-class PreProcess:
+class PreProcess(Imgs):
     def __init__(
         self,
-        path: str | Path,
-        x_µm: float = 200,
-        ### Pre-Process_kws
         denoise=False,
         normalize=True,
         subtract_bg: bool = False,
         subtract_bg_kws: dict = dict(method="triangle", sigma=1.5),
-        scalebar_micrometer: bool |int = False,
+        scalebar_micrometer: bool | int = False,
         cache_preprocessing=True,
-        verbose=True,
+        **imgs_kws,
     ) -> None:
-        """Import a z-stack from a folder. Performs normalization.
+        """Preprocessing pipeline for image stacks
 
-        :param path: pathlike string or object
-        :type path: str | Path
         :param normalize: Wether to normalize values between 1 and 0,
             defaults to True
         :type normalize: bool, optional
-        :param z_dist: Distance in µm between each image in z-direction,
-            defaults to .5
-        :type z_dist: float, optional
-        :param width: Width of the image in µm, defaults to 200
-        :type width: float, optional
+
         """
-
-        self.verbose = verbose
-
-        ### Folder of the z-stack
-        self.path = Path(path)
-        self._check_path()
-
-        ### Import Images
-        if self.verbose:
-            print(f"=> Importing Images from {self.path_short}...")
-        self.imgs: np.ndarray = self.import_imgs(self.path)
-        if self.verbose:
-            print("   Importing Images Done")
-
-        ### width, height, depth in µm
-        self.x_µm = x_µm
-        self.y_µm = self.imgs.shape[1] * self.x_µm / self.imgs.shape[2]
-        self.pixel_size = self.x_µm / self.imgs.shape[2]
-        self.spacing = (self.x_µm, self.y_µm)
-
-        # == Pre-Processing ==
+        super().__init__(**imgs_kws)
 
         ### Collect all preprocessing kws
         self.kws_preprocess = {
@@ -142,7 +83,7 @@ class PreProcess:
 
     def _preprocess_cached(self, **preprocess_kws):
         """Preprocess the z-stack"""
-        preprocess_cached = MEMORY.subcache(_preprocess_main)
+        preprocess_cached = CACHE_PREPROCESS.subcache(_preprocess_main)
         return preprocess_cached(self, **preprocess_kws)
 
     def _preprocess(self, **preprocess_kws):
@@ -277,57 +218,6 @@ class PreProcess:
     def __repr__(self) -> str:
         ### Remove memory address so joblib doesn't redo the preprocessing
         return f'<{self.__class__.__name__} object from image folder: "{self.path_short}">'
-
-    #
-    # == UTILS ====================================================
-
-    @staticmethod
-    def check_arguments(kws: dict, required_keys: list):
-        """Check if all required keys are present in kws"""
-        for k in required_keys:
-            if not k in kws.keys():
-                raise KeyError(f"Missing argument '{k}' in kws: {kws}")
-
-    @property
-    def stack_raw(self) -> np.ndarray:
-        return self.import_imgs()
-
-    def __iter__(self):
-        return iter(self.imgs)
-
-    def __getitem__(self, val: slice) -> np.ndarray:
-        return self.imgs[val]
-
-    #
-    # == Import ========================================================
-
-    def _check_path(self) -> None:
-        """Check if path is valid"""
-        if not self.path.exists():
-            raise FileNotFoundError(f"Path {self.path} does not exist.")
-
-    @staticmethod
-    def import_imgs(path: Path) -> np.ndarray:
-        """Import z-stack from a folder"""
-
-        ### Get all txt files
-        txts = list(path.glob("*.txt"))
-
-        ### sort txts by number
-        txts = sorted(txts, key=lambda x: int(x.stem.split("_")[-1]))
-
-        ### Invert, since the first image is the bottom one
-        txts = txts[::-1]
-
-        ### Import all txt files
-        imgs = []
-        for txt in txts:
-            imgs.append(from_txt(txt))
-
-        ### Convert to numpy array
-        imgs = np.array(imgs)
-
-        return imgs
 
     #
     # == Metrics =======================================================
@@ -570,7 +460,7 @@ class PreProcess:
         colormap: str = "gist_ncar",
     ) -> np.ndarray | None:
         """Maximum intensity projection across certain axis"""
-        
+
         mip = stack.max(axis=axis)
 
         if show:
@@ -609,7 +499,7 @@ def _preprocess_main(
     ### Subtract Background
     if preprocess_kws["subtract_bg"]:
         kws = preprocess_kws.get("subtract_bg_kws", dict())
-        self.check_arguments(kws, ["method", "sigma"])
+        ut.check_arguments(kws, ["method", "sigma"])
 
         # > Subtract
         self.imgs = self.subtract_background(
@@ -665,7 +555,7 @@ if __name__ == "__main__":
     Z.info
 
     # %%
-    MEMORY.list_objects()
+    CACHE_PREPROCESS.list_objects()
 
     # %%
     Z.history
@@ -727,12 +617,12 @@ if __name__ == "__main__":
     #     background_subtract=0.06,  # > In percent of max brightness
     #     **kws,
     # )
-    #%%
+    # %%
     Z_d.info
-    
-    #%%
+
+    # %%
     Z_d.mip()
-    
+
     # %%
     #:: what's better to flatten background: denoise or blurring?
 
