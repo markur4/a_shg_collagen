@@ -12,15 +12,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# from matplotlib.animation import FuncAnimation
-# from mpl_toolkits.mplot3d import Axes3D
+import skimage as ski
 
-from skimage import restoration
-from skimage import filters
-
-# print(pv.Report())
-
-# from pyvista import examples
 
 
 
@@ -65,7 +58,7 @@ if __name__ == "__main__":
 
     # %%
     ### Find smallest difference
-    img_diff = filters.sobel(img)
+    img_diff = ski.filters.sobel(img)
     print(img_diff.min(), img_diff.max())
     plt.imshow(img_diff)
 
@@ -359,9 +352,9 @@ class PreProcess:
     @staticmethod
     def denoise(imgs: np.ndarray) -> np.ndarray:
         ### List comprehensions are faster
-        sigmas = [np.mean(restoration.estimate_sigma(img)) for img in imgs]
+        sigmas = [np.mean(ski.restoration.estimate_sigma(img)) for img in imgs]
         stack_denoised = [
-            restoration.denoise_nl_means(
+            ski.restoration.denoise_nl_means(
                 img,
                 h=0.8 * sigma,
                 sigma=sigma,
@@ -377,7 +370,7 @@ class PreProcess:
     def blur(self, sigma: float = 1, normalize=True) -> np.ndarray:
         """Blur image using a thresholding method"""
 
-        imgs = filters.gaussian(self.imgs, sigma=sigma)
+        imgs = ski.filters.gaussian(self.imgs, sigma=sigma)
 
         ### The max value is not 1 anymore
         if normalize:
@@ -411,15 +404,15 @@ class PreProcess:
 
         ### Blur
         if not sigma is None:
-            img = filters.gaussian(img, sigma=sigma)
+            img = ski.filters.gaussian(img, sigma=sigma)
 
         ### Apply Filters
         if method == "otsu":
-            return filters.threshold_otsu(img, **kws)
+            return ski.filters.threshold_otsu(img, **kws)
         elif method == "mean":
-            return filters.threshold_mean(img, **kws)
+            return ski.filters.threshold_mean(img, **kws)
         elif method == "triangle":
-            return filters.threshold_triangle(img, **kws)
+            return ski.filters.threshold_triangle(img, **kws)
         elif method == "percentile":
             return PreProcess.get_background_by_percentile(img, **kws)
         elif method == "threshold":
@@ -768,9 +761,9 @@ if __name__ == "__main__":
     # Z_d_bg.brightness_distribution()
 
     # %%
-    print(filters.threshold_triangle(Z.imgs))
-    print(filters.threshold_triangle(S))
-    print(filters.threshold_triangle(Z_d.imgs))
+    print(ski.filters.threshold_triangle(Z.imgs))
+    print(ski.filters.threshold_triangle(S))
+    print(ski.filters.threshold_triangle(Z_d.imgs))
 
     # %%
     #:: Denoising preserves textures!

@@ -1,6 +1,6 @@
 # ImageP: Image Analysis Pipelines in Python.
 **Yes, this is a rip-off of ImageJ/Fiji. It's trying to achieve the same
-thing (but easier): Scientific image analysis and processing with a
+thing (but easier): Scientific image processing and analysis processing with a
 focus on (but not limited to) microscopy.**
 
 ## Install
