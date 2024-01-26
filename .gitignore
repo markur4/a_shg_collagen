@@ -1,8 +1,10 @@
 # old code
 old
 
-# cache
+# cache & files
 _cache
+*.gif
+*.png
 
 
 # reports and Analyses

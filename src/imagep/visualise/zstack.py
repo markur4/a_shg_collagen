@@ -101,19 +101,22 @@ class ZStack(PreProcess):
         #!! Overrides PreProcess.mip(), so that correct z-axis dimension
         #!! is used
 
-        ### We need an img to add micronlength, but don't duplicate
-        return_array: bool = mip_kws.pop("return_array", False)
+        # ### We need an img to add micronlength, but don't duplicate
+        # return_array: bool = mip_kws.pop("return_array", False)
 
-        ### Mip
-        mip = ut.mip(self.stack_zfilled, return_array=True, **mip_kws)
+        # ### Mip
+        # mip = ut.mip(self.stack_zfilled, return_array=True, **mip_kws)
 
-        ### Annotate length of scalebar in µm
-        if self.scalebar and mip_kws.get("axis", 0) == 0:
-            self.annot_micronlength_into_plot(img=mip)
+        # ### Annotate length of scalebar in µm
+        # if self.scalebar and mip_kws.get("axis", 0) == 0:
+        #     pass
+        #     # self.annot_micronlength_into_plot(img=mip)
 
-        ### Return if initially requested (was popped out of mip_kws)
-        if return_array:
-            return mip
+        # ### Return if initially requested (was popped out of mip_kws)
+        # if return_array:
+        #     return mip
+        
+        return ut.mip(self.stack_zfilled, **mip_kws)
 
     @property
     def stack_vtk(self):

@@ -4,6 +4,8 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
+from PIL import Image, ImageDraw, ImageFont
+
 # %%
 
 ### Location of scalebar
@@ -62,14 +64,14 @@ def burn_scalebar_to_img(
     pad_x = int(img.shape[1] * xy_pad[0])
     pad_y = int(img.shape[0] * xy_pad[1])
 
-    ### Add scalebar to the bottom right of the image
+    ### Burn scalebar to the bottom right of the image
     # !! Won't work if nan are at scalebar position
     img[-pad_y - thickness_px : -pad_y, -pad_x - len_px : -pad_x] = scalebar
 
     return img
 
 
-def annot_micronlength_into_plot(
+def burn_micronlength_to_img(
     img: np.ndarray,
     pixel_size: float,
     microns: int = 10,
@@ -77,29 +79,70 @@ def annot_micronlength_into_plot(
     xy_pad: tuple[float] = (0.05, 0.05),
     color="white",
 ) -> np.ndarray:
-    """Adds length of scalebar to image as text during plotting"""
+    ### Convert into pil image
+    dtype = img.dtype  # > Remember dtype
+    img = Image.fromarray((img * 255).astype(np.uint8))
 
     ### Define Text
     text = f"{microns} µm"
-    # offsetbox = TextArea(text, minimumdescent=False)
 
     ### Define padding from bottom right corner
-    pad_x = int(img.shape[1] * xy_pad[0])
-    pad_y = int(img.shape[0] * xy_pad[1])
+    pad_x = int(img.size[0] * xy_pad[0])
+    pad_y = int(img.size[1] * xy_pad[1])
 
     ### Define position of text
-    x = img.shape[1] - pad_x - thickness / pixel_size * 2
-    y = img.shape[0] - pad_y - thickness / pixel_size
+    x = img.size[0] - pad_x - thickness / pixel_size * 2
+    y = img.size[1] - pad_y - thickness / pixel_size
 
-    coords = "data"  # > Use array coordinates
-    plt.annotate(
+    ### Add text to image
+    font = ImageFont.truetype("Arial Narrow.ttf", size=img.size[0] / 20)
+    # font = ImageFont.load("arial.pil")
+    pil_draw = ImageDraw.Draw(img)
+    pil_draw.fontmode = "1"  # > "1" disables Anti-aliasing, "L" enables
+    pil_draw.text(
+        (x, y),
         text,
-        xy=(x, y),
-        xycoords=coords,
-        xytext=(x, y),
-        textcoords=coords,
-        ha="center",
-        va="bottom",
-        fontsize=10,
-        color=color,
+        fill=color,
+        font=font,
+        anchor="mb", # > mb = middle bottom, ms = middle baseline
     )
+
+    ### Convert back to numpy array
+    img = np.array(img, dtype=dtype) / 255
+    return img
+
+
+# def annot_micronlength_into_plot(
+#     img: np.ndarray,
+#     pixel_size: float,
+#     microns: int = 10,
+#     thickness=3,
+#     xy_pad: tuple[float] = (0.05, 0.05),
+#     color="white",
+# ) -> np.ndarray:
+#     """Adds length of scalebar to image as text during plotting"""
+
+#     ### Define Text
+#     text = f"{microns} µm"
+#     # offsetbox = TextArea(text, minimumdescent=False)
+
+#     ### Define padding from bottom right corner
+#     pad_x = int(img.shape[1] * xy_pad[0])
+#     pad_y = int(img.shape[0] * xy_pad[1])
+
+#     ### Define position of text
+#     x = img.shape[1] - pad_x - thickness / pixel_size * 2
+#     y = img.shape[0] - pad_y - thickness / pixel_size
+
+#     coords = "data"  # > Use array coordinates
+#     plt.annotate(
+#         text,
+#         xy=(x, y),
+#         xycoords=coords,
+#         xytext=(x, y),
+#         textcoords=coords,
+#         ha="center",
+#         va="bottom",
+#         fontsize=10,
+#         color=color,
+#     )

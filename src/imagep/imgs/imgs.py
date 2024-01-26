@@ -119,6 +119,7 @@ class Imgs:
         indexes: list = [0],
         xy_pad: tuple[float] = (0.05, 0.05),
         thickness: int = 3,
+        text_color="white",
     ) -> None:
         """Burns scalebar to images in stack. By default, adds only to
         the first image, but can be changed with indexes."""
@@ -126,7 +127,7 @@ class Imgs:
         if all:
             indexes = range(self.imgs.shape[0])
 
-        # imgs_result = np.zeros(self.imgs.shape, dtype=self.imgs.dtype)
+
         for i in indexes:
             self.imgs[i] = scalebar.burn_scalebar_to_img(
                 img=self.imgs[i],
@@ -137,25 +138,34 @@ class Imgs:
                 bar_color=self.imgs.max(),
                 frame_color=self.imgs.max() * 0.9,
             )
+            self.imgs[i] = scalebar.burn_micronlength_to_img(
+                img=self.imgs[i],
+                microns=self.scalebar_microns,
+                pixel_size=self.pixel_size,
+                thickness=thickness,
+                xy_pad=xy_pad,
+                color=text_color,
+            )
 
-    def annot_micronlength_into_plot(
-        self,
-        img: np.ndarray = None,
-        xy_pad: tuple[float] = (0.05, 0.05),
-        thickness: int = 3,
-        color="white",
-    ) -> None:
-        ### img required to find correct position
-        img = self.imgs[0] if img is None else img
+
+    # def annot_micronlength_into_plot(
+    #     self,
+    #     img: np.ndarray = None,
+    #     xy_pad: tuple[float] = (0.05, 0.05),
+    #     thickness: int = 3,
+    #     color="white",
+    # ) -> None:
+    #     ### img required to find correct position
+    #     img = self.imgs[0] if img is None else img
         
-        scalebar.annot_micronlength_into_plot(
-            img=img,
-            pixel_size=self.pixel_size,
-            microns=self.scalebar_microns,
-            xy_pad=xy_pad,
-            thickness=thickness,
-            color=color,
-        )
+    #     scalebar.annot_micronlength_into_plot(
+    #         img=img,
+    #         pixel_size=self.pixel_size,
+    #         microns=self.scalebar_microns,
+    #         xy_pad=xy_pad,
+    #         thickness=thickness,
+    #         color=color,
+    #     )
 
 
     #
