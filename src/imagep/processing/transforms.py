@@ -1,4 +1,4 @@
-"""Library to for image transformations"""
+""" A class for to implement all filters as methods """
 # %%
 import numpy as np
 
@@ -12,7 +12,7 @@ import skimage as ski
 import skimage.morphology as morph
 
 # > Local
-import imagep.utils.utils as ut
+import imagep._utils.utils as ut
 
 
 # %%
@@ -56,7 +56,7 @@ def _denoise_parallel(imgs: np.ndarray) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    from imagep.imgs.imgs import Imgs
+    from imagep._imgs.imgs import Imgs
 
     # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
@@ -199,7 +199,7 @@ class Transform:
 
 # %%
 if __name__ == "__main__":
-    from imagep.preprocess.preprocess import PreProcess
+    from imagep.processing.preprocess import PreProcess
 
     Z2 = PreProcess(
         path=path,

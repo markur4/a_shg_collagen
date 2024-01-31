@@ -12,8 +12,8 @@ from vtk.util import numpy_support
 import pyvista as pv
 
 # > Local
-from imagep.preprocess.preprocess import PreProcess
-import imagep.utils.utils as ut
+from imagep.processing.preprocess import PreProcess
+import imagep._plottools.imageplots as ut
 
 # %%
 

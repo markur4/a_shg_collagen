@@ -6,8 +6,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-### Increase display dpi of matplotlib
-plt.rcParams["figure.dpi"] = 300
 import seaborn as sns
 
 import scipy as sp
@@ -15,7 +13,7 @@ import scipy as sp
 import skimage as ski
 from sklearn.ensemble import RandomForestClassifier
 
-from imagep.preprocess.preprocess import PreProcess
+from imagep.processing.preprocess import PreProcess
 # from imagep.visualise.zstack import ZStack
 
 # %%

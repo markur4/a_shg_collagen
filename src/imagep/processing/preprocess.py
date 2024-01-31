@@ -19,10 +19,10 @@ import skimage as ski
 
 
 # > Local
-from imagep.imgs.imgs import Imgs
-import imagep.utils.utils as ut
-from imagep.utils.transforms import Transform
-from imagep.utils.subcache import SubCache
+from imagep._imgs.imgs import Imgs
+import imagep._utils.utils as ut
+from imagep._utils.subcache import SubCache
+from imagep.processing.transforms import Transform
 
 
 # %%
@@ -468,7 +468,7 @@ if __name__ == "__main__":
     # HÄÄÄÄ
 
     # %%
-    Z.mip(axis=0, show=True)  # ' z-axis
+    Z.mip(axis=0, show=True, save="../mip")  # ' z-axis
     Z.mip(axis=1, show=True)  # ' x-axis
     Z.mip(axis=2, show=True)  # ' y-axis
     # %%

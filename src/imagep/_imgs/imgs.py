@@ -13,9 +13,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # > Local
-import imagep.imgs.importutils as importutils
-import imagep.utils.scalebar as scalebar
-import imagep.utils.utils as ut
+import imagep._imgs.import_imgs as import_imgs
+import imagep._plottools.scalebar as scalebar
+import imagep._plottools.imageplots
+import imagep._utils.utils as ut
 
 # from imagep.utils.transforms import Transform
 
@@ -44,7 +45,7 @@ class ImgsImport:
             self.imgs: np.ndarray = self.import_imgs(self.path)
         elif array is not None:
             self.path = "external numpy array"
-            self.imgs = array.astype(importutils.DEFAULT_DTYPE)
+            self.imgs = array.astype(import_imgs.DEFAULT_DTYPE)
         else:
             raise ValueError("Either path or array must be given.")
 
@@ -92,7 +93,7 @@ class ImgsImport:
         ### Import all txt files
         imgs = []
         for txt in txts:
-            imgs.append(importutils.from_txt(txt))
+            imgs.append(import_imgs.from_txt(txt))
 
         ### Convert to numpy array
         imgs = np.array(imgs)
@@ -377,7 +378,7 @@ class Imgs(ImgsImport):
             # > Put scalebar on first image only
             imgs = self.burn_scalebar(imgs=imgs, slice=0)
             
-        mip = ut.mip(imgs=imgs, **mip_kws)
+        mip = imagep._plottools.imageplots.mip(imgs=imgs, **mip_kws)
         plt.show()
         return mip
 

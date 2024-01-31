@@ -24,8 +24,8 @@ import skimage as ski
 
 
 # > Local
-from imagep.preprocess.preprocess import PreProcess
-from imagep.segment.segment import Segment
+from imagep.processing.preprocess import PreProcess
+from imagep.segmentation.segment import Segment
 
 # %%
 

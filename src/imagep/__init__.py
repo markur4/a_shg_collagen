@@ -1,9 +1,11 @@
 #
 ### Flatten Module Access
-from .preprocess.preprocess import PreProcess, CACHE_PREPROCESS
-from .segment.segment import Segment  # , Annotate
-from .visualise.zstack import ZStack
-from .analyse.diameter import FibreDiameter
+from .processing.preprocess import PreProcess, CACHE_PREPROCESS
+from .segmentation.segment import Segment  # , Annotate
+from .visualisation.zstack import ZStack
+from .pipelines.diameter import FibreDiameter
 
-### Execute rc
-from . import rc
+from ._plottools import imageplots
+
+### Execute runtime configuration
+from . import _rc

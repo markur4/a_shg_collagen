@@ -1,4 +1,7 @@
-#
+"""Tools for manual annotation of pixel classes into image, or simply
+put: generate training data with paint-like marking of interesting
+regions
+"""
 #%%
 import os
 import numpy as np

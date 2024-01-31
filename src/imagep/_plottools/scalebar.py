@@ -2,15 +2,9 @@
 # %%
 import numpy as np
 
-import matplotlib.pyplot as plt
-
 from PIL import Image, ImageDraw, ImageFont
 
 # %%
-
-### Location of scalebar
-PAD_X = 0.05  # > Distance from bottom right corner in % of image size
-PAD_Y = 0.05  # > Distance from bottom right corner in % of image size
 
 
 def burn_scalebar_to_img(
