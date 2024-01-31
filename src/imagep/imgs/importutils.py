@@ -9,23 +9,21 @@ import skimage as ski
 
 # %%
 # == Default Image Types ===============================================
-DEFAULT_IMG_TYPE = np.float32
+DEFAULT_DTYPE = np.float32
 
 # %%
 # == Import from txt ===================================================
 
 
-def from_txt(
-    path: str, skiprows: int = None, type=DEFAULT_IMG_TYPE
-) -> np.ndarray:
+def from_txt(path: str, skiprows: int = None, type=DEFAULT_DTYPE) -> np.ndarray:
     """Import from a txt file."""
-    
+
     if not skiprows is None:
         return np.loadtxt(path, skiprows=skiprows).astype(type)
 
     ### Skip rows until image is succesfully imported
     else:
-        for i in range(3): # > maximum 3 rows to skip
+        for i in range(3):  # > maximum 3 rows to skip
             try:
                 return np.loadtxt(path, skiprows=i).astype(type)
             except:

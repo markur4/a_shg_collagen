@@ -5,6 +5,9 @@ from pprint import pprint
 
 from collections import OrderedDict
 
+# > Processpool for CPU-bound tasks, ThreadPool for IO-bound tasks
+from concurrent.futures import ProcessPoolExecutor
+from itertools import repeat
 
 import numpy as np
 from pathlib import Path
@@ -18,12 +21,14 @@ import skimage as ski
 # > Local
 from imagep.imgs.imgs import Imgs
 import imagep.utils.utils as ut
-# import imagep.utils.scalebar as scalebar
+from imagep.utils.transforms import Transform
 from imagep.utils.subcache import SubCache
 
 
 # %%
 # == Cache ===========================================================
+
+### Location
 location = os.path.join(os.path.expanduser("~"), ".cache")
 
 ### Subcache
@@ -32,6 +37,7 @@ CACHE_PREPROCESS = SubCache(
     subcache_dir="preprocess",
     verbose=True,
     compress=9,
+    bytes_limit="3G",  # > 3GB of cache, keeps only the most recent files
 )
 
 
@@ -47,7 +53,7 @@ class PreProcess(Imgs):
         normalize=True,
         subtract_bg: bool = False,
         subtract_bg_kws: dict = dict(method="triangle", sigma=1.5),
-        # scalebar_microns: bool | int = False,
+        remove_empty_slices: bool = True,
         cache_preprocessing=True,
         **imgs_kws,
     ) -> None:
@@ -60,29 +66,47 @@ class PreProcess(Imgs):
         """
         super().__init__(*imgs_args, **imgs_kws)
 
+        ### Check Arguments
+        ut.check_arguments(subtract_bg_kws, ["method", "sigma"])
+
         ### Collect all preprocessing kws
         self.kws_preprocess = {
             "denoise": denoise,
             "normalize": normalize,
             "subtract_bg": subtract_bg,
             "subtract_bg_kws": subtract_bg_kws,
-            # "scalebar_microns": scalebar_microns,
+            "remove_empty_slices": remove_empty_slices,
         }
 
         ### Document History of processing steps
         self.history: OrderedDict = self._init_history(**self.kws_preprocess)
+        # > List of preprocessing steps
+        self._pp_steps = list(self.history.keys())[1:]
 
         ### Execute !
-        if self.verbose:
-            print(f"=> Pre-processing: {list(self.history.keys())[1:]} ...")
+        self.imgs = self.preprocess(cache_preprocessing=cache_preprocessing)
+
+    #
+    # == Preprocess ====================================================
+
+    def preprocess(self, cache_preprocessing=True):
+        ### Print Preprocessing Steps
+        if self.verbose and len(self._pp_steps) > 0:
+            print(f"=> Pre-processing: {self._pp_steps} ...")
+
+        ### Execute
         if cache_preprocessing:
             if self.verbose:
                 print("\tChecking Cache...")
-            self.imgs = self._preprocess_cached(**self.kws_preprocess)
+            _imgs = self._preprocess_cached(**self.kws_preprocess)
         else:
-            self.imgs = self._preprocess(**self.kws_preprocess)
-        if self.verbose:
+            _imgs = self._preprocess(**self.kws_preprocess)
+
+        ### Done
+        if self.verbose and len(self._pp_steps) > 0:
             print("   Pre-processing Done")
+
+        return _imgs
 
     def _preprocess_cached(self, **preprocess_kws):
         """Preprocess the z-stack"""
@@ -92,6 +116,11 @@ class PreProcess(Imgs):
     def _preprocess(self, **preprocess_kws):
         """Preprocess the z-stack"""
         return _preprocess_main(self, **preprocess_kws)
+
+    # == Access to transform methods ===================================
+    @property
+    def transform(self):
+        return Transform(imgs=self.imgs, verbose=self.verbose)
 
     #
     # === HISTORY ====================================================
@@ -108,21 +137,25 @@ class PreProcess(Imgs):
 
         if preprocess_kws["subtract_bg"]:
             kws = preprocess_kws.get("subtract_bg_kws", dict())
-            OD[
-                "BG Subtraction"
-            ] = f"Calculated threshold (method = {kws['method']}) of blurred images (gaussian filter, sigma = {kws['sigma']}). Subtracted threshold from images and set negative values set to 0"
+            OD["BG Subtraction"] = (
+                f"Calculated threshold (method = {kws['method']}) of"
+                f" blurred images (gaussian filter, sigma = {kws['sigma']})."
+                " Subtracted threshold from images and set negative"
+                " values to 0"
+            )
 
         if preprocess_kws["normalize"]:
             OD[
                 "Normalization"
             ] = "Division by max value of every image in folder"
 
-        # if not isinstance(
-        #     preprocess_kws["scalebar_microns"], (type(False), type(None))
-        # ):
-        #     OD[
-        #         "Scalebar"
-        #     ] = f"Added scalebar of {preprocess_kws['scalebar_micronsr']} µm"
+        if preprocess_kws["remove_empty_slices"]:
+            OD["Empty Removal"] = (
+                "Removed empty slices from stack. An entropy filter was"
+                " applied to images. Images were removed if the 99th" 
+                " percentile of entropy was lower than"
+                " than 10% of max entropy found in all images"
+            )
 
         return OD
 
@@ -139,55 +172,59 @@ class PreProcess(Imgs):
     # == __repr__ ======================================================
 
     @staticmethod
-    def _adj(s: str) -> str:
-        J = 15
-        return str(s + ": ").ljust(J).rjust(J + 2)
-
-    @staticmethod
-    def _info_brightness(S: np.ndarray) -> list:
+    def _info_brightness(imgs: np.ndarray) -> list:
         """Returns info about brightness for a Stack"""
-        adj = PreProcess._adj
+        ### Formatting functions
+        just = lambda s: ut.justify_str(s, justify=ut._JUSTIFY)
+        form = lambda num: ut.format_num(num, exponent=ut._EXPONENT)
+
+        ### Ignore background (0)
+        # > or it'll skew statistics when bg is subtracted
+        imgs_bg = imgs[imgs > 0.0]
 
         return [
-            adj("min, max") + f"{S.min():.1e}, {S.max():.1e}",
-            adj("mean ± std") + f"{S.mean():.1e} ± {S.std():.1e}",
-            adj("median (IQR)")
-            + f"{np.median(S):.1e} ({np.quantile(S, .25):.1e} - {np.quantile(S, .75):.1e})",
+            just("min (BG)") + f"{form(imgs.min())}",
+            just("min, max (Signal)")
+            + f"{form(imgs_bg.min())}, {form(imgs_bg.max())}",
+            just("mean ± std")
+            + f"{form(imgs_bg.mean())} ± {form(imgs_bg.std())}",
+            just("median [IQR]")
+            + f"{form(np.median(imgs_bg))} [{form(np.quantile(imgs_bg, .25))}"
+            + f"- {form(np.quantile(imgs_bg, .75))}]",
         ]
 
     @property
     def _info(self) -> str:
         """String representation of the object for __repr__"""
-        ### Shorten variables
-        adj = self._adj
-        S = self.imgs
+        ### Formatting functions
+        just = lambda s: ut.justify_str(s, justify=ut._JUSTIFY)
+        form = lambda num: ut.format_num(num, exponent=ut._EXPONENT)
+
+        imgs = self.imgs
 
         ### Check if background was subtracted
         bg_subtracted = str(self.kws_preprocess["subtract_bg"])
-
-        # > Ignore background (0), or it'll skew statistics when bg is subtracted
-        S_BG = S[S > 0.0]
 
         ### Fill info
         ID = OrderedDict()
 
         ID["Data"] = [
             "=== Data ===",
-            adj("folder") + str(self.path.name),
-            adj("dtype") + str(S.dtype),
-            adj("shape") + str(S.shape),
-            adj("images") + str(S.shape[0]),
+            just("folder") + str(self.path_short),
+            just("dtype") + str(imgs.dtype),
+            just("shape") + str(imgs.shape),
+            just("images") + str(len(imgs)),
+        ]
+        ID["Size"] = [
+            "=== Size [µm] ===",
+            just("pixel size xy") + f"{form(self.pixel_size)}",
+            just("width, height (x,y)")
+            + f"{form(self.x_µm)}, {form(self.y_µm)}",
         ]
         ID["Brightness"] = [
             "=== Brightness ===",
-            adj("BG subtracted") + bg_subtracted,
-        ] + self._info_brightness(S_BG)
-
-        ID["Distance"] = [
-            "=== Distances [µm] ===",
-            adj("pixel size xy") + f"{self.pixel_size:.2f}",
-            adj("x, y") + f"{self.x_µm:.2f}, {self.y_µm:.2f}",
-        ]
+            just("BG subtracted") + bg_subtracted,
+        ] + self._info_brightness(self.imgs)
 
         ID["History"] = [
             "=== Processing History ===",
@@ -222,41 +259,10 @@ class PreProcess(Imgs):
     #
     # == Normalize =====================================================
 
-    def normalize(self) -> np.ndarray:
-        """Normalize the z-stack"""
-        return self.imgs / self.imgs.max()
-
-    #
-    # == Transforms ====================================================
-
     @staticmethod
-    def denoise(imgs: np.ndarray) -> np.ndarray:
-        ### List comprehensions are faster
-        sigmas = [np.mean(ski.restoration.estimate_sigma(img)) for img in imgs]
-        stack_denoised = [
-            ski.restoration.denoise_nl_means(
-                img,
-                h=0.8 * sigma,
-                sigma=sigma,
-                patch_size=5,  # 5x5 patches
-                patch_distance=6,  # 13x13 search area
-                fast_mode=True,
-            )
-            for img, sigma in zip(imgs, sigmas)
-        ]
-
-        return np.array(stack_denoised)
-
-    def blur(self, sigma: float = 1, normalize=True) -> np.ndarray:
-        """Blur image using a thresholding method"""
-
-        imgs = ski.filters.gaussian(self.imgs, sigma=sigma)
-
-        ### The max value is not 1 anymore
-        if normalize:
-            imgs = imgs / imgs.max()
-
-        return imgs
+    def normalize(imgs: np.ndarray) -> np.ndarray:
+        """Normalize the images by its max value"""
+        return imgs / imgs.max()
 
     #
     # == BG Subtract ===================================================
@@ -327,44 +333,74 @@ class PreProcess(Imgs):
             bg = PreProcess.get_background(imgs, method=method, sigma=sigma)
             return PreProcess.subtract(imgs, value=bg)
 
+    #
+    # == Z-Stack optimizations ============================================
+    def remove_empty_slices(
+        self, imgs: np.ndarray = None, threshold=0.10
+    ) -> np.ndarray:
+        """Empty images are those with a standard deviation lower than
+        threshold (1%) of max standard deviation"""
+        
+        if self.verbose:
+            print("=> Removing empty slices ...")
+        
+        ### Use self.imgs if imgs is None
+        imgs = self.imgs if imgs is None else imgs
+
+        ### Perform entropy filtering
+        _imgs = self.transform.entropy(imgs=imgs)
+
+        ### Get 99th percentiles for each image
+        percentiles = np.percentile(_imgs, 99, axis=(1, 2))
+
+        ### Show
+        if self.DEBUG:
+            self.imshow(imgs=imgs, slice=3)  # original
+            self.imshow(imgs=_imgs, slice=3)  # filtered
+            plt.plot(percentiles / percentiles.max(), label="99percentiles")
+            plt.axhline(threshold, color="red", label="threshold")
+            plt.legend()
+        
+        ### Take only those slices where 99th percentile is above threshold
+        imgs = imgs[percentiles > threshold]
+        
+        return imgs
+
+
 
 #
-# !!
+# !! ===================================================================
+
+
 # == preprocess_main ===================================================
 def _preprocess_main(
     preprocess_object: PreProcess,
+    parallel=True,
     **preprocess_kws,
 ) -> np.ndarray:
     self = preprocess_object
 
+    _imgs = self.imgs.copy()
+
     ### Denoise
-    if self.verbose:
-        print("\tDenoising...")
     if preprocess_kws["denoise"]:
-        self.imgs = self.denoise(self.imgs)
+        _imgs = self.transform.denoise(parallel=parallel)
 
     ### Subtract Background
     if preprocess_kws["subtract_bg"]:
-        kws = preprocess_kws.get("subtract_bg_kws", dict())
-        ut.check_arguments(kws, ["method", "sigma"])
-
-        # > Subtract
-        self.imgs = self.subtract_background(
-            self.imgs,
+        _imgs = self.subtract_background(
+            imgs=_imgs,
             **preprocess_kws["subtract_bg_kws"],
         )
 
     ### Normalize
     if preprocess_kws["normalize"]:
-        self.imgs = self.normalize()
+        _imgs = self.normalize(imgs=_imgs)
 
-    # ### Add Scalebar
-    # # > If scalebar_µm is not None
-    # if not preprocess_kws["scalebar_micrometer"] in [0, False, None]:
-    #     self.imgs = self.add_scalebar(
-    #         Indexes=[0], µm=preprocess_kws["scalebar_micrometer"]
-    #     )
-    return self.imgs
+    if preprocess_kws["remove_empty_slices"]:
+        _imgs = self.remove_empty_slices(imgs=_imgs)
+
+    return _imgs
 
 
 # %%
@@ -389,8 +425,10 @@ if __name__ == "__main__":
     # )
     Z = PreProcess(
         path=path,
+        denoise=True,
         subtract_bg=False,
         scalebar_microns=50,
+        # cache_preprocessing=False,
         **kws,
     )
     Z.imgs.shape
@@ -402,24 +440,13 @@ if __name__ == "__main__":
     Z.info
 
     # %%
-    CACHE_PREPROCESS.list_objects()
+    # CACHE_PREPROCESS.list_objects()
 
     # %%
     Z.history
 
     # %%
     Z.kws_preprocess
-
-    # %%
-    Z.kws_preprocess["scalebar_micrometer"]
-
-    # %%
-    bool(Z.kws_preprocess.get("scalebar_micrometer"))
-
-    # %%
-    isinstance(
-        Z.kws_preprocess["scalebar_micrometer"], (type(False), type(None))
-    )
 
     # %%
     ### Check __repr__

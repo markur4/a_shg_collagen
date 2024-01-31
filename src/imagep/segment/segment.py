@@ -223,7 +223,7 @@ class Segment(PreProcess):
     
     def plot_masked_by_segmentation(self, I=0, alpha=0.4):
         """Plot an image masked by segmentation"""
-        img = self._imgs_use[I]
+        img = self.imgs_use[I]
         seg = self.segmented[I]
 
         # > Mask
@@ -252,6 +252,9 @@ if __name__ == "__main__":
     )
     # %%
     Z.info
+
+    #%%
+    Z.mip()
 
     # %%
     I = 0

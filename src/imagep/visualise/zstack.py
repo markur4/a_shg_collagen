@@ -23,6 +23,7 @@ class ZStack(PreProcess):
         self,
         z_dist,
         scalebar: bool = True,
+        remove_empty_slices: bool = True,
         *imgs_args,
         **preprocess_kws,
     ):
@@ -40,9 +41,10 @@ class ZStack(PreProcess):
         super().__init__(*imgs_args, **preprocess_kws)
 
         ### Burn Scalebar into the first image:
+        # > This is very awesome for volume rendering!
         self.scalebar = scalebar
         if scalebar:
-            self.burn_scalebar(all=False, indexes=[0])
+            self.imgs = self.burn_scalebar(imgs=self.imgs, slice=[0])
 
         ### Z-distance
         self.z_dist = z_dist
@@ -50,7 +52,11 @@ class ZStack(PreProcess):
         self.spacing = (self.x_µm, self.y_µm)
 
         ### Fill z
-        self.stack_zfilled = self.fill_z()
+        self.imgs_zfilled = self.fill_z()
+
+        ### Remove empty slices
+        if remove_empty_slices:
+            self.imgs_zfilled = self.remove_empty_slices(self.imgs_zfilled)
 
     # ==================================================================
     # == Utils =========================================================
@@ -101,26 +107,11 @@ class ZStack(PreProcess):
         #!! Overrides PreProcess.mip(), so that correct z-axis dimension
         #!! is used
 
-        # ### We need an img to add micronlength, but don't duplicate
-        # return_array: bool = mip_kws.pop("return_array", False)
-
-        # ### Mip
-        # mip = ut.mip(self.stack_zfilled, return_array=True, **mip_kws)
-
-        # ### Annotate length of scalebar in µm
-        # if self.scalebar and mip_kws.get("axis", 0) == 0:
-        #     pass
-        #     # self.annot_micronlength_into_plot(img=mip)
-
-        # ### Return if initially requested (was popped out of mip_kws)
-        # if return_array:
-        #     return mip
-        
-        return ut.mip(self.stack_zfilled, **mip_kws)
+        return ut.mip(imgs=self.imgs_zfilled, **mip_kws)
 
     @property
     def stack_vtk(self):
-        stack = self.stack_zfilled
+        stack = self.imgs_zfilled
 
         ### Transpose the numpy array to match PyVista's x, y, z convention
         stack = np.transpose(stack, axes=[2, 1, 0])
@@ -152,10 +143,10 @@ class ZStack(PreProcess):
     ) -> pv.Plotter:
         """Makes a Plotter object with the volume added"""
         ### Plot
-        pl = pv.Plotter()
+        volplot = pv.Plotter()
 
         ### Add volume
-        pl.add_volume(
+        volplot.add_volume(
             self.stack_pyvista,
             cmap=cmap,
             # opacity="sigmoid",
@@ -164,15 +155,15 @@ class ZStack(PreProcess):
 
         ### Edits
         # > Bounding Box
-        pl.add_bounding_box(color="#00000050")  # > transparent black
+        volplot.add_bounding_box(color="#00000050")  # > transparent black
         # > Camera Position
-        pl.camera.roll = 180
+        volplot.camera.roll = 180
 
         ### Return
         if show:
-            pl.show()
+            volplot.show()
         if ret:
-            return pl
+            return volplot
 
     def makegif_rotate(
         self,
@@ -180,74 +171,86 @@ class ZStack(PreProcess):
         angle_per_frame=1,
     ):
         ### Initialize plotter
-        pl = self.plot_volume(show=False, ret=True)
+        if self.verbose:
+            print("=> Initializing plotter ...")
+        volplot = self.plot_volume(show=False, ret=True)
 
-        ### Set initial camera position
-        pl.camera_position = "xy"
-        pl.camera.roll = 180
+        # > Set initial camera position
+        volplot.camera_position = "xy"
+        volplot.camera.roll = 180
         # pl.camera.roll = 45
 
-        ### Adjust clipping range
+        # > Adjust clipping range
         # pl.camera.clipping_range = self.stack.shape[1:2]
-        pl.camera.clipping_range = (1000, 5000)
+        volplot.camera.clipping_range = (1000, 5000)
 
-        ### Open gif
+        ### Write Animation
+        if self.verbose:
+            print(f"=> Writing {self.imgs_zfilled.shape}, '{fname}' ...")
+
+        # > Open GIF
         if not fname.endswith(".gif"):
             fname += ".gif"
-        pl.open_gif(fname)
+        volplot.open_gif(fname)
 
-        ### Rotate & Write
-        for angle in range(0, 360, angle_per_frame):
+        self.rotate_and_write(
+            volplot,
+            start=0,
+            stop=360,
+            angle_per_frame=angle_per_frame,
+            # parallel=True,
+        )
+
+        volplot.close()
+
+    @staticmethod
+    def rotate_and_write(
+        volplot: pv.Plotter,
+        start: int = 0,
+        stop: int = 360,
+        angle_per_frame: int = 3,
+    ):
+        # > Rotate & Write
+        for angle in range(start, stop, angle_per_frame):
             ### adjust zoom to keep object in frame
 
-            pl.camera.azimuth = angle
-            pl.render()
-            pl.write_frame()
+            volplot.camera.azimuth = angle
+            volplot.render()
+            volplot.write_frame()
 
-        pl.close()
 
+# !! ===================================================================
 
 if __name__ == "__main__":
     pass
     # %%
     ### Import from a txt file.
     # > Rough
-    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
+    path_rough = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
     kws = dict(
         z_dist=10 * 0.250,  # stepsize * 0.250 µm
         x_µm=1.5 * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
     )
-
-    # %%
-    Z = ZStack(
-        path=path,
-        denoise=False,
-        subtract_bg=True,
-        **kws,
-    )
-    Z
-
-    # %%
-    Z.mip(axis=0)
-    Z.mip(axis=1)
-    Z.mip(axis=2)
-
-    # %%
-    ### make gif with denoised!
-    Z2 = ZStack(
-        path=path,
+    Z_r = ZStack(
+        path=path_rough,
         denoise=True,
         subtract_bg=True,
+        remove_empty_slices=True,
         **kws,
     )
-    Z2
     # %%
-    Z2.mip()
+    Z_r.mip(axis=0)
+    Z_r.mip(axis=1)
+    Z_r.mip(axis=2)
+    # %%
+    ### make gif of rough
+    Z_r.info
+    # %%
+    Z_r.mip()
     # %%
     # Z2.plot_volume()
-
     # %%
-    Z2.makegif_rotate(fname="rotate_rough_scalebar=10", angle_per_frame=3)
+    Z_r.makegif_rotate(fname="rotate_rough_scalebar=10", angle_per_frame=3)
 
     # %%
     ### make gif for detailed!
@@ -262,6 +265,7 @@ if __name__ == "__main__":
         path=path_detailed,
         denoise=True,
         subtract_bg=True,
+        remove_empty_slices=True,
         **kws_detailed,
     )
     Z_d

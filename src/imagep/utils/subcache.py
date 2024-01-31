@@ -31,10 +31,22 @@ class SubCache(Memory):
         self,
         subcache_dir: str,
         assert_parent: str = None,
+        bytes_limit: int|str = "3G", #> 3GB
+        compress: int = 9,
         *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        ### Handle Kwargs from joblib.Memory
+        KWS = dict(
+            compress=compress,
+        )
+        KWS.update(kwargs)
+        
+        ### Inherit from joblib.Memory
+        super().__init__(*args, **KWS)
+        
+        ### Set maximum size of cache, keeps most recent files
+        self.reduce_size(bytes_limit)
 
         ### Subfolder of location, overrides default subfolder by joblib
         self.subcache_dir = subcache_dir

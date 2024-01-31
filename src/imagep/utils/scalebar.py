@@ -17,7 +17,7 @@ def burn_scalebar_to_img(
     img: np.ndarray = None,
     pixel_size: float = None,
     microns: int = 10,
-    thickness: int = 3,
+    thickness_px: int = 20,  # > In pixels
     xy_pad: tuple[float] = (0.05, 0.05),
     bar_color: int | float = None,
     frame_color: int | float = None,
@@ -46,7 +46,7 @@ def burn_scalebar_to_img(
 
     ### Convert µm to pixels
     len_px = int(round(microns / pixel_size))
-    thickness_px = int(round(thickness / pixel_size))
+    # thickness_px = int(round(thickness / pixel_size))
 
     ### Define Scalebar as an array
     # > Color is derived from img colormap
@@ -73,26 +73,27 @@ def burn_scalebar_to_img(
 
 def burn_micronlength_to_img(
     img: np.ndarray,
-    pixel_size: float,
     microns: int = 10,
-    thickness=3,
+    thickness_px=3,
     xy_pad: tuple[float] = (0.05, 0.05),
-    color="white",
+    color: str | tuple[int] = None,
 ) -> np.ndarray:
     ### Convert into pil image
     dtype = img.dtype  # > Remember dtype
-    img = Image.fromarray((img * 255).astype(np.uint8))
+    # img = Image.fromarray((img * 255).astype(np.uint32))
+    img = Image.fromarray(img, mode="F")  # > mode ="F" means float32
 
     ### Define Text
     text = f"{microns} µm"
+    color = img.getextrema()[1] if color is None else color
 
     ### Define padding from bottom right corner
     pad_x = int(img.size[0] * xy_pad[0])
     pad_y = int(img.size[1] * xy_pad[1])
 
-    ### Define position of text
-    x = img.size[0] - pad_x - thickness / pixel_size * 2
-    y = img.size[1] - pad_y - thickness / pixel_size
+    ### Define position of text (in pixels)
+    x = img.size[0] - pad_x - thickness_px * 2
+    y = img.size[1] - pad_y - thickness_px
 
     ### Add text to image
     font = ImageFont.truetype("Arial Narrow.ttf", size=img.size[0] / 20)
@@ -104,11 +105,12 @@ def burn_micronlength_to_img(
         text,
         fill=color,
         font=font,
-        anchor="mb", # > mb = middle bottom, ms = middle baseline
+        anchor="mb",  # > mb = middle bottom, ms = middle baseline
     )
 
     ### Convert back to numpy array
-    img = np.array(img, dtype=dtype) / 255
+    # img = np.array(img, dtype=dtype) / 255
+    img = np.array(img, dtype=dtype)
     return img
 
 
