@@ -6,6 +6,11 @@
 - 
 """
 # %%
+
+from typing import Self
+
+import copy
+
 from pathlib import Path
 import numpy as np
 
@@ -14,9 +19,10 @@ import seaborn as sns
 
 # > Local
 import imagep._imgs.import_imgs as import_imgs
-import imagep._plottools.scalebar as scalebar
-import imagep._plottools.imageplots
+import imagep._plottools.scalebar as scaleb
+import imagep._plottools.imageplots as imageplots
 import imagep._utils.utils as ut
+
 
 # from imagep.utils.transforms import Transform
 
@@ -24,18 +30,19 @@ import imagep._utils.utils as ut
 # == Class ImgsImport =====================================================
 class ImgsImport:
     """Class for handling Imports of raw image data"""
+
     DEBUG = False
-    
+
     def __init__(
         self,
         path: str | Path = None,
         array: np.ndarray = None,
         verbose: bool = True,
-
     ) -> None:
         ### Make sure that either path or array is given
         self.verbose = verbose
 
+        ### Import images from path or array
         if path is not None and array is not None:
             raise ValueError("Either path or array must be given, not both.")
         elif path is not None:
@@ -48,6 +55,11 @@ class ImgsImport:
             self.imgs = array.astype(import_imgs.DEFAULT_DTYPE)
         else:
             raise ValueError("Either path or array must be given.")
+        
+        ### Remember if this object has been sliced
+        self._slice:bool | str = False
+        self._num_imgs: int = self.imgs.shape[0]
+        self._slice_indices: list[int] = list(range(self._num_imgs))
 
     # == Path ====================================================
 
@@ -66,8 +78,38 @@ class ImgsImport:
     def __iter__(self):
         return iter(self.imgs)
 
-    def __getitem__(self, val: slice) -> np.ndarray:
-        return self.imgs[val]
+    def __getitem__(self, val: slice) -> Self | "Imgs":
+        # > Create a copy of this instance
+        _self = copy.deepcopy(self)
+        # > Assign the sliced imgs to the new instance
+        # indices = ut.indices_from_slice(slice=val, n_imgs=self.imgs.shape[0])
+        
+        ### Slice while preserving dimension information
+        # > Z[0]
+        if isinstance(val, int):
+            _self.imgs = self.imgs[[val], ...]
+            indices = [val]
+        # > Z[1:3]
+        elif isinstance(val, slice):
+            _self.imgs = self.imgs[val, ...]
+            indices = range(*val.indices(self._num_imgs))
+        # > Z[1,2,5] 
+        elif isinstance(val, tuple):
+            _self.imgs = self.imgs[list(val), ...]
+            indices = val
+        # > or Z[[1,2,5]] pick multiple images
+        elif isinstance(val, list):
+            _self.imgs = self.imgs[val, ...]
+            indices = val
+            
+            
+        print("sliced", _self.imgs.shape)
+        
+        ### Remember how this object was sliced
+        _self._slice = str(val)
+        _self._slice_indices = indices
+        
+        return _self
 
     #
     # == Import Images =================================================
@@ -197,54 +239,46 @@ class Imgs(ImgsImport):
     #
     # == Scalebar ======================================================
 
-    def burn_scalebar(
+    def burn_scalebars(
         self,
-        imgs: np.ndarray = None,
-        slice: str | int | list[int] | tuple[int] = "all",
+        # slice: str | int | list[int] | tuple[int] = "all",
         xy_pad: tuple[float] = (0.05, 0.05),
         thickness_px: int = 20,
         text_color: tuple[int] | str = None,
+        inplace: bool = False,
     ) -> np.ndarray:
         """Burns scalebar to images in stack. By default, adds only to
         the first image, but can be changed with indexes.
         :param imgs: Images to burn scalebar to, defaults to None
         :type imgs: np.ndarray, optional
-        :param img_slice: Part of images to burn scalebar to. Options
+        :param slice: Part of images to burn scalebar to. Options
         are `"all"`, `int`, `list[int]` or `tuple(start,stop,step)`,
         defaults to "all"
-        :type img_slice: str | int | tuple[int], optional
+        :type slice: str | int | tuple[int], optional
         :param xy_pad: Distance of scalebar from bottom left corner in
         percent of image width and height, defaults to (0.05, 0.05)
         :type xy_pad: tuple[float], optional
         :param thickness: Thickness of scalebar in pixels, defaults to
         3
         :type thickness: int, optional
-        :param text_color: Color of text, defaults to "white"
-        :type text_color: str, optional
+        :param text_color: Color of text. Either a string ("white") or a
+        tuple of greyscale/RGB values, e.g. (255)/(255,255,255). If None, will use the
+        brightest pixel of the image, defaults to None
+        :type text_color: str | tuple[int], optional
         """
-        ## Take imgs from self if not given
-        imgs = self.imgs if imgs is None else imgs
+        imgs = self.imgs if inplace else self.imgs.copy()
 
-        ### If all, burn to all images
-        indices = ut.indices_from_slice(slice=slice, n_imgs=imgs.shape[0])
-
-        for i in indices:
-            imgs[i] = scalebar.burn_scalebar_to_img(
-                img=imgs[i],
-                microns=self.scalebar_microns,
-                pixel_size=self.pixel_size,
-                thickness_px=thickness_px,
-                xy_pad=xy_pad,
-                bar_color=imgs.max(),
-                frame_color=imgs.max() * 0.9,
-            )
-            imgs[i] = scalebar.burn_micronlength_to_img(
-                img=imgs[i],
-                microns=self.scalebar_microns,
-                thickness_px=thickness_px,
-                xy_pad=xy_pad,
-                color=text_color,
-            )
+        imgs = scaleb.burn_scalebars(
+            imgs=imgs,
+            # slice=slice,
+            microns=self.scalebar_microns,
+            pixel_size=self.pixel_size,
+            thickness_px=thickness_px,
+            xy_pad=xy_pad,
+            bar_color=imgs.max(),
+            frame_color=imgs.max() * 0.9,
+            text_color=text_color,
+        )
         return imgs
 
     #
@@ -252,144 +286,83 @@ class Imgs(ImgsImport):
 
     def imshow(
         self,
-        imgs: np.ndarray = None,
-        slice: str | int | list[int] | tuple[int] = 0,
+        # slice: str | int | list[int] | tuple[int] = "all",
         cmap: str = "gist_ncar",
-        max_cols: int = 1,
+        max_cols: int = 2,
         scalebar=True,
+        scalebar_kws: dict = dict(),
         colorbar=True,
+        fname: bool | str = False,
         **imshow_kws,
     ) -> None:
         """Show the images"""
 
-        ###
-        form = lambda num: ut.format_num(num, exponent=ut._EXPONENT)
+        ### Make copy to ensure
+        _imgs = self.imgs.copy()
 
-        ### Take imgs from self if not given
-        imgs = self.imgs.copy() if imgs is None else imgs
-
-        ### Scalebar
-        if scalebar:
-            imgs = self.burn_scalebar(imgs=imgs, slice=slice)
-
-        ### Retrieve images
-        indices = ut.indices_from_slice(slice=slice, n_imgs=imgs.shape[0])
-        imgs = imgs[indices]
+        ### Update KWS
+        scalebar_KWS = dict(
+            microns=self.scalebar_microns,
+            pixel_size=self.pixel_size,
+        )
+        scalebar_KWS.update(scalebar_kws)
 
         ### Update kwargs
         KWS = dict(
+            imgs=_imgs,
+            # slice=slice,
+            max_cols=max_cols,
             cmap=cmap,
+            scalebar=scalebar,
+            scalebar_kws=scalebar_KWS,
+            colorbar=colorbar,
         )
         KWS.update(imshow_kws)
 
-        ### Number of rows and columns
-        # > Columns is 1, but maximum max_cols
-        # > Fill rows with rest of images
-        n_cols = 1 if len(indices) == 1 else max_cols
-        n_rows = int(np.ceil(len(indices) / n_cols))
+        ### MAKE IMAGE
+        fig, axes = imageplots.imshow(**KWS)
 
-        ### Plot
-        ### Temporarily set font color to white and background to black
-        fig, axes = plt.subplots(
-            ncols=n_cols,
-            nrows=n_rows,
-            figsize=(n_cols * 5, n_rows * 5),
-            squeeze=False,
-        )
-        ### Fillaxes
+        ### Add Ax titles
         for i, ax in enumerate(axes.flat):
-            if i >= len(indices):
-                ax.axis("off")
-                continue
-            # > Retrieve image
-            img: np.ndarray = imgs[i]
+            if i >= len(self.imgs):
+                break
+            #> get correct index if sliced
 
-            # > PLOT IMAGE
-            _im = ax.imshow(img, **KWS)
-            ax.axis("off")
-
-            # > Ax title
+            _i = self._slice_indices[i] if self._slice else i
+            
+            img = _imgs[i]  # > retrieve image
             axtit = (
-                f"#Image {indices[i]+1}/{len(self.imgs)} (i = {indices[i]})"
+                f"Image {i+1}/{len(self.imgs)} (i={_i}/{self._num_imgs-1})"
                 f"    {img.shape[0]}x{img.shape[1]}  {img.dtype}"
                 # f"\nmin={form(img.min())}  mean={form(img.mean())}  max={form(img.max())}"
             )
             ax.set_title(axtit, fontsize=10)
 
-            # > Colorbar
-            if colorbar:
-                cb = plt.colorbar(
-                    mappable=_im,
-                    ax=ax,
-                    fraction=0.04,  # > Size colorbar relative to ax
-                )
-                # > plot metrics onto colorbar
-                hl_kws = dict(xmin=0, xmax=10)
-                perc99 = np.percentile(img, 99)
-                perc75 = np.percentile(img, 75)
-                mean = img.mean()
-                cb.ax.hlines(
-                    perc99,
-                    label=f"99th percentile",
-                    colors="black",
-                    **hl_kws,
-                )
-                cb.ax.hlines(
-                    perc75,
-                    label=f"75th percentile",
-                    colors="grey",
-                    **hl_kws,
-                )
-                cb.ax.hlines(
-                    mean, label=f"mean", colors="white", **hl_kws
-                )
-                
-                # > add extra ticks
-                # ticks = list(cb.ax.get_yticks())
-                # cb.ax.set_yticks(ticks + [perc99, perc75, mean])
-
-        ### legend for colorbar lines
-        handles, labels = cb.ax.get_legend_handles_labels()
-        fig.legend(
-            # title="Colorbar",
-            loc="upper right",
-            bbox_to_anchor=(1, 1),
-            handles=handles,
-            labels=labels,
-            fontsize=10,
-            fancybox=False,
-            framealpha=0.2,
-        )
-
-        # ### Background color
-        fig.patch.set_facecolor("darkgrey")
-
         ### Fig title
-        tit = f"{self.path_short}\n{len(self.imgs)} images"
-        fig.suptitle(tit, ha="left", x=0.01, y=1.00, fontsize=12)
-
-        plt.tight_layout()
-        plt.show()
+        tit = f"{self.path_short}\n - {self._num_imgs} Total images"
+        if self._slice:
+            tit += f"; {len(_imgs)} sliced images: [{self._slice}]"
+        
+        ### get number of rows in axes
+        bbox_y = 1.05 if axes.shape[0] <= 2 else 1.01
+        fig.suptitle(tit, ha="left", x=0.01, y=bbox_y, fontsize=12)
 
     def mip(self, scalebar=True, **mip_kws) -> np.ndarray | None:
         ### Make copy in case of burning in scalebar
-        imgs = self.imgs.copy()
+        _imgs = self.imgs.copy()
         if scalebar:
             # > Put scalebar on first image only
-            imgs = self.burn_scalebar(imgs=imgs, slice=0)
-            
-        mip = imagep._plottools.imageplots.mip(imgs=imgs, **mip_kws)
+            _imgs[0] = self.burn_scalebars()[0]
+
+        mip = imageplots.mip(imgs=_imgs, **mip_kws)
         plt.show()
         return mip
 
-    @staticmethod
-    def plot_brightness_distribution(
-        imgs: np.ndarray, bins=75, log=True
-    ) -> None:
+    def plot_brightness_distribution(self, bins=75, log=True) -> None:
         """Plot the brightness distribution of the z-stack as
         histogram"""
 
-        plt.hist(imgs.flatten(), bins=bins, log=log)
+        plt.hist(self.imgs, bins=bins, log=log)
         plt.show()
 
 
@@ -404,21 +377,25 @@ if __name__ == "__main__":
 
 
 # %%
-def _test_imshow(Z):
+def _test_imshow_method(Z):
     kws = dict(
         max_cols=2,
         scalebar=True,
     )
 
-    Z.imshow(slice=0, **kws)
-    Z.imshow(slice=[1, 2], **kws)
-    Z.imshow(slice=[1, 2, 3], **kws)
-    Z.imshow(slice=(1, 10, 2), **kws)  # > start stop step
+    Z[0].imshow(**kws)
+    Z[0,3,5,19].imshow(**kws)
+    Z[1:3].imshow(**kws)
+    Z[0:10:3].imshow(**kws)
+    Z[0:10:2].imshow(**kws)
+    Z[[1,3,6,7,8,9,15]].imshow(**kws)
+    plt.show()  # >   show last one
 
     ### Check if scalebar is not burned it
-    plt.imshow(Z[0])
+    plt.imshow(Z.imgs[0])
+    plt.suptitle("no scalebar should be here")
     plt.show()
 
 
 if __name__ == "__main__":
-    _test_imshow(Z)
+    _test_imshow_method(Z)

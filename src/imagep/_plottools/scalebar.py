@@ -4,12 +4,48 @@ import numpy as np
 
 from PIL import Image, ImageDraw, ImageFont
 
+# > local imports
+import imagep._utils.utils as ut
+
+
 # %%
+def burn_scalebars(
+    imgs: np.ndarray,
+    pixel_size: float,
+    microns: int = 10,
+    thickness_px: int = 20,  # > In pixels
+    xy_pad: tuple[float] = (0.05, 0.05),
+    bar_color: int | float = None,
+    frame_color: int | float = None,
+    text_color: tuple[int] | str = None,
+    inplace = False,
+):
+
+    imgs = imgs if inplace else imgs.copy()
+
+    for i, img in enumerate(imgs):
+        imgs[i] = burn_scalebar_to_img(
+            img=img,
+            microns=microns,
+            pixel_size=pixel_size,
+            thickness_px=thickness_px,
+            xy_pad=xy_pad,
+            bar_color=bar_color,
+            frame_color=frame_color,
+        )
+        imgs[i] = burn_micronlength_to_img(
+            img=img,
+            microns=microns,
+            thickness_px=thickness_px,
+            xy_pad=xy_pad,
+            textcolor=text_color,
+        )
+    return imgs
 
 
 def burn_scalebar_to_img(
-    img: np.ndarray = None,
-    pixel_size: float = None,
+    img: np.ndarray,
+    pixel_size: float,
     microns: int = 10,
     thickness_px: int = 20,  # > In pixels
     xy_pad: tuple[float] = (0.05, 0.05),
@@ -68,9 +104,9 @@ def burn_scalebar_to_img(
 def burn_micronlength_to_img(
     img: np.ndarray,
     microns: int = 10,
-    thickness_px=3,
+    thickness_px: int = 3,
     xy_pad: tuple[float] = (0.05, 0.05),
-    color: str | tuple[int] = None,
+    textcolor: tuple[int] | str = None,
 ) -> np.ndarray:
     ### Convert into pil image
     dtype = img.dtype  # > Remember dtype
@@ -79,27 +115,31 @@ def burn_micronlength_to_img(
 
     ### Define Text
     text = f"{microns} µm"
-    color = img.getextrema()[1] if color is None else color
+    textcolor = img.getextrema()[1] if textcolor is None else textcolor
 
     ### Define padding from bottom right corner
     pad_x = int(img.size[0] * xy_pad[0])
     pad_y = int(img.size[1] * xy_pad[1])
 
     ### Define position of text (in pixels)
-    x = img.size[0] - pad_x - thickness_px * 2
+    x = img.size[0] - pad_x
     y = img.size[1] - pad_y - thickness_px
 
-    ### Add text to image
+    ### Define font
     font = ImageFont.truetype("Arial Narrow.ttf", size=img.size[0] / 20)
     # font = ImageFont.load("arial.pil")
+    ### Anchor
+    # > m = middle, r = right, l = left
+    anchor_x = "r"
+    # > s = baseline (lowest pixel), d = descender (lowest by font)
+    anchor_y = "d"
+
+    ### Add text to image
+    # > Initialize drawing
     pil_draw = ImageDraw.Draw(img)
     pil_draw.fontmode = "1"  # > "1" disables Anti-aliasing, "L" enables
     pil_draw.text(
-        (x, y),
-        text,
-        fill=color,
-        font=font,
-        anchor="mb",  # > mb = middle bottom, ms = middle baseline
+        (x, y), text, fill=textcolor, font=font, anchor=anchor_x + anchor_y
     )
 
     ### Convert back to numpy array
@@ -108,37 +148,3 @@ def burn_micronlength_to_img(
     return img
 
 
-# def annot_micronlength_into_plot(
-#     img: np.ndarray,
-#     pixel_size: float,
-#     microns: int = 10,
-#     thickness=3,
-#     xy_pad: tuple[float] = (0.05, 0.05),
-#     color="white",
-# ) -> np.ndarray:
-#     """Adds length of scalebar to image as text during plotting"""
-
-#     ### Define Text
-#     text = f"{microns} µm"
-#     # offsetbox = TextArea(text, minimumdescent=False)
-
-#     ### Define padding from bottom right corner
-#     pad_x = int(img.shape[1] * xy_pad[0])
-#     pad_y = int(img.shape[0] * xy_pad[1])
-
-#     ### Define position of text
-#     x = img.shape[1] - pad_x - thickness / pixel_size * 2
-#     y = img.shape[0] - pad_y - thickness / pixel_size
-
-#     coords = "data"  # > Use array coordinates
-#     plt.annotate(
-#         text,
-#         xy=(x, y),
-#         xycoords=coords,
-#         xytext=(x, y),
-#         textcoords=coords,
-#         ha="center",
-#         va="bottom",
-#         fontsize=10,
-#         color=color,
-#     )

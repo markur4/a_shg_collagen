@@ -15,6 +15,8 @@ mpl.rcParams["image.cmap"] = "gist_ncar"
 mpl.rcParams["figure.facecolor"] = "darkgrey"
 mpl.rcParams["savefig.facecolor"] = "None"
 
+mpl.rcParams["legend.fancybox"] = False
+
 ### Font
 mpl.rcParams["font.family"] = "sans-serif"
 mpl.rcParams["font.sans-serif"] = ["Arial Narrow"]

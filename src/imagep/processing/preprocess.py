@@ -468,7 +468,7 @@ if __name__ == "__main__":
     # HÄÄÄÄ
 
     # %%
-    Z.mip(axis=0, show=True, save="../mip")  # ' z-axis
+    Z.mip(axis=0, show=True)  # ' z-axis
     Z.mip(axis=1, show=True)  # ' x-axis
     Z.mip(axis=2, show=True)  # ' y-axis
     # %%

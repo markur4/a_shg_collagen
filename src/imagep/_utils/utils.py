@@ -41,8 +41,12 @@ if __name__ == "__main__":
 _EXPONENT = 2
 
 
-def format_num(number: int | float, exponent: int = 2) -> str:
+def format_num(number: int | float, position: int =0, exponent: int = 2) -> str:
     """Formats number to scientific notation if too small or too big
+    :param number: Number to format
+    :type number: int | float
+    :param position: Position of number in list, defaults to 0
+    :type position: int
     :param exp: Threshold exponent to switch to scientific notation if
         bigger/smaller than this, defaults to 2
     :type exp: int, optional
@@ -51,24 +55,24 @@ def format_num(number: int | float, exponent: int = 2) -> str:
     e = np.floor(np.log10(number))
 
     ### Get significant number of digits after decimal point
-    if isinstance(number, int):
+    if isinstance(number, (int, np.uint8, np.uint16, np.uint32, np.uint64)):
         sig = 0
     elif number < 0.1:
         sig = exponent + 1
-    elif 0.1 <= number < 5:
+    elif 0.1 <= number < 2:
         sig = 2
-    elif 5 <= number < 100:
+    elif 2 <= number < 10:
         sig = 1
     else:
-        sig = 1
+        sig = 0
 
     ### Format
     if e < -exponent or e > exponent:
-        return f"{number:.1e}"  # > scientific e.g. 1.5e+02
+        r = f"{number:.1e}"  # > scientific e.g. 1.5e+02
 
     else:
-        return f"{number:.{sig}f}"  # > fixed e.g. 150.0000
-
+        r = f"{number:.{sig}f}"  # > fixed e.g. 150.0000
+    return r
 
 def _test_format_num():
     print(format_num(1))  # > int
@@ -80,12 +84,15 @@ def _test_format_num():
     print(format_num(1234.1))
     print(format_num(1234.01))
     print(format_num(12345.1))
-    print(format_num(0.5))
-    print(format_num(0.1))
-    print(format_num(0.01))
-    print(format_num(0.001))
-    print(format_num(0.0001))
+    print(format_num(0.81001))
+    print(format_num(0.85001))
+    print(format_num(0.50001))
+    print(format_num(0.10001))
+    print(format_num(0.01001))
+    print(format_num(0.00101))
+    print(format_num(0.00011))
     print(format_num(0.00001))
+    print()
     print(format_num(0.01, exponent=_EXPONENT))
     print(format_num(1.2, exponent=_EXPONENT))
 
@@ -96,11 +103,11 @@ if __name__ == "__main__":
 # %%
 
 
-def check_arguments(kws: dict, required_keys: list):
+def check_arguments(kws: dict, required: list, kws_name="kws"):
     """Check if all required keys are present in kws"""
-    for k in required_keys:
+    for k in required:
         if not k in kws.keys():
-            raise KeyError(f"Missing argument '{k}' in kws: {kws}")
+            raise KeyError(f"Missing argument '{k}' in {kws_name}: {kws}")
 
 
 #
@@ -147,7 +154,6 @@ def _test_indices_from_slice(verbose=False):
 
 if __name__ == "__main__":
     _test_indices_from_slice()
-
 
 
 # == Performance ===================================================

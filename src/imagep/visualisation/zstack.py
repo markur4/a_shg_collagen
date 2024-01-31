@@ -44,7 +44,7 @@ class ZStack(PreProcess):
         # > This is very awesome for volume rendering!
         self.scalebar = scalebar
         if scalebar:
-            self.imgs = self.burn_scalebar(imgs=self.imgs, slice=[0])
+            self.imgs[0] = self.burn_scalebars()[0]
 
         ### Z-distance
         self.z_dist = z_dist
