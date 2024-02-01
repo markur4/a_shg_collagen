@@ -122,19 +122,22 @@ def _colorbar_to_ax(
 # %%
 # == imshow ============================================================
 def imshow(
-    imgs: np.ndarray = None,
+    imgs: np.ndarray,
     cmap: str = "gist_ncar",
     max_cols: int = 2,
-    scalebar: bool = True,
-    scalebar_kws: dict = None,
+    scalebar: bool = False,
+    scalebar_kws: dict = dict(),
     colorbar=True,
     fname: bool | str = False,
     **imshow_kws,
 ) -> tuple[plt.Figure, plt.Axes]:
     """Show the images"""
-
     ### Always make copy when showing
     _imgs = imgs.copy()
+
+    ### if single image, make it nested
+    if len(_imgs.shape) == 2:
+        _imgs = np.array([_imgs])
 
     ### Scalebar
     # !! Done before retrieving images, so
@@ -170,7 +173,7 @@ def imshow(
     )
 
     # > Calculate limits for pixel and colorbar
-    min_all, max_all = np.min(imgs), np.max(imgs)
+    min_all, max_all = np.min(_imgs), np.max(_imgs)
 
     ### Fillaxes
     for i, ax in enumerate(axes.flat):
@@ -190,8 +193,8 @@ def imshow(
         # > Colorbar
         if colorbar:
             #!! Calculate from raw images, since adding scalebar changes pixel values
-            p = np.percentile(imgs[i], [50, 75, 99])
-            minmax = np.min(imgs[i]), np.max(imgs[i])
+            p = np.percentile(_imgs[i], [50, 75, 99])
+            minmax = np.min(_imgs[i]), np.max(_imgs[i])
             cb = _colorbar_to_ax(
                 plt_img=plt_img, percentiles=p, ax=ax, minmax=minmax
             )
@@ -219,28 +222,28 @@ def imshow(
     return fig, axes
 
 
-def _test_imshow_global(Z):
-    kws = dict(
-        max_cols=2,
-        scalebar_kws=dict(
-            pixel_size=0.05,  # !! must be provided when scalebar
-        ),
-    )
-    imgs = Z.imgs
+# def _test_imshow_global(Z):
+#     kws = dict(
+#         max_cols=2,
+#         scalebar_kws=dict(
+#             pixel_size=0.05,  # !! must be provided when scalebar
+#         ),
+#     )
+#     imgs = Z.imgs
 
-    imshow(imgs, slice=0, **kws)
-    imshow(imgs, slice=[1, 2], **kws)
-    imshow(imgs, slice=[1, 2, 3], **kws)
-    imshow(imgs, slice=(1, 10, 2), **kws)  # > start stop step
+#     imshow(imgs, slice=0, **kws)
+#     imshow(imgs, slice=[1, 2], **kws)
+#     imshow(imgs, slice=[1, 2, 3], **kws)
+#     imshow(imgs, slice=(1, 10, 2), **kws)  # > start stop step
 
-    ### Check if scalebar is not burned it
-    plt.imshow(Z[0])
-    plt.suptitle("no scalebar should be here")
-    plt.show()
+#     ### Check if scalebar is not burned it
+#     plt.imshow(Z[0])
+#     plt.suptitle("no scalebar should be here")
+#     plt.show()
 
 
-if __name__ == "__main__":
-    _test_imshow_global(Z)
+# if __name__ == "__main__":
+#     _test_imshow_global(Z)
 
 
 # %%

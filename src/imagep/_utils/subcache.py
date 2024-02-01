@@ -31,7 +31,7 @@ class SubCache(Memory):
         self,
         subcache_dir: str,
         assert_parent: str = None,
-        bytes_limit: int|str = "3G", #> 3GB
+        bytes_limit: int | str = "3G",  # > 3GB
         compress: int = 9,
         *args,
         **kwargs,
@@ -41,10 +41,10 @@ class SubCache(Memory):
             compress=compress,
         )
         KWS.update(kwargs)
-        
+
         ### Inherit from joblib.Memory
         super().__init__(*args, **KWS)
-        
+
         ### Set maximum size of cache, keeps most recent files
         self.reduce_size(bytes_limit)
 
@@ -105,25 +105,85 @@ class SubCache(Memory):
                     location_subdirs.append(dir_path)
         return location_subdirs
 
-    def list_objects(self):
+    def __iter__(self):
+        """Iterate over the list of cache directories"""
+        for item in self.store_backend.get_items():
+            path_to_item = os.path.relpath(
+                item.path,
+                start=self.store_backend.location,
+            )
+            yield os.path.split(path_to_item)
+
+    @property
+    def entries(self) -> dict:
         """Return the list of inputs and outputs from `mem` (joblib.Memory
         cache)."""
 
-        objects = []
+        entries = dict()
 
-        for item in self.store_backend.get_items():
-            path_to_item = os.path.split(
-                os.path.relpath(item.path, start=self.store_backend.location)
-            )
+        for path_to_item in self:
+            ### Get the name of the function
+            func = os.path.split(path_to_item[0])[-1]
+
+            ### Get the result object
             try:
                 result = self.store_backend.load_item(path_to_item)
             except KeyError:
                 continue
-            input_args = self.store_backend.get_metadata(path_to_item).get(
+
+            ### Get input arguments
+            args = self.store_backend.get_metadata(path_to_item).get(
                 "input_args"
             )
-            objects.append((input_args, result))
-        return objects
+
+            entries[func] = (args, result)
+        return entries
+
+    @property
+    def kwargs(self) -> dict:
+        """Return the list of inputs and outputs from `mem` (joblib.Memory
+        cache)."""
+
+        kwargs = dict()
+
+        for path_to_item in self:
+            ### Get the name of the function
+            func = os.path.split(path_to_item[0])[-1]
+
+            ### Get input arguments
+            args = self.store_backend.get_metadata(path_to_item).get(
+                "input_args"
+            )
+
+            kwargs[func] = args
+        return kwargs
+
+    # def check_entry(self, func: Callable, mem_kwargs: dict) -> bool:
+    #     """Check if these arguments are cached"""
+
+    #     ### Get the name of the function
+    #     func_name = func.__name__
+
+    #     if not func_name in self.kwargs:
+    #         return False
+    #     else:
+    #         ### try to load the result with the given kwargs
+    #         try:
+    #             self.cache.load_item((func_name, mem_kwargs))
+    #             return True
+    #         except KeyError:
+    #             return False
+
+    def list_kwargs(self):
+        """Return list of all stored kwargs"""
+
+        kwargs = []
+        for kwarg, obj in self.entries():
+            kwargs.append(kwarg)
+        return kwargs
+
+    def is_cached(self, mem_kwargs: dict) -> bool:
+        """Check if these arguments are cached"""
 
     def subcache(self, f: Callable, **mem_kwargs) -> Callable:
         """Cache it in a persistent manner, since Ipython passes a new
@@ -166,7 +226,7 @@ if __name__ == "__main__":
     # %%
     MEM.list_dirs(detailed=True)
     # %%
-    MEM.list_objects()
+    MEM.entries()
 
     # %%
     # == Cache HERE =====================================================
@@ -176,7 +236,7 @@ if __name__ == "__main__":
     # %%
     MEM2.list_dirs(detailed=True)
     # %%
-    MEM2.list_objects()
+    MEM2.entries()
 
     # %%
     sleep(1.5)  # > First time slow, next time fast

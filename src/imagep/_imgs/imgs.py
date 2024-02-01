@@ -103,7 +103,6 @@ class ImgsImport:
             indices = val
             
             
-        print("sliced", _self.imgs.shape)
         
         ### Remember how this object was sliced
         _self._slice = str(val)

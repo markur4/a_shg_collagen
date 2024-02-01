@@ -15,62 +15,6 @@ import skimage.morphology as morph
 import imagep._utils.utils as ut
 
 
-# %%
-### Number of cores to utilize
-UTILIZE_CORES = ut.get_n_cores(utilize=0.33)  # > 33% is 3 of 8 cores!
-UTILIZE_CORES
-# %%
-# == Parallelized Functions ============================================
-### Multiprocessing can only pickle top-level functions
-
-
-def _denoise_base(kws):
-    return ski.restoration.denoise_nl_means(**kws)
-
-
-def _denoise_parallel(imgs: np.ndarray) -> np.ndarray:
-    ### List comprehensions are faster
-    sigmas = [np.mean(ski.restoration.estimate_sigma(img)) for img in imgs]
-
-    ### Collect arguments
-    kws_list = []
-    for img, sigma in zip(imgs, sigmas):
-        kws_list.append(
-            dict(
-                image=img,
-                h=0.8 * sigma,
-                sigma=sigma,
-                patch_size=5,  # 5x5 patches
-                patch_distance=6,  # 13x13 search area
-                fast_mode=True,
-            )
-        )
-
-    ### Parallel Execution
-    workers = ut.get_n_cores(utilize=UTILIZE_CORES)
-    with ThreadPoolExecutor(max_workers=workers) as executor:
-        imgs_iter = executor.map(_denoise_base, kws_list)
-
-    _imgs = np.asarray(list(imgs_iter), dtype=imgs.dtype)
-    return _imgs
-
-
-if __name__ == "__main__":
-    from imagep._imgs.imgs import Imgs
-
-    # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
-    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-
-    Z = Imgs(path=path, verbose=True, x_µm=1.5 * 115.4)
-    I = 6
-    # %%
-    ### Show NOT-denoised
-    Z.imshow(slice=I)
-    # %%
-    ### Denoised
-    # _imgs = _denoise_parallel(Z.imgs)
-    # plt.imshow(_imgs[I])
-
 
 # %%
 # == Class Transform ===================================================
@@ -188,14 +132,24 @@ class Transform:
 
 # !! ===================================================================
 
-# %%
-### Summarize info from images for testing
-# def _print_info(imgs: np.ndarray):
-#     just = ut.justify_str
-#     print(f"{just('shape')} {imgs.shape}")
-#     print(f"{just('dtype')} {imgs.dtype}")
-#     print(f"{just('min, max')} {imgs.min(), imgs.max()}")
 
+# %%
+# !! TESTDATA ==========================================================
+if __name__ == "__main__":
+    from imagep._imgs.imgs import Imgs
+
+    # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
+    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+
+    Z = Imgs(path=path, verbose=True, x_µm=1.5 * 115.4)
+    I = 6
+    # %%
+    ### Show NOT-denoised
+    Z[I].imshow()
+    # %%
+    ### Denoised
+    # _imgs = _denoise_parallel(Z.imgs)
+    # plt.imshow(_imgs[I])
 
 # %%
 if __name__ == "__main__":
