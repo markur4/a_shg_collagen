@@ -132,6 +132,11 @@ def imshow(
     **imshow_kws,
 ) -> tuple[plt.Figure, plt.Axes]:
     """Show the images"""
+    ### If single image, make it nested
+    if len(imgs.shape) == 2:
+        imgs = np.array([imgs])
+        
+    
     ### Always make copy when showing
     _imgs = imgs.copy()
 
@@ -216,7 +221,8 @@ def imshow(
         fontsize=10,
         framealpha=0.2,
     )
-
+    ### aligned left
+    plt.suptitle(f"{imgs.shape[0]} images, {imgs.dtype}", ha="left", x=0.05)
     plt.tight_layout()
 
     return fig, axes

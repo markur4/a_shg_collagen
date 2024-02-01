@@ -41,7 +41,9 @@ if __name__ == "__main__":
 _EXPONENT = 2
 
 
-def format_num(number: int | float, position: int =0, exponent: int = 2) -> str:
+def format_num(
+    number: int | float, position: int = 0, exponent: int = 2
+) -> str:
     """Formats number to scientific notation if too small or too big
     :param number: Number to format
     :type number: int | float
@@ -73,6 +75,7 @@ def format_num(number: int | float, position: int =0, exponent: int = 2) -> str:
     else:
         r = f"{number:.{sig}f}"  # > fixed e.g. 150.0000
     return r
+
 
 def _test_format_num():
     print(format_num(1))  # > int
@@ -157,7 +160,13 @@ if __name__ == "__main__":
 
 
 # == Performance ===================================================
-def get_n_cores(utilize: int = 0.75) -> int:
+def toint(x: float) -> int:
+    """Round to int"""
+    return int(round(x))
+
+
+# %%
+def cores_from_percent(utilize: int = 0.75) -> int:
     """Get the number of cores of the machine
 
     :param utilize: How many cores to utilize as % of total cores,
@@ -165,6 +174,75 @@ def get_n_cores(utilize: int = 0.75) -> int:
     :type utilize: int, optional
     """
     n_cores = os.cpu_count()
-    n_cores = int(round(n_cores * utilize))
+    n_cores = toint(n_cores * utilize)
 
     return n_cores
+
+
+def cores_from_shape(shape: tuple[int, int, int]) -> int:
+    """Get the number of cpu to use from shape of image
+
+    :param shape: Shape of array
+    :type shape: tuple[int, int, int]
+    """
+    ### Core numbers
+    cores_all = os.cpu_count()
+    cores_half = toint(cores_all * 0.50)
+    cores_max = cores_all - 1  # > Leave one core for other processes
+
+    ### Get Image sizes
+    PIX = np.prod(shape)
+    small, big = 1024 * 1024, 1440 * 1440
+
+    ### Get number
+    cores_use = 2  # > Start with 2 cores
+    ### 8 big images to 16 small: [9e6 - 16e6]
+    if 8 * big <= PIX < 16 * small:
+        cores_use = cores_half  # > 8 big images
+    ### 16 small to 16 big: [17e6 - 34e6]
+    elif 16 * small <= PIX < 16 * big:
+        cores_use = cores_half  # > 16 small images
+    ### 32 normal images = 16 big images: [> 34e6]
+    elif 32 * small <= PIX:
+        cores_use = cores_max
+
+    ### Make sure we don't have more cores than images
+    if cores_use > shape[0]:
+        cores_use = min(cores_use, shape[0]) - 1
+
+    ### Make sure at least one core is used
+    cores_use = 1 if cores_use < 1 else cores_use
+
+    return cores_use
+
+
+def _test_get_n_cores_from_shape():
+    f = lambda s: print(
+        f"shape: {s} ",
+        cores_from_shape(s),
+        f"\t{s[0] / cores_from_shape(s):.2f} images per core",
+    )
+
+    print("CPU count:", os.cpu_count(), "\n")
+
+    print("Few normal images:")
+    for i in range(0, 10):
+        f((i, 1024, 1024))
+    print()
+
+    print("Lots of normal images:")
+    for i in range(7, 40, 3):
+        f((i, 1024, 1024))
+    print()
+
+    print("Few big images:")
+    for i in range(1, 10):
+        f((i, 1440, 1440))
+
+    print("Lots of big images:")
+    for i in range(7, 40, 3):
+        f((i, 1440, 1440))
+
+
+if __name__ == "__main__":
+    _test_get_n_cores_from_shape()

@@ -1,9 +1,10 @@
 """ A class for to implement all filters as methods """
 # %%
+from typing import Callable
+
 import numpy as np
 
-# > Since ThreadPoolExecutor is faster, we seem to be I/O bound
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+import time
 
 import matplotlib.pyplot as plt
 
@@ -13,7 +14,8 @@ import skimage.morphology as morph
 
 # > Local
 import imagep._utils.utils as ut
-
+import imagep.processing.filters_accelerated as filt_acc
+import imagep.processing.filters as filt
 
 
 # %%
@@ -30,104 +32,197 @@ class Transform:
         return iter(self.imgs)
 
     #
-    # == Denoise =======================================================
+    # == Print Messages ================================================
+    def _print_start_message(
+        self, msg: str, cached: bool = None, parallel=None, n_cores: int = None
+    ) -> None:
+        m = f"\t{msg} ..."
+        if cached:
+            m += " (checking cache)"
+        if parallel:
+            m += f" ({n_cores} workers)"
 
-    def denoise(self, parallel=True) -> np.ndarray:
-        ### Message, since it can take a while
-        if self.verbose:
-            if parallel:
-                print(f"\tDenoising (workers={UTILIZE_CORES})...")
-            else:
-                print("\tDenoising...")
+        # m += " ..."
+
+        print(m)
+
+    def _print_end_message(self, msg: str, dt: float) -> None:
+        print(f"\t{msg} DONE ({dt:.2f} s)")
+        print()
+
+    def _messaged_execution(
+        self,
+        f: Callable,
+        msg: str,
+        acc_KWS: dict = dict(),
+        filter_KWS: dict = dict(),
+    ) -> np.ndarray:
+        ### Start message
+        self._print_start_message(msg=msg, **acc_KWS)
+        t1 = time.time()
+
+        ### Excetute
+        _imgs = f(**filter_KWS, **acc_KWS)
+
+        ### End message
+        dt = time.time() - t1
+        self._print_end_message(msg=msg, dt=dt)
+
+        return _imgs
+
+    # == Denoise =======================================================
+    def denoise(
+        self,
+        cached: bool = True,
+        parallel: bool = True,
+        n_cores: int = None,
+        inplace: bool = False,
+        **filter_kws,
+    ):
+        ### KWARGS
+        _imgs = self.imgs if inplace else self.imgs.copy()
+        # > Acceleration KWS
+        n_cores = n_cores if n_cores else ut.cores_from_shape(_imgs.shape)
+        acc_KWS = dict(
+            cached=cached,
+            parallel=parallel,
+            n_cores=n_cores,
+        )
+        # > Filter KWS
+        filter_KWS = dict(imgs=_imgs)  # > placeholder
+        filter_KWS.update(filter_kws)
 
         ### Execute
-        if parallel:
-            _imgs = _denoise_parallel(imgs=self.imgs)
-        else:
-            _imgs = self._denoise()
-
-        return _imgs
-
-    def _denoise(self) -> np.ndarray:
-        ### List comprehensions are faster
-        sigmas = [
-            np.mean(ski.restoration.estimate_sigma(img)) for img in self.imgs
-        ]
-        _imgs = [
-            ski.restoration.denoise_nl_means(
-                image=img,
-                h=0.8 * sigma,
-                sigma=sigma,
-                patch_size=5,  # 5x5 patches
-                patch_distance=6,  # 13x13 search area
-                fast_mode=True,
+        if self.verbose:
+            return self._messaged_execution(
+                f=filt_acc.denoise,
+                msg="> Denoising",
+                acc_KWS=acc_KWS,
+                filter_KWS=filter_KWS,
             )
-            for img, sigma in zip(self, sigmas)
-        ]
-
-        return np.array(_imgs, dtype=self.imgs.dtype)
+        else:
+            return filt_acc.denoise(**filter_KWS, **acc_KWS)
 
     #
-    # == Blur ==========================================================
-
-    def blur(self, sigma: float = 1, normalize=True) -> np.ndarray:
-        """Blur image using a thresholding method"""
-
-        _imgs = ski.filters.gaussian(self.imgs, sigma=sigma)
-
-        ### The max value is not 1 anymore
-        if normalize:
-            _imgs = _imgs / _imgs.max()
-
-        return _imgs
-
-    #
-    # == Smoothen ======================================================
-
-    def median(self, kernel_radius: int = 1, normalize=True) -> np.ndarray:
-        """Performs median filter on image"""
-
-        _imgs = np.zeros_like(self.imgs)
-
-        kernel = ski.morphology.disk(
-            radius=kernel_radius,
-            # strict_radius=False,  # > extends radius by .5
-        )
-
-        for i, img in enumerate(self.imgs):
-            img = ski.img_as_ubyte(img)
-
-    #
-    # == Variation =====================================================
-
-    def entropy(self, imgs: np.ndarray=None, kernel_radius: int = 3, normalize=True) -> np.ndarray:
+    # == entropy =====================================================
+    def entropy(
+        self,
+        kernel_radius: int = 3,
+        normalize: bool = True,
+        cached: bool = True,
+        parallel: bool = True,
+        n_cores: int = None,
+        inplace: bool = False,
+        **filter_kws,
+    ) -> np.ndarray:
         """Performs entropy filter on image
         Kernel radius = 3 is best, since anything below will
         oversaturate regions, losing information. Could be used for
         segmentation, but edges are expanded, but this expansion doesn't
         change with radius
         """
-        ### Use imgs if provided, otherwise use self.imgs 
-        imgs = self.imgs if imgs is None else imgs
 
-        kernel = ski.morphology.disk(
-            radius=kernel_radius,
-            # strict_radius=False,  # > extends radius by .5
+        ### KWARGS
+        _imgs = self.imgs if inplace else self.imgs.copy()
+        # > Acceleration KWS
+        n_cores = n_cores if n_cores else ut.cores_from_shape(_imgs.shape)
+        acc_KWS = dict(
+            cached=cached,
+            parallel=parallel,
+            n_cores=n_cores,
         )
-        
-        ### Filter
-        _imgs = np.zeros_like(imgs)
-        for i, img in enumerate(imgs):
-            img = ski.img_as_ubyte(img)  # > Rankfilters require uint8
-            _imgs[i] = ski.filters.rank.entropy(
-                img,
-                footprint=kernel,
+        # > Filter KWS
+        filter_KWS = dict(
+            imgs=_imgs,
+            kernel_radius=kernel_radius,
+            normalize=normalize,
+        )
+        filter_KWS.update(filter_kws)
+
+        ### Execute
+        if self.verbose:
+            return self._messaged_execution(
+                f=filt_acc.entropy,
+                msg="> Calculating local entropy",
+                acc_KWS=acc_KWS,
+                filter_KWS=filter_KWS,
             )
+        else:
+            return filt_acc.entropy(**filter_KWS, **acc_KWS)
 
-        if normalize:
-            _imgs = _imgs / _imgs.max()
+    #
+    # == Smoothen ======================================================
+    def median(
+        self,
+        kernel_radius: int = 2,
+        cross_z: bool = True,
+        normalize: bool = True,
+        cached: bool = True,
+        inplace: bool = False,
+        **filter_kws,
+    ) -> np.ndarray:
+        """Performs median filter on image"""
 
-        return _imgs
+        ### KWARGS
+        _imgs = self.imgs if inplace else self.imgs.copy()
+
+        # > Filter KWS
+        filter_KWS = dict(
+            imgs=_imgs,
+            kernel_radius=kernel_radius,
+            cross_z=cross_z,
+            normalize=normalize,
+        )
+        filter_KWS.update(filter_kws)
+
+        ### Execute
+        if self.verbose:
+            return self._messaged_execution(
+                f=filt_acc.median,
+                msg="> Median filtering",
+                acc_KWS=dict(cached=cached),
+                filter_KWS=filter_KWS,
+            )
+        else:
+            return filt_acc.median(**filter_KWS)
+
+    #
+    # == Blur ==========================================================
+
+    def blur(
+        self,
+        sigma: float = 1,
+        cross_z: bool = True,
+        normalize: bool = True,
+        inplace: bool = False,
+        **filter_kws,
+    ) -> np.ndarray:
+        """Blur image using a thresholding method"""
+
+        ### KWARGS
+        _imgs = self.imgs if inplace else self.imgs.copy()
+
+        # > Filter KWS
+        filter_KWS = dict(
+            imgs=_imgs,
+            sigma=sigma,
+            cross_z=cross_z,
+            normalize=normalize,
+        )
+        filter_KWS.update(filter_kws)
+
+        ### Execute
+        if self.verbose:
+            return self._messaged_execution(
+                f=filt.blur,
+                msg="> Gaussian Blurring",
+                filter_KWS=filter_KWS,
+            )
+        else:
+            return filt_acc.blur(**filter_KWS)
+
+
+
 
 
 # !! ===================================================================
@@ -135,28 +230,107 @@ class Transform:
 
 # %%
 # !! TESTDATA ==========================================================
+from imagep._imgs.imgs import Imgs
+from imagep._plottools.imageplots import imshow
+
 if __name__ == "__main__":
-    from imagep._imgs.imgs import Imgs
+    # path_r = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
+    path_d = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
 
-    # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
-    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-
-    Z = Imgs(path=path, verbose=True, x_µm=1.5 * 115.4)
+    Z = Imgs(path=path_d, verbose=True, x_µm=1.5 * 115.4)
+    T = Transform(imgs=Z.imgs, verbose=True)
     I = 6
     # %%
     ### Show NOT-denoised
     Z[I].imshow()
-    # %%
-    ### Denoised
-    # _imgs = _denoise_parallel(Z.imgs)
-    # plt.imshow(_imgs[I])
+
 
 # %%
+# == Test Accelerated Transforms =======================================
+def _get_test_kws_acc():
+    """makes a list of all combinations of cached, parallel, n_cores"""
+    ### Get all combinations of cached, parallel, n_cores
+    cached = [True, False]
+    parallel = [True, False]
+    n_cores = [None, 2, 4]
+    kws_list = [
+        dict(cached=c, parallel=p, n_cores=n)
+        for c in cached
+        for p in parallel
+        for n in n_cores
+    ]
+    return kws_list
+
+
+def _test_denoise(T: Transform, I: int = 6):
+    kws_list = _get_test_kws_acc()
+    for kws in kws_list:
+        print(kws)
+        _imgs = T.denoise(**kws)
+        imshow(_imgs[[I, I + 3]])
+        plt.show()
+
+
+def _test_entropy(T: Transform, I: int = 6):
+    kws_list = _get_test_kws_acc()
+    for kws in kws_list:
+        print(kws)
+        _imgs = T.entropy(**kws)
+        imshow(_imgs[[I, I + 3]])
+        plt.show()
+
+
+if __name__ == "__main__":
+    pass
+    # _test_denoise(T, I)
+    # _test_entropy(T, I)
+
+
+# %%
+# == Test Filters that aren't parallel =================================
+def _test_median(T: Transform, I: int = 6):
+    kws_list = [
+        dict(kernel_radius=1, cross_z=True, normalize=True, cached=False),
+        dict(kernel_radius=2, cross_z=True, normalize=True, cached=False),
+        dict(kernel_radius=2, cross_z=False, normalize=True, cached=False),
+        dict(kernel_radius=2, cross_z=True, normalize=False, cached=False),
+        dict(kernel_radius=2, cross_z=True, normalize=False, cached=True),
+    ]
+    for kws in kws_list:
+        print(kws)
+        _imgs = T.median(**kws)
+        imshow(_imgs[[I, I + 3]])
+        plt.show()
+
+def _test_blur(T: Transform, I: int = 6):
+    kws_list = [
+        dict(sigma=1, cross_z=True, normalize=True ),
+        dict(sigma=2, cross_z=True, normalize=True),
+        dict(sigma=2, cross_z=False, normalize=True),
+        dict(sigma=2, cross_z=True, normalize=False),
+    ]
+    for kws in kws_list:
+        print(kws)
+        _imgs = T.blur(**kws)
+        imshow(_imgs[[I, I + 3]])
+        plt.show()
+
+if __name__ == "__main__":
+    pass
+    # _test_median(T, I)
+    _test_blur(T, I)
+
+
+# %%
+# !! Check from PreProcess ==============================================
 if __name__ == "__main__":
     from imagep.processing.preprocess import PreProcess
 
+    # %%
+    hä
+
     Z2 = PreProcess(
-        path=path,
+        path=path_d,
         x_µm=1.5 * 115.4,
         verbose=True,
         denoise=True,
@@ -203,7 +377,7 @@ def _test_local_std(Z, i=6):
 
 
 def _test_entropy(Z, i=6):
-    """ 
+    """
     Kernel radius = 2 is best, since r=1 is too grainy
     Edges are expanded, but don't change with radius
     """
@@ -212,7 +386,7 @@ def _test_entropy(Z, i=6):
         _imgs = Z.transform.entropy(kernel_radius=r)
 
         Z.imshow(slice=(i, i + 1), imgs=_imgs)
-    
+
 
 if __name__ == "__main__":
     # _test_local_std(Z2)
