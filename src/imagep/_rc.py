@@ -1,6 +1,9 @@
 """runtime configuration"""
 import matplotlib as mpl
+
 # import matplotlib.pyplot as plt
+
+import numpy as np
 
 # > local imports
 import imagep._utils.utils as ut
@@ -40,3 +43,8 @@ CORES_BUT_ONE: float = ut.cores_from_percent(1.00) - 1
 
 
 # == Dtypes ============================================================
+DTYPE_DEFAULT: np.dtype = np.float32
+
+
+# == Debugging =========================================================
+DEBUG = False

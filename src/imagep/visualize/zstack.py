@@ -13,7 +13,7 @@ import pyvista as pv
 
 # > Local
 from imagep.processing.preprocess import PreProcess
-import imagep._plottools.imageplots as ut
+import imagep._plots.imageplots as ut
 
 # %%
 

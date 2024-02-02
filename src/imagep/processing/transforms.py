@@ -70,6 +70,7 @@ class Transform:
 
         return _imgs
 
+    #
     # == Denoise =======================================================
     def denoise(
         self,
@@ -219,7 +220,7 @@ class Transform:
                 filter_KWS=filter_KWS,
             )
         else:
-            return filt_acc.blur(**filter_KWS)
+            return filt.blur(**filter_KWS)
 
 
 
@@ -230,19 +231,20 @@ class Transform:
 
 # %%
 # !! TESTDATA ==========================================================
-from imagep._imgs.imgs import Imgs
-from imagep._plottools.imageplots import imshow
+from imagep.images.imgs import Imgs
+from imagep._plots.imageplots import imshow
 
 if __name__ == "__main__":
     # path_r = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
     path_d = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
 
     Z = Imgs(path=path_d, verbose=True, x_µm=1.5 * 115.4)
-    T = Transform(imgs=Z.imgs, verbose=True)
     I = 6
+    Z.imgs[I + 1] = 3  # > Change next image to test multidimensional filters
+    T = Transform(imgs=Z.imgs, verbose=True)
     # %%
     ### Show NOT-denoised
-    Z[I].imshow()
+    Z[[I, I + 1]].imshow()
 
 
 # %%
@@ -267,7 +269,7 @@ def _test_denoise(T: Transform, I: int = 6):
     for kws in kws_list:
         print(kws)
         _imgs = T.denoise(**kws)
-        imshow(_imgs[[I, I + 3]])
+        imshow(_imgs[[I, I + 1]])
         plt.show()
 
 
@@ -276,14 +278,14 @@ def _test_entropy(T: Transform, I: int = 6):
     for kws in kws_list:
         print(kws)
         _imgs = T.entropy(**kws)
-        imshow(_imgs[[I, I + 3]])
+        imshow(_imgs[[I, I + 1]])
         plt.show()
 
 
 if __name__ == "__main__":
     pass
-    # _test_denoise(T, I)
-    # _test_entropy(T, I)
+    # _test_denoise(T, I) #:: uncomment
+    # _test_entropy(T, I) #:: uncomment
 
 
 # %%
@@ -299,7 +301,7 @@ def _test_median(T: Transform, I: int = 6):
     for kws in kws_list:
         print(kws)
         _imgs = T.median(**kws)
-        imshow(_imgs[[I, I + 3]])
+        imshow(_imgs[[I, I + 1]])
         plt.show()
 
 def _test_blur(T: Transform, I: int = 6):
@@ -312,12 +314,12 @@ def _test_blur(T: Transform, I: int = 6):
     for kws in kws_list:
         print(kws)
         _imgs = T.blur(**kws)
-        imshow(_imgs[[I, I + 3]])
+        imshow(_imgs[[I, I + 1]])
         plt.show()
 
 if __name__ == "__main__":
     pass
-    # _test_median(T, I)
+    # _test_median(T, I) #:: uncomment
     _test_blur(T, I)
 
 

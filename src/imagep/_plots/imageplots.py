@@ -9,14 +9,14 @@ from pathlib import Path
 
 # > local imports
 import imagep._utils.utils as ut
-import imagep._plottools.scalebar as scaleb
+import imagep._plots.scalebar as scaleb
 
 
 # %%
 # == Testdata ==========================================================
 if __name__ == "__main__":
     # !! Import must not be global, or circular import
-    from imagep._imgs.imgs import Imgs
+    from imagep.images.imgs import Imgs
 
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
     Z = Imgs(path=path, verbose=True, x_µm=1.5 * 115.4)
@@ -205,7 +205,6 @@ def imshow(
             )
 
     ### legend for colorbar lines
-
     handles, labels = cb.ax.get_legend_handles_labels()
 
     bbox_x = 1.04 if n_cols == 1 else 1.02

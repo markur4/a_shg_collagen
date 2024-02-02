@@ -1,0 +1,11 @@
+exclude \
+    src/imagep/.vscode/*.json \
+
+include \
+    src/_utils/*.ttf \
+    # LICENSE \
+#     README.md \
+#     How_To_Use/*.ipynb \
+#     tests/pytest.ini \
+#     tests/*.py \
+#     tests/*_test/*.py \

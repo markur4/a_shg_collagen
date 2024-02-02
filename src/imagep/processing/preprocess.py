@@ -1,7 +1,9 @@
 #
 # %%
-import os
-from pprint import pprint
+# import os
+from typing import Self
+
+# from pprint import pprint
 
 from collections import OrderedDict
 
@@ -19,31 +21,70 @@ import skimage as ski
 
 
 # > Local
-from imagep._imgs.imgs import Imgs
+from imagep.images.imgs import Imgs
 import imagep._utils.utils as ut
 from imagep._utils.subcache import SubCache
 from imagep.processing.transforms import Transform
+from imagep._plots.imageplots import imshow
 
 
-# %%
-# == Cache ===========================================================
+# # %%
+# # == Cache ===========================================================
 
-### Location
-location = os.path.join(os.path.expanduser("~"), ".cache")
+# ### Location
+# location = os.path.join(os.path.expanduser("~"), ".cache")
 
-### Subcache
-CACHE_PREPROCESS = SubCache(
-    location=location,
-    subcache_dir="preprocess",
-    verbose=True,
-    compress=9,
-    bytes_limit="3G",  # > 3GB of cache, keeps only the most recent files
-)
+# ### Subcache
+# CACHE_PREPROCESS = SubCache(
+#     location=location,
+#     subcache_dir="preprocess",
+#     verbose=True,
+#     compress=9,
+#     bytes_limit="3G",  # > 3GB of cache, keeps only the most recent files
+# )
+
+
+class Process(Imgs):
+    """Base class for processing images
+    - Block super()__init__ if to avoid re-loading images
+    - Track and display sample images before and during processing
+    - Track and display history of processing steps
+    """
+
+    def __init__(
+        self,
+        *imgs_args,
+        **imgs_kws,
+    ):
+        super().__init__(*imgs_args, **imgs_kws)
+
+        ### Collect Samples for each processing step
+        self.history_imgs = dict()
+
+    #
+    # == Sample Images =================================================
+    def plot_process_history(self):
+        """Plot sample images from preprocessing steps"""
+        ### Check if samples were collected
+        if len(self.history_imgs) == 0:
+            print("No samples collected")
+            return
+
+        ### Plot
+        fig, axs = plt.subplots(
+            1,
+            len(self.history_imgs),
+            figsize=(len(self.history_imgs) * 5, 5),
+        )
+        for i, (k, v) in enumerate(self.history_imgs.items()):
+            axs[i].imshow(v)
+            axs[i].set_title(k)
+            axs[i].axis("off")
 
 
 # %%
 # == CLASS PREPROCESSING ===============================================
-class PreProcess(Imgs):
+class PreProcess(Process):
     def __init__(
         self,
         *imgs_args,
@@ -52,7 +93,7 @@ class PreProcess(Imgs):
         subtract_bg: bool = False,
         subtract_bg_kws: dict = dict(method="triangle", sigma=1.5),
         remove_empty_slices: bool = True,
-        cache_preprocessing=True,
+        sample_index: int = 6,
         **imgs_kws,
     ) -> None:
         """Preprocessing pipeline for image stacks
@@ -61,6 +102,9 @@ class PreProcess(Imgs):
             defaults to True
         :type normalize: bool, optional
 
+        :param sample_index: Index of sample image to use for tracking
+            the processing steps, defaults to 6
+        :type sample_index: int, optional
         """
         super().__init__(*imgs_args, **imgs_kws)
 
@@ -82,43 +126,74 @@ class PreProcess(Imgs):
         self._pp_steps = list(self.history.keys())[1:]
 
         ### Execute !
-        self.imgs = self.preprocess(cache_preprocessing=cache_preprocessing)
+        # self.imgs = self.preprocess(cache_preprocessing=cache_preprocessing)
+        self.preprocess(sample_index=sample_index)
 
     #
-    # == Preprocess ====================================================
-
-    def preprocess(self, cache_preprocessing=True):
-        ### Print Preprocessing Steps
-        if self.verbose and len(self._pp_steps) > 0:
-            print(f"=> Pre-processing: {self._pp_steps} ...")
-
-        ### Execute
-        if cache_preprocessing:
-            if self.verbose:
-                print("\tChecking Cache...")
-            _imgs = self._preprocess_cached(**self.kws_preprocess)
-        else:
-            _imgs = self._preprocess(**self.kws_preprocess)
-
-        ### Done
-        if self.verbose and len(self._pp_steps) > 0:
-            print("   Pre-processing Done")
-
-        return _imgs
-
-    def _preprocess_cached(self, **preprocess_kws):
-        """Preprocess the z-stack"""
-        preprocess_cached = CACHE_PREPROCESS.subcache(_preprocess_main)
-        return preprocess_cached(self, **preprocess_kws)
-
-    def _preprocess(self, **preprocess_kws):
-        """Preprocess the z-stack"""
-        return _preprocess_main(self, **preprocess_kws)
-
     # == Access to transform methods ===================================
     @property
     def transform(self):
         return Transform(imgs=self.imgs, verbose=self.verbose)
+
+    #
+    # == Preprocess MAIN ===============================================
+
+    def preprocess(self, sample_index: int = 6) -> np.ndarray:
+        ### Shorten kws
+        kws = self.kws_preprocess
+
+        ### Get Sample of image before preprocessing
+        self.history_imgs["before"] = self.imgs[sample_index]
+
+        ### Denoise
+        if kws["denoise"]:
+            self.transform.denoise(inplace=True)
+            self.history_imgs["denoise"] = self.imgs[sample_index]
+
+        ### Subtract Background
+        if kws["subtract_bg"]:
+            _imgs = self.subtract_background(
+                imgs=_imgs,
+                **kws["subtract_bg_kws"],
+            )
+
+        ### Normalize
+        if kws["normalize"]:
+            _imgs = self.normalize(imgs=_imgs)
+
+        ### Remove empty slices
+        if kws["remove_empty_slices"]:
+            _imgs = self.remove_empty_slices(imgs=_imgs)
+
+        return _imgs
+
+    # def preprocess(self, cache_preprocessing=True):
+    #     ### Print Preprocessing Steps
+    #     if self.verbose and len(self._pp_steps) > 0:
+    #         print(f"=> Pre-processing: {self._pp_steps} ...")
+
+    #     ### Execute
+    #     if cache_preprocessing:
+    #         if self.verbose:
+    #             print("\tChecking Cache...")
+    #         _imgs = self._preprocess_cached(**self.kws_preprocess)
+    #     else:
+    #         _imgs = self._preprocess(**self.kws_preprocess)
+
+    #     ### Done
+    #     if self.verbose and len(self._pp_steps) > 0:
+    #         print("   Pre-processing Done")
+
+    #     return _imgs
+
+    # def _preprocess_cached(self, **preprocess_kws):
+    #     """Preprocess the z-stack"""
+    #     preprocess_cached = CACHE_PREPROCESS.subcache(_preprocess_main)
+    #     return preprocess_cached(self, **preprocess_kws)
+
+    # def _preprocess(self, **preprocess_kws):
+    #     """Preprocess the z-stack"""
+    #     return _preprocess_main(self, **preprocess_kws)
 
     #
     # === HISTORY ====================================================
@@ -143,14 +218,14 @@ class PreProcess(Imgs):
             )
 
         if preprocess_kws["normalize"]:
-            OD[
-                "Normalization"
-            ] = "Division by max value of every image in folder"
+            OD["Normalization"] = (
+                "Division by max value of every image in folder"
+            )
 
         if preprocess_kws["remove_empty_slices"]:
             OD["Empty Removal"] = (
                 "Removed empty slices from stack. An entropy filter was"
-                " applied to images. Images were removed if the 99th" 
+                " applied to images. Images were removed if the 99th"
                 " percentile of entropy was lower than"
                 " than 10% of max entropy found in all images"
             )
@@ -338,10 +413,10 @@ class PreProcess(Imgs):
     ) -> np.ndarray:
         """Empty images are those with a standard deviation lower than
         threshold (1%) of max standard deviation"""
-        
+
         if self.verbose:
             print("=> Removing empty slices ...")
-        
+
         ### Use self.imgs if imgs is None
         imgs = self.imgs if imgs is None else imgs
 
@@ -358,47 +433,46 @@ class PreProcess(Imgs):
             plt.plot(percentiles / percentiles.max(), label="99percentiles")
             plt.axhline(threshold, color="red", label="threshold")
             plt.legend()
-        
+
         ### Take only those slices where 99th percentile is above threshold
         imgs = imgs[percentiles > threshold]
-        
-        return imgs
 
+        return imgs
 
 
 #
 # !! ===================================================================
 
 
-# == preprocess_main ===================================================
-def _preprocess_main(
-    preprocess_object: PreProcess,
-    parallel=True,
-    **preprocess_kws,
-) -> np.ndarray:
-    self = preprocess_object
+# # == preprocess_main ===================================================
+# def _preprocess_main(
+#     preprocess_object: PreProcess,
+#     parallel=True,
+#     **preprocess_kws,
+# ) -> np.ndarray:
+#     self = preprocess_object
 
-    _imgs = self.imgs.copy()
+#     _imgs = self.imgs.copy()
 
-    ### Denoise
-    if preprocess_kws["denoise"]:
-        _imgs = self.transform.denoise(parallel=parallel)
+#     ### Denoise
+#     if preprocess_kws["denoise"]:
+#         _imgs = self.transform.denoise(parallel=parallel)
 
-    ### Subtract Background
-    if preprocess_kws["subtract_bg"]:
-        _imgs = self.subtract_background(
-            imgs=_imgs,
-            **preprocess_kws["subtract_bg_kws"],
-        )
+#     ### Subtract Background
+#     if preprocess_kws["subtract_bg"]:
+#         _imgs = self.subtract_background(
+#             imgs=_imgs,
+#             **preprocess_kws["subtract_bg_kws"],
+#         )
 
-    ### Normalize
-    if preprocess_kws["normalize"]:
-        _imgs = self.normalize(imgs=_imgs)
+#     ### Normalize
+#     if preprocess_kws["normalize"]:
+#         _imgs = self.normalize(imgs=_imgs)
 
-    if preprocess_kws["remove_empty_slices"]:
-        _imgs = self.remove_empty_slices(imgs=_imgs)
+#     if preprocess_kws["remove_empty_slices"]:
+#         _imgs = self.remove_empty_slices(imgs=_imgs)
 
-    return _imgs
+#     return _imgs
 
 
 # %%

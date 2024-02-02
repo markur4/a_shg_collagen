@@ -3,4 +3,4 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import imagep._plottools.scalebar as scaleb
+import imagep._plots.scalebar as scaleb

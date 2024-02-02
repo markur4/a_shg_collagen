@@ -41,8 +41,8 @@ if __name__ == "__main__":
 # %%
 #!! TESTDATA ===========================================================
 if __name__ == "__main__":
-    from imagep._imgs.imgs import Imgs
-    from imagep._plottools.imageplots import imshow
+    from imagep.images.imgs import Imgs
+    from imagep._plots.imageplots import imshow
 
     # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
