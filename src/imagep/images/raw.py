@@ -135,27 +135,21 @@ class ImgsRaw:
         self.path = self.PATH_PLACEHOLDER
         self.imgs = array.astype(self._dtype)
 
-    def import_from_instance(self, instance: Self, verbose:bool) -> None:
+    def import_from_instance(self, instance: Self, verbose: bool) -> None:
         """Transfer images and path from another instance"""
 
-        # ### Transfer path
-        # if instance.path == self.PATH_PLACEHOLDER:
-        #     self.path = self.PATH_PLACEHOLDER
-        # elif isinstance(instance.path, Path):
-        #     self.path = instance.path
-
         # !! This mustn't be self.verbose, because it's not set yet
-        if verbose: 
+        if verbose:
             print(
-                f"=> Transferring attributes from an instance of Imgs"
-                + f" (Initial source:'{instance.path_short}') ..."
+                f"=> Transferring attributes from an instance"
+                + f" ({instance.imgs.shape[0]} images,"
+                + f" {instance.imgs.shape[1]}x{instance.imgs.shape[2]}," 
+                + f" {instance.imgs.dtype}; "
+                + f" from: '{instance.path_short}') ..."
             )
         ### Full atrribute transfer
         for attr, value in instance.__dict__.items():
             setattr(self, attr, value)
-            
-        # self.imgs = instance.imgs
-        # self.verbose = img_source.verbose # > Don't transfer verbose
 
     #
     # == Path ==========================================================

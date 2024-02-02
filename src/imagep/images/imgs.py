@@ -60,9 +60,6 @@ class Imgs(ImgsRaw):
         # todo: Add a class for images of different sizes
         # todo: Make a colored image class
 
-        # ### Import Images
-        # super().__init__(data, dtype, verbose)
-
         ### Call super().__init__(), OR retrieve attributes from instance
         self._attribute_transfer(data, dtype, verbose)
 
