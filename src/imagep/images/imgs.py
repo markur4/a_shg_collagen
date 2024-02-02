@@ -20,7 +20,7 @@ import seaborn as sns
 # > Local
 import imagep._rc as rc
 import imagep.images.importtools as importtools
-from imagep.images.raw import ImgsRaw
+from imagep.images.imgs_import import ImgsImport
 import imagep._plots.scalebar as scaleb
 import imagep._plots.imageplots as imageplots
 import imagep._utils.utils as ut
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 # == Class Imgs ========================================================
 
 
-class Imgs(ImgsRaw):
+class Imgs(ImgsImport):
     """Interface for handling image types."""
 
     def __init__(
@@ -57,11 +57,8 @@ class Imgs(ImgsRaw):
             10
         :type scalebar_microns: int, optional
         """
-        # todo: Add a class for images of different sizes
-        # todo: Make a colored image class
-
         ### Call super().__init__(), OR retrieve attributes from instance
-        self._attribute_transfer(data, dtype, verbose)
+        self._transfer_attributes(data, dtype, verbose)
 
         ### Total width, height, depth in µm
         self.x_µm = x_µm
@@ -75,7 +72,7 @@ class Imgs(ImgsRaw):
 
     # == Import from parent Instance ===================================
     #
-    def _attribute_transfer(self, data: Self, dtype: np.dtype, verbose: bool):
+    def _transfer_attributes(self, data: Self, dtype: np.dtype, verbose: bool):
         """Import images from another Imgs instance. This will transfer
         all attributes from the Imgs instance. Methods are transferred
         by inheritance, because we want the option to import images at
@@ -83,7 +80,7 @@ class Imgs(ImgsRaw):
 
         ### Transfer all attributes, if instance is passed
         if isinstance(data, type(self)):
-            super().import_from_instance(instance=data, verbose=verbose)
+            super().from_instance(instance=data, verbose=verbose)
         # > If not, call the parent __init__ method
         else:
             super().__init__(data, dtype, verbose)
@@ -235,19 +232,20 @@ if __name__ == "__main__":
 def _test_import_from_types(Z, I=6):
     # > Import from Path
     Z1 = Imgs(data=path, verbose=True, x_µm=1.5 * 115.4)
-    Z1[I].imshow()
+    # Z1[I].imshow()
 
     # > Import from np.ndarray
     Z2 = Imgs(data=Z.imgs, verbose=True, x_µm=1.5 * 115.4)
-    Z2[I].imshow()
+    # Z2[I].imshow()
 
     # > Import from list of np.ndarrays
     Z3 = Imgs(data=[im for im in Z.imgs], verbose=True, x_µm=1.5 * 115.4)
-    Z3[I].imshow()
+    # Z3[I].imshow()
 
     # > Import from self
     Z4 = Imgs(data=Z, verbose=True, x_µm=1.5 * 115.4)
-    Z4[I].imshow()
+    Z5 = Imgs(Z, verbose=True, x_µm=1.5 * 115.4)
+    Z5[I].imshow()
 
 
 if __name__ == "__main__":

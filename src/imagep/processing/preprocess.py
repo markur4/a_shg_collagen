@@ -26,6 +26,7 @@ import imagep._utils.utils as ut
 from imagep._utils.subcache import SubCache
 from imagep.processing.transforms import Transform
 from imagep._plots.imageplots import imshow
+from imagep.processing.process import Process
 
 
 # # %%
@@ -43,43 +44,6 @@ from imagep._plots.imageplots import imshow
 #     bytes_limit="3G",  # > 3GB of cache, keeps only the most recent files
 # )
 
-
-class Process(Imgs):
-    """Base class for processing images
-    - Block super()__init__ if to avoid re-loading images
-    - Track and display sample images before and during processing
-    - Track and display history of processing steps
-    """
-
-    def __init__(
-        self,
-        *imgs_args,
-        **imgs_kws,
-    ):
-        super().__init__(*imgs_args, **imgs_kws)
-
-        ### Collect Samples for each processing step
-        self.history_imgs = dict()
-
-    #
-    # == Sample Images =================================================
-    def plot_process_history(self):
-        """Plot sample images from preprocessing steps"""
-        ### Check if samples were collected
-        if len(self.history_imgs) == 0:
-            print("No samples collected")
-            return
-
-        ### Plot
-        fig, axs = plt.subplots(
-            1,
-            len(self.history_imgs),
-            figsize=(len(self.history_imgs) * 5, 5),
-        )
-        for i, (k, v) in enumerate(self.history_imgs.items()):
-            axs[i].imshow(v)
-            axs[i].set_title(k)
-            axs[i].axis("off")
 
 
 # %%
@@ -128,12 +92,6 @@ class PreProcess(Process):
         ### Execute !
         # self.imgs = self.preprocess(cache_preprocessing=cache_preprocessing)
         self.preprocess(sample_index=sample_index)
-
-    #
-    # == Access to transform methods ===================================
-    @property
-    def transform(self):
-        return Transform(imgs=self.imgs, verbose=self.verbose)
 
     #
     # == Preprocess MAIN ===============================================

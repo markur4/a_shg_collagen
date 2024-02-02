@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 # %%
 # == Class ImgsImport =====================================================
-class ImgsRaw:
+class ImgsImport:
     """Class for handling the most basic functionalities:
     - Imports of raw image data
     - Slicing of image stacks
@@ -46,7 +46,7 @@ class ImgsRaw:
 
         ### Process source into path and images
         self._source_type = type(data)
-        self._source_to_imgs(data)
+        self._import(data)
 
         ### Slicing
         # > Remember if this object has been sliced
@@ -71,33 +71,25 @@ class ImgsRaw:
         elif not isinstance(data, types):
             raise ValueError(f"Unknown type of image source: {type(data)}." + m)
 
-    def _source_to_imgs(
+    def _import(
         self, data: str | Path | np.ndarray | list[np.ndarray] | Self
     ) -> None:
         self._check_data_type(data)
 
         if isinstance(data, (str, Path)):
-            self.import_from_path(data)
+            self.from_path(data)
         elif isinstance(data, (np.ndarray, list)):
-            self.import_from_array(data)
+            self.from_array(data)
         # !! Importing from Instance is replaced by full attribute transfer
         # > Keep this here for future
         elif isinstance(data, type(self)):
-            self.import_from_instance(data)
-
-        if self.verbose:
-            print(
-                f"   Import DONE ({self.imgs.shape[0]} images,"
-                f" {self.imgs.shape[1]}x{self.imgs.shape[2]},"
-                f" {self.imgs.dtype})"
-            )
-            print()
+            self.from_instance(data)
 
     #
 
     #
-    # == Import functions ==============================================
-    def import_from_path(self, path: str | Path) -> None:
+    # == From Path, Array or Instance ==================================
+    def from_path(self, path: str | Path) -> None:
         """Import images from a folder"""
 
         ### If string, convert to Path
@@ -115,7 +107,15 @@ class ImgsRaw:
             print(f"=> Importing images from '{self.path_short}' ...")
         self.imgs = self.import_imgs(path, dtype=self._dtype)
 
-    def import_from_array(self, array: np.ndarray | list) -> None:
+        if self.verbose:
+            print(
+                f"   Import DONE ({self.imgs.shape[0]} images,"
+                f" {self.imgs.shape[1]}x{self.imgs.shape[2]},"
+                f" {self.imgs.dtype})"
+            )
+            print()
+
+    def from_array(self, array: np.ndarray | list) -> None:
         """Import images from a numpy array"""
         ### If list of arrays
         waslist = False
@@ -131,25 +131,39 @@ class ImgsRaw:
         ### Set path and imgs
         if self.verbose:
             m = " list of arrays" if waslist else " array"
-            print(f"=> Importing" + m + f" ({array.dtype}) ...")
+            print(
+                f"=> Transferring"
+                + m
+                + f" ({array.shape[0]} images "
+                + f" {array.shape[1]}x{array.shape[2]},"
+                + f" {array.dtype}) ..."
+            )
         self.path = self.PATH_PLACEHOLDER
         self.imgs = array.astype(self._dtype)
 
-    def import_from_instance(self, instance: Self, verbose: bool) -> None:
+        if self.verbose:
+            print("   Transfer DONE")
+            print()
+
+    def from_instance(self, instance: Self, verbose: bool) -> None:
         """Transfer images and path from another instance"""
 
         # !! This mustn't be self.verbose, because it's not set yet
         if verbose:
             print(
                 f"=> Transferring attributes from an instance"
-                + f" ({instance.imgs.shape[0]} images,"
-                + f" {instance.imgs.shape[1]}x{instance.imgs.shape[2]}," 
+                + f" ({instance.imgs.shape[0]} images "
+                + f" {instance.imgs.shape[1]}x{instance.imgs.shape[2]},"
                 + f" {instance.imgs.dtype}; "
                 + f" from: '{instance.path_short}') ..."
             )
         ### Full atrribute transfer
         for attr, value in instance.__dict__.items():
             setattr(self, attr, value)
+
+        if verbose:
+            print("   Transfer DONE")
+            print()
 
     #
     # == Path ==========================================================
@@ -163,7 +177,7 @@ class ImgsRaw:
             return str(self.path.parent.name + "/" + self.path.name)
 
     #
-    # == Import Images =================================================
+    # == Import From Files =============================================
 
     @staticmethod
     def import_imgs(path: Path, dtype: np.dtype) -> np.ndarray:
@@ -260,7 +274,7 @@ class ImgsColored:
 
 #
 # == Class ImgsSameSize ================================================
-class ImgsSameSize(ImgsRaw):
+class ImgsSameSize(ImgsImport):
     """These images all have the same Size with"""
 
     def __init__(
