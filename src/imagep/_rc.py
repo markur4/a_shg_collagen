@@ -1,4 +1,10 @@
 """runtime configuration"""
+
+# %%
+from typing import TypedDict, Callable
+
+from pathlib import Path
+
 import matplotlib as mpl
 
 # import matplotlib.pyplot as plt
@@ -8,7 +14,25 @@ import numpy as np
 # > local imports
 import imagep._utils.utils as ut
 
+# == Dtypes ============================================================
+DTYPE_DEFAULT: np.dtype = np.float32
+
+# == Importing from files ==============================================
+
+RC_IMPORT = ut.ConfigImport(
+    fileformat=".txt",
+    sort=True,
+    sortkey=lambda x: int(Path(x).stem.split("_")[-1]),
+    invertorder=True,
+    dtype=DTYPE_DEFAULT,
+    # import_kws=dict(),
+)
+# print(IMPORTCONFIG)
+# IMPORTCONFIG.update(dict(fileformat=".png", sortkey= lambda x: x*2))
+# print(IMPORTCONFIG)
+
 # == matplotlib ========================================================
+
 
 
 ### Image quality
@@ -40,10 +64,6 @@ CACHE_LIMIT: str = "5G"  # > 5 GB of cache
 CORES_HALF: float = ut.cores_from_percent(0.50)
 CORES_75: float = ut.cores_from_percent(0.75)
 CORES_BUT_ONE: float = ut.cores_from_percent(1.00) - 1
-
-
-# == Dtypes ============================================================
-DTYPE_DEFAULT: np.dtype = np.float32
 
 
 # == Debugging =========================================================

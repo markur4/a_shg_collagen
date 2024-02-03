@@ -1,4 +1,5 @@
 """Classes to handle raw image formats and slicing"""
+
 # %%
 from typing import Self, TYPE_CHECKING
 
@@ -15,6 +16,8 @@ import imagep.images.importtools as importtools
 
 if TYPE_CHECKING:
     from imagep.images.imgs import Imgs
+    from imagep.processing.pipeline import Pipeline
+    from imagep.processing.preprocess import PreProcess
 
 
 # %%
@@ -30,8 +33,9 @@ class ImgsImport:
     def __init__(
         self,
         data: str | Path | np.ndarray | list[np.ndarray] | Self = None,
-        dtype: np.dtype = rc.DTYPE_DEFAULT,
         verbose: bool = True,
+        ### KWS for importing from file
+        **fileimport_kws,
     ) -> None:
         ### Make sure that either path or array is given
         self.verbose = verbose
@@ -40,25 +44,29 @@ class ImgsImport:
         self.path: str | Path = None
         self.imgs: np.ndarray = None
 
-        ### Remember the dtype that arrays will be converted in
-        # ?? Should we keep original dtypes or explicitly convert to this?
-        self._dtype = dtype
+        ### Configure import from path
+        _importconfig = rc.RC_IMPORT
+        _importconfig.update(fileimport_kws)
+        self._fileimport_kws = _importconfig
+        # > Remember the target dtype, could be useful
+        self._dtype = self._fileimport_kws["dtype"]
 
-        ### Process source into path and images
-        self._source_type = type(data)
-        self._import(data)
+        ### IMPORT data and convert it into dtype
+        self._source_type = type(data)  # > Remember the source type
+        self._import(data, dtype=self._dtype)
 
         ### Slicing
         # > Remember if this object has been sliced
         self._slice: bool | str = False
-        self._num_imgs: int = self.imgs.shape[0]
-        self._slice_indices: list[int] = list(range(self._num_imgs))
+        self._shape_original: int = self.imgs.shape
+        self._slice_indices: list[int] = list(range(self._shape_original[0]))
 
     #
-    # == Process Source Data ===========================================
+    # == Import Source Data ============================================
 
     def _check_data_type(
-        self, data: str | Path | np.ndarray | list[np.ndarray] | Self
+        self,
+        data: str | Path | np.ndarray | list[np.ndarray] | Self,
     ) -> None:
         """Check if data is a valid image source"""
         types = (str, Path, np.ndarray, list, type(self))
@@ -72,20 +80,27 @@ class ImgsImport:
             raise ValueError(f"Unknown type of image source: {type(data)}." + m)
 
     def _import(
-        self, data: str | Path | np.ndarray | list[np.ndarray] | Self
+        self,
+        data: str | Path | np.ndarray | list[np.ndarray] | Self,
+        dtype: np.dtype,
     ) -> None:
+        """Main import function. Calls the appropriate import function."""
+
+        ### Check if data is a valid image source
         self._check_data_type(data)
 
+        ### Import
         if isinstance(data, (str, Path)):
             self.from_path(data)
         elif isinstance(data, (np.ndarray, list)):
             self.from_array(data)
-        # !! Importing from Instance is replaced by full attribute transfer
+        ### Importing from Instance is replaced by full attribute transfer
         # > Keep this here for future
         elif isinstance(data, type(self)):
             self.from_instance(data)
 
-    #
+        ### dtype Conversion
+        self.imgs = self.imgs.astype(dtype)
 
     #
     # == From Path, Array or Instance ==================================
@@ -105,7 +120,7 @@ class ImgsImport:
         ### Import
         if self.verbose:
             print(f"=> Importing images from '{self.path_short}' ...")
-        self.imgs = self.import_imgs(path, dtype=self._dtype)
+        self.imgs = self._import_imgs_from_path(path, **self._fileimport_kws)
 
         if self.verbose:
             print(
@@ -139,7 +154,7 @@ class ImgsImport:
                 + f" {array.dtype}) ..."
             )
         self.path = self.PATH_PLACEHOLDER
-        self.imgs = array.astype(self._dtype)
+        self.imgs = array
 
         if self.verbose:
             print("   Transfer DONE")
@@ -180,39 +195,46 @@ class ImgsImport:
     # == Import From Files =============================================
 
     @staticmethod
-    def import_imgs(path: Path, dtype: np.dtype) -> np.ndarray:
+    def _import_imgs_from_path(
+        path: str | Path, **fileimport_kws
+    ) -> np.ndarray:
         """Import z-stack from a folder"""
+        return importtools.import_imgs_from_path(path, **fileimport_kws)
 
-        ### Get all txt files
-        txts = list(path.glob("*.txt"))
+    # @staticmethod
+    # def _import_imgs_from_path(path: Path, dtype: np.dtype) -> np.ndarray:
+    #     """Import z-stack from a folder"""
 
-        ### sort txts by number
-        txts = sorted(txts, key=lambda x: int(x.stem.split("_")[-1]))
+    #     ### Get all txt files
+    #     txts = list(path.glob("*.txt"))
 
-        ### Invert, since the first image is the bottom one
-        txts = txts[::-1]
+    #     ### sort txts by number
+    #     txts = sorted(txts, key=lambda x: int(x.stem.split("_")[-1]))
 
-        ### Import all txt files
-        imgs = []
-        for txt in txts:
-            imgs.append(importtools.from_txt(txt))
+    #     ### Invert, since the first image is the bottom one
+    #     txts = txts[::-1]
 
-        ### Convert to numpy array
-        imgs = np.array(imgs, dtype=dtype)
+    #     ### Import all txt files
+    #     imgs = []
+    #     for txt in txts:
+    #         imgs.append(importtools.from_txt(txt))
 
-        return imgs
+    #     ### Convert to numpy array
+    #     imgs = np.array(imgs, dtype=dtype)
+
+    #     return imgs
 
     #
     # == Access/Slice Images ===========================================
 
     @property
     def stack_raw(self) -> np.ndarray:
-        return self.import_imgs()
+        return self._import_imgs_from_path()
 
     def __iter__(self):
         return iter(self.imgs)
 
-    def __getitem__(self, val: slice) -> Self | "Imgs":
+    def __getitem__(self, val: slice) -> Self | "Imgs" | "PreProcess":
         # > Create a copy of this instance
         _self = copy.deepcopy(self)
         # > Assign the sliced imgs to the new instance
@@ -226,7 +248,7 @@ class ImgsImport:
         # > Z[1:3]
         elif isinstance(val, slice):
             _self.imgs = self.imgs[val, ...]
-            indices = range(*val.indices(self._num_imgs))
+            indices = range(*val.indices(self._shape_original[0]))
         # > Z[1,2,5]
         elif isinstance(val, tuple):
             _self.imgs = self.imgs[list(val), ...]

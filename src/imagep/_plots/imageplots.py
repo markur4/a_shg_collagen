@@ -1,5 +1,7 @@
 """Plotting functions that display images"""
+
 # %%
+from typing import TYPE_CHECKING
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,6 +14,8 @@ import imagep._utils.utils as ut
 import imagep._plots.scalebar as scaleb
 
 
+# from imagep.images.imgs import Imgs
+
 # %%
 # == Testdata ==========================================================
 if __name__ == "__main__":
@@ -19,7 +23,7 @@ if __name__ == "__main__":
     from imagep.images.imgs import Imgs
 
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-    Z = Imgs(path=path, verbose=True, x_µm=1.5 * 115.4)
+    Z = Imgs(data=path, verbose=True, x_µm=1.5 * 115.4)
     print("pixelsize=", Z.pixel_size)
     I = 6
 
@@ -32,6 +36,12 @@ def _fname(fname: bool | str, extension=".png") -> Path:
         raise ValueError("You must provide a filename for save")
     fname = Path(fname).with_suffix(".png")
     return fname
+
+
+def figtitle_to_plot(title: str, fig: plt.Figure, axes: np.ndarray) -> None:
+    """Makes a suptitle for figures"""
+    bbox_y = 1.05 if axes.shape[0] <= 2 else 1.01
+    fig.suptitle(title, ha="left", x=0.01, y=bbox_y, fontsize="large")
 
 
 # %%
@@ -49,6 +59,7 @@ def _colorbar_to_ax(
         mappable=plt_img,
         ax=ax,
         fraction=0.04,  # > Size colorbar relative to ax
+        orientation="vertical",
     )
     # > plot metrics onto colorbar
     kws = dict(
@@ -128,24 +139,30 @@ def imshow(
     scalebar: bool = False,
     scalebar_kws: dict = dict(),
     colorbar=True,
+    share_cmap: bool = True,
     fname: bool | str = False,
     **imshow_kws,
-) -> tuple[plt.Figure, plt.Axes]:
+) -> tuple[plt.Figure, np.ndarray[plt.Axes]]:
     """Show the images"""
+
+    # ### If imgs is an instance of Imgs, retrieve the images
+    # if isinstance(imgs, Imgs): # !! circular import
+    #     imgs = imgs.imgs
+
     ### If single image, make it nested
     if len(imgs.shape) == 2:
         imgs = np.array([imgs])
-        
-    
+
     ### Always make copy when showing
+    # !! Keep raw, since scalebar changes metrics
     _imgs = imgs.copy()
+    _imgs_raw = imgs.copy()
 
     ### if single image, make it nested
     if len(_imgs.shape) == 2:
         _imgs = np.array([_imgs])
 
     ### Scalebar
-    # !! Done before retrieving images, so
     if scalebar:
         ### Default values for scalebar
         ut.check_arguments(
@@ -193,16 +210,24 @@ def imshow(
         ax.axis("off")
 
         # > All images have same limits
-        plt_img.set_clim(min_all, max_all)
+        if share_cmap:
+            plt_img.set_clim(min_all, max_all)
 
         # > Colorbar
         if colorbar:
-            #!! Calculate from raw images, since adding scalebar changes pixel values
-            p = np.percentile(_imgs[i], [50, 75, 99])
-            minmax = np.min(_imgs[i]), np.max(_imgs[i])
+            #!! Calculate from raw images, since scalebar changes pixel values
+            p = np.percentile(_imgs_raw[i], [50, 75, 99])
+            minmax = np.min(_imgs_raw[i]), np.max(_imgs_raw[i])
             cb = _colorbar_to_ax(
                 plt_img=plt_img, percentiles=p, ax=ax, minmax=minmax
             )
+
+        ### axes title
+        AXTITLE = (
+            f"Image {i+1}/{len(_imgs)},"  # > don't provide index
+            f"  {img.shape[0]}x{img.shape[1]}  {img.dtype}"
+        )
+        ax.set_title(f"Image {i+1}/{len(_imgs)}", fontsize="medium")
 
     ### legend for colorbar lines
     handles, labels = cb.ax.get_legend_handles_labels()
@@ -211,7 +236,7 @@ def imshow(
     bbox_y = 1.12 if n_rows == 1 else 1.06
     bbox_y = 1.06 if n_rows == 2 else bbox_y
     bbox_y = 1.04 if n_rows >= 3 else bbox_y
-    fig.legend(
+    legend = fig.legend(
         title="Percentiles",
         loc="upper right",
         bbox_to_anchor=(bbox_x, bbox_y),  # > (x, y)
@@ -220,35 +245,42 @@ def imshow(
         fontsize=10,
         framealpha=0.2,
     )
+    frame = legend.get_frame()
+    frame.set_facecolor("black")
+
     ### aligned left
-    plt.suptitle(f"{imgs.shape[0]} images, {imgs.dtype}", ha="left", x=0.05)
+    FIGTITLE = f"{imgs.shape[0]} images, {imgs.dtype}"
+    figtitle_to_plot(FIGTITLE, fig=fig, axes=axes)
+
+    # plt.suptitle(f"{imgs.shape[0]} images, {imgs.dtype}", ha="left", x=0.05)
     plt.tight_layout()
 
     return fig, axes
 
 
-# def _test_imshow_global(Z):
-#     kws = dict(
-#         max_cols=2,
-#         scalebar_kws=dict(
-#             pixel_size=0.05,  # !! must be provided when scalebar
-#         ),
-#     )
-#     imgs = Z.imgs
+def _test_imshow_global(Z):
+    kws = dict(
+        max_cols=2,
+        scalebar=True,
+        scalebar_kws=dict(
+            pixel_size=0.05,  # !! must be provided when scalebar
+        ),
+    )
+    imgs = Z.imgs
 
-#     imshow(imgs, slice=0, **kws)
-#     imshow(imgs, slice=[1, 2], **kws)
-#     imshow(imgs, slice=[1, 2, 3], **kws)
-#     imshow(imgs, slice=(1, 10, 2), **kws)  # > start stop step
+    imshow(imgs[0], **kws)
+    imshow(imgs[[0, 1, 2]], **kws)
+    imshow(imgs[0:10:2], **kws)
 
-#     ### Check if scalebar is not burned it
-#     plt.imshow(Z[0])
-#     plt.suptitle("no scalebar should be here")
-#     plt.show()
+    ### Check if scalebar is not burned it
+    plt.imshow(Z.imgs[0])
+    plt.suptitle("no scalebar should be here")
+    plt.show()
 
 
-# if __name__ == "__main__":
-#     _test_imshow_global(Z)
+if __name__ == "__main__":
+    pass
+    # _test_imshow_global(Z)
 
 
 # %%
@@ -279,3 +311,4 @@ def mip(
 
     if return_array:
         return mip
+

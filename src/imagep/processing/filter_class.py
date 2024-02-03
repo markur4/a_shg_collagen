@@ -1,4 +1,5 @@
 """ A class for to implement all filters as methods """
+
 # %%
 from typing import Callable
 
@@ -19,8 +20,8 @@ import imagep.processing.filters as filt
 
 
 # %%
-# == Class Transform ===================================================
-class Transform:
+# == Class Filter ===================================================
+class Filter:
     def __init__(self, imgs: np.ndarray = None, verbose: bool = True):
         self.imgs = imgs
         self.verbose = verbose
@@ -37,10 +38,10 @@ class Transform:
         self, msg: str, cached: bool = None, parallel=None, n_cores: int = None
     ) -> None:
         m = f"\t{msg} ..."
-        if cached:
-            m += " (checking cache)"
         if parallel:
             m += f" ({n_cores} workers)"
+        if cached:
+            m += " (checking cache)"
 
         # m += " ..."
 
@@ -77,20 +78,19 @@ class Transform:
         cached: bool = True,
         parallel: bool = True,
         n_cores: int = None,
-        inplace: bool = False,
+        # inplace: bool = False, #!! not working
         **filter_kws,
     ):
         ### KWARGS
-        _imgs = self.imgs if inplace else self.imgs.copy()
         # > Acceleration KWS
-        n_cores = n_cores if n_cores else ut.cores_from_shape(_imgs.shape)
+        n_cores = n_cores if n_cores else ut.cores_from_shape(self.imgs.shape)
         acc_KWS = dict(
             cached=cached,
             parallel=parallel,
             n_cores=n_cores,
         )
         # > Filter KWS
-        filter_KWS = dict(imgs=_imgs)  # > placeholder
+        filter_KWS = dict(imgs=self.imgs)  # > placeholder
         filter_KWS.update(filter_kws)
 
         ### Execute
@@ -113,7 +113,6 @@ class Transform:
         cached: bool = True,
         parallel: bool = True,
         n_cores: int = None,
-        inplace: bool = False,
         **filter_kws,
     ) -> np.ndarray:
         """Performs entropy filter on image
@@ -124,9 +123,8 @@ class Transform:
         """
 
         ### KWARGS
-        _imgs = self.imgs if inplace else self.imgs.copy()
         # > Acceleration KWS
-        n_cores = n_cores if n_cores else ut.cores_from_shape(_imgs.shape)
+        n_cores = n_cores if n_cores else ut.cores_from_shape(self.imgs.shape)
         acc_KWS = dict(
             cached=cached,
             parallel=parallel,
@@ -134,7 +132,7 @@ class Transform:
         )
         # > Filter KWS
         filter_KWS = dict(
-            imgs=_imgs,
+            imgs=self.imgs,
             kernel_radius=kernel_radius,
             normalize=normalize,
         )
@@ -159,17 +157,14 @@ class Transform:
         cross_z: bool = True,
         normalize: bool = True,
         cached: bool = True,
-        inplace: bool = False,
         **filter_kws,
     ) -> np.ndarray:
         """Performs median filter on image"""
 
         ### KWARGS
-        _imgs = self.imgs if inplace else self.imgs.copy()
-
         # > Filter KWS
         filter_KWS = dict(
-            imgs=_imgs,
+            imgs=self.imgs,
             kernel_radius=kernel_radius,
             cross_z=cross_z,
             normalize=normalize,
@@ -195,17 +190,14 @@ class Transform:
         sigma: float = 1,
         cross_z: bool = True,
         normalize: bool = True,
-        inplace: bool = False,
         **filter_kws,
     ) -> np.ndarray:
         """Blur image using a thresholding method"""
 
         ### KWARGS
-        _imgs = self.imgs if inplace else self.imgs.copy()
-
         # > Filter KWS
         filter_KWS = dict(
-            imgs=_imgs,
+            imgs=self.imgs,
             sigma=sigma,
             cross_z=cross_z,
             normalize=normalize,
@@ -223,9 +215,6 @@ class Transform:
             return filt.blur(**filter_KWS)
 
 
-
-
-
 # !! ===================================================================
 
 
@@ -241,7 +230,7 @@ if __name__ == "__main__":
     Z = Imgs(path=path_d, verbose=True, x_µm=1.5 * 115.4)
     I = 6
     Z.imgs[I + 1] = 3  # > Change next image to test multidimensional filters
-    T = Transform(imgs=Z.imgs, verbose=True)
+    T = Filter(imgs=Z.imgs, verbose=True)
     # %%
     ### Show NOT-denoised
     Z[[I, I + 1]].imshow()
@@ -264,7 +253,7 @@ def _get_test_kws_acc():
     return kws_list
 
 
-def _test_denoise(T: Transform, I: int = 6):
+def _test_denoise(T: Filter, I: int = 6):
     kws_list = _get_test_kws_acc()
     for kws in kws_list:
         print(kws)
@@ -273,7 +262,7 @@ def _test_denoise(T: Transform, I: int = 6):
         plt.show()
 
 
-def _test_entropy(T: Transform, I: int = 6):
+def _test_entropy(T: Filter, I: int = 6):
     kws_list = _get_test_kws_acc()
     for kws in kws_list:
         print(kws)
@@ -290,7 +279,7 @@ if __name__ == "__main__":
 
 # %%
 # == Test Filters that aren't parallel =================================
-def _test_median(T: Transform, I: int = 6):
+def _test_median(T: Filter, I: int = 6):
     kws_list = [
         dict(kernel_radius=1, cross_z=True, normalize=True, cached=False),
         dict(kernel_radius=2, cross_z=True, normalize=True, cached=False),
@@ -304,9 +293,10 @@ def _test_median(T: Transform, I: int = 6):
         imshow(_imgs[[I, I + 1]])
         plt.show()
 
-def _test_blur(T: Transform, I: int = 6):
+
+def _test_blur(T: Filter, I: int = 6):
     kws_list = [
-        dict(sigma=1, cross_z=True, normalize=True ),
+        dict(sigma=1, cross_z=True, normalize=True),
         dict(sigma=2, cross_z=True, normalize=True),
         dict(sigma=2, cross_z=False, normalize=True),
         dict(sigma=2, cross_z=True, normalize=False),
@@ -316,6 +306,7 @@ def _test_blur(T: Transform, I: int = 6):
         _imgs = T.blur(**kws)
         imshow(_imgs[[I, I + 1]])
         plt.show()
+
 
 if __name__ == "__main__":
     pass
@@ -356,13 +347,13 @@ def _test_denoise_parallel(i=6):
     # > 10.8 Seconds for detailed (2 workers)
     ### ThreadPoolExecutor is faster than ProcessPoolExecutor!
     # > 3.5 Seconds! (2 workers) >> BEST!
-    _imgs = Z2.transform.denoise(parallel=True)
+    _imgs = Z2.filter.denoise(parallel=True)
     plt.imshow(_imgs[i])
 
     ### Denoising serial
     # > 14 Seconds for rough
     # > 17.0  seconds for detailed (1 workers)
-    _imgs = Z2.transform.denoise(parallel=False)
+    _imgs = Z2.filter.denoise(parallel=False)
     plt.imshow(_imgs[i])
 
 

@@ -30,7 +30,7 @@ def blur(
     imgs: np.ndarray,
     sigma: float = 1,
     normalize=True,
-    cross_z: bool = True,
+    kernel_3D: bool = True,
     **filter_kws,
 ) -> np.ndarray:
     """Blur image using a thresholding method"""
@@ -44,7 +44,7 @@ def blur(
     kws.update(filter_kws)
 
     ### Apply 3D filter, blurring across z-axis leads to cross-talk !!!
-    if cross_z:
+    if kernel_3D:
         _imgs = ski.filters.gaussian(imgs, **kws)
     ### Apply 2D filter, no cross-talk in z-axis
     else:
@@ -59,7 +59,7 @@ def blur(
 
 
 if __name__ == "__main__":
-    _imgs1 = blur(Z.imgs, sigma=1, cross_z=False, normalize=True)
+    _imgs1 = blur(Z.imgs, sigma=1, kernel_3D=False, normalize=True)
     imshow(_imgs1[[I, I + 1]])
 
 

@@ -5,6 +5,7 @@ basic tools for imported images. Her we include:
 - Add Scalebar
 - Simple visualizations
 """
+
 # %%
 
 from typing import Self, TYPE_CHECKING
@@ -23,6 +24,7 @@ import imagep.images.importtools as importtools
 from imagep.images.imgs_import import ImgsImport
 import imagep._plots.scalebar as scaleb
 import imagep._plots.imageplots as imageplots
+import imagep._plots.dataplots as dataplots
 import imagep._utils.utils as ut
 
 if TYPE_CHECKING:
@@ -39,15 +41,19 @@ class Imgs(ImgsImport):
 
     def __init__(
         self,
-        ### kws for ImgsRaw:
+        ### kws for ImgsImport:
         data: str | Path | np.ndarray | list[np.ndarray] | Self = None,
         verbose: bool = True,
-        dtype: np.dtype = rc.DTYPE_DEFAULT,
         ### kws for Imgs
         x_µm: float = 200.0,
         scalebar_microns: int = 10,
+        ### KWS for importing from file
+        **fileimport_kws,
     ):
         """Basic Image-stack functionalities.
+        - Block super()__init__ if to avoid re-loading images
+
+
         :param path: pathlike string or object
         :type path: str | Path
         :param x_µm: Total width of image in µm, defaults to 200
@@ -57,8 +63,9 @@ class Imgs(ImgsImport):
             10
         :type scalebar_microns: int, optional
         """
-        ### Call super().__init__(), OR retrieve attributes from instance
-        self._transfer_attributes(data, dtype, verbose)
+        ### GET ATTRIBUTES
+        # > super().__init__(), OR retrieve attributes from instance
+        self._transfer_attributes(data, verbose, **fileimport_kws)
 
         ### Total width, height, depth in µm
         self.x_µm = x_µm
@@ -72,7 +79,7 @@ class Imgs(ImgsImport):
 
     # == Import from parent Instance ===================================
     #
-    def _transfer_attributes(self, data: Self, dtype: np.dtype, verbose: bool):
+    def _transfer_attributes(self, data: Self, verbose: bool, **fileimport_kws):
         """Import images from another Imgs instance. This will transfer
         all attributes from the Imgs instance. Methods are transferred
         by inheritance, because we want the option to import images at
@@ -83,7 +90,7 @@ class Imgs(ImgsImport):
             super().from_instance(instance=data, verbose=verbose)
         # > If not, call the parent __init__ method
         else:
-            super().__init__(data, dtype, verbose)
+            super().__init__(data, verbose, **fileimport_kws)
 
     #
     # == Scalebar ======================================================
@@ -135,7 +142,6 @@ class Imgs(ImgsImport):
 
     def imshow(
         self,
-        # slice: str | int | list[int] | tuple[int] = "all",
         cmap: str = "gist_ncar",
         max_cols: int = 2,
         scalebar=True,
@@ -159,7 +165,6 @@ class Imgs(ImgsImport):
         ### Update kwargs
         KWS = dict(
             imgs=_imgs,
-            # slice=slice,
             max_cols=max_cols,
             cmap=cmap,
             scalebar=scalebar,
@@ -167,6 +172,9 @@ class Imgs(ImgsImport):
             colorbar=colorbar,
         )
         KWS.update(imshow_kws)
+
+        ### Total number of images
+        T = self._shape_original[0]
 
         ### MAKE IMAGE
         fig, axes = imageplots.imshow(**KWS)
@@ -180,21 +188,22 @@ class Imgs(ImgsImport):
             _i = self._slice_indices[i] if self._slice else i
 
             img = _imgs[i]  # > retrieve image
-            axtit = (
-                f"Image {i+1}/{len(self.imgs)} (i={_i}/{self._num_imgs-1})"
+            AXTITLE = (
+                f"Image {i+1}/{T} (i={_i}/{T-1})"
                 f"    {img.shape[0]}x{img.shape[1]}  {img.dtype}"
                 # f"\nmin={form(img.min())}  mean={form(img.mean())}  max={form(img.max())}"
             )
-            ax.set_title(axtit, fontsize=10)
+            ax.set_title(AXTITLE, fontsize="medium")
 
         ### Fig title
-        tit = f"{self.path_short}\n - {self._num_imgs} Total images"
+        FIGTITLE = f"{self.path_short}\n - {T} Total images"
         if self._slice:
-            tit += f"; Sliced to {len(_imgs)} image(s) (i=[{self._slice}])"
+            FIGTITLE += f"; Sliced to {len(_imgs)} image(s) (i=[{self._slice}])"
+        imageplots.figtitle_to_plot(FIGTITLE, fig=fig, axes=axes)
 
-        ### Get number of rows in axes
-        bbox_y = 1.05 if axes.shape[0] <= 2 else 1.01
-        fig.suptitle(tit, ha="left", x=0.01, y=bbox_y, fontsize=12)
+        plt.tight_layout()
+        # bbox_y = 1.05 if axes.shape[0] <= 2 else 1.01
+        # fig.suptitle(FIGTITLE, ha="left", x=0.01, y=bbox_y, fontsize=12)
 
     def mip(self, scalebar=True, **mip_kws) -> np.ndarray | None:
         ### Make copy in case of burning in scalebar
@@ -207,12 +216,11 @@ class Imgs(ImgsImport):
         plt.show()
         return mip
 
-    def plot_brightness_distribution(self, bins=75, log=True) -> None:
+    def plot_histogram(self, bins=75, log=True) -> None:
         """Plot the brightness distribution of the z-stack as
         histogram"""
 
-        plt.hist(self.imgs, bins=bins, log=log)
-        plt.show()
+        dataplots.histogram(self.imgs, bins=bins, log=log)
 
 
 #

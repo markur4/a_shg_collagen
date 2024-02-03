@@ -1,11 +1,25 @@
 """Utility functions for imagep"""
+
 # %%
-from typing import Generator
+from typing import Generator, Callable, TypedDict
 
 import os
 
 
 import numpy as np
+
+
+# %%
+# == Importing =========================================================
+class ConfigImport(TypedDict):
+    """Configuration for importing images"""
+
+    fileformat: str
+    sort: bool
+    sortkey: Callable
+    invertorder: bool
+    dtype: np.dtype
+    # import_kws: dict
 
 
 # %%
@@ -53,6 +67,10 @@ def format_num(
         bigger/smaller than this, defaults to 2
     :type exp: int, optional
     """
+    ### Return 0 if number is 0
+    if number == 0:
+        return "0"
+    
     ### Get exponent
     e = np.floor(np.log10(number))
 
@@ -78,6 +96,8 @@ def format_num(
 
 
 def _test_format_num():
+    print(format_num(0))
+    print(format_num(0.00000))
     print(format_num(1))  # > int
     print(format_num(1234))  # > int
     print(format_num(1.1))

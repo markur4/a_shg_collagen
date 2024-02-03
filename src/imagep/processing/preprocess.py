@@ -21,12 +21,16 @@ import skimage as ski
 
 
 # > Local
-from imagep.images.imgs import Imgs
+import imagep._rc as rc
+
+# from imagep.images.imgs import Imgs
 import imagep._utils.utils as ut
-from imagep._utils.subcache import SubCache
-from imagep.processing.transforms import Transform
+
+# from imagep._utils.subcache import SubCache
+# from imagep.processing.transforms import Transform
 from imagep._plots.imageplots import imshow
-from imagep.processing.process import Process
+from imagep.processing.pipeline import Pipeline
+from imagep.processing.background import Background
 
 
 # # %%
@@ -45,10 +49,9 @@ from imagep.processing.process import Process
 # )
 
 
-
 # %%
 # == CLASS PREPROCESSING ===============================================
-class PreProcess(Process):
+class PreProcess(Pipeline):
     def __init__(
         self,
         *imgs_args,
@@ -57,8 +60,8 @@ class PreProcess(Process):
         subtract_bg: bool = False,
         subtract_bg_kws: dict = dict(method="triangle", sigma=1.5),
         remove_empty_slices: bool = True,
-        sample_index: int = 6,
-        **imgs_kws,
+        ### Imgs kws
+        **imgs_process_kws,
     ) -> None:
         """Preprocessing pipeline for image stacks
 
@@ -70,7 +73,7 @@ class PreProcess(Process):
             the processing steps, defaults to 6
         :type sample_index: int, optional
         """
-        super().__init__(*imgs_args, **imgs_kws)
+        super().__init__(*imgs_args, **imgs_process_kws)
 
         ### Check Arguments
         ut.check_arguments(subtract_bg_kws, ["method", "sigma"])
@@ -88,70 +91,58 @@ class PreProcess(Process):
         self.history: OrderedDict = self._init_history(**self.kws_preprocess)
         # > List of preprocessing steps
         self._pp_steps = list(self.history.keys())[1:]
-
+        
+        ### Access to background
+        self._background = Background(imgs=self.imgs, verbose=self.verbose)
+        
         ### Execute !
         # self.imgs = self.preprocess(cache_preprocessing=cache_preprocessing)
-        self.preprocess(sample_index=sample_index)
+        self.preprocess()
+
+    # == Access to background functions and methods ====================
+    @property
+    def background(self):
+        ### Keep imgs up-to-date
+        self._background.imgs = self.imgs
+        self._background.verbose = self.verbose
+        ### Preserve background instance
+        return self._background
 
     #
     # == Preprocess MAIN ===============================================
 
-    def preprocess(self, sample_index: int = 6) -> np.ndarray:
+    def preprocess(self) -> np.ndarray:
+
+        if self.verbose:
+            print("=> Pre-processing ...")
+
         ### Shorten kws
         kws = self.kws_preprocess
 
         ### Get Sample of image before preprocessing
-        self.history_imgs["before"] = self.imgs[sample_index]
+        self.capture_snapshot("before preprocessing")
 
         ### Denoise
         if kws["denoise"]:
-            self.transform.denoise(inplace=True)
-            self.history_imgs["denoise"] = self.imgs[sample_index]
+            self.imgs = self.filter.denoise()
+            self.capture_snapshot("Denoise")
 
         ### Subtract Background
         if kws["subtract_bg"]:
-            _imgs = self.subtract_background(
-                imgs=_imgs,
-                **kws["subtract_bg_kws"],
+            self.imgs = self.background.subtract_threshold(
+                **kws["subtract_bg_kws"]
             )
+            self.capture_snapshot("subtract_bg")
 
         ### Normalize
         if kws["normalize"]:
-            _imgs = self.normalize(imgs=_imgs)
+            self.imgs = self.imgs / self.imgs.max()
+            self.capture_snapshot("normalize")
 
         ### Remove empty slices
         if kws["remove_empty_slices"]:
-            _imgs = self.remove_empty_slices(imgs=_imgs)
+            self.imgs = self.remove_empty_slices(imgs=self.imgs)
 
-        return _imgs
-
-    # def preprocess(self, cache_preprocessing=True):
-    #     ### Print Preprocessing Steps
-    #     if self.verbose and len(self._pp_steps) > 0:
-    #         print(f"=> Pre-processing: {self._pp_steps} ...")
-
-    #     ### Execute
-    #     if cache_preprocessing:
-    #         if self.verbose:
-    #             print("\tChecking Cache...")
-    #         _imgs = self._preprocess_cached(**self.kws_preprocess)
-    #     else:
-    #         _imgs = self._preprocess(**self.kws_preprocess)
-
-    #     ### Done
-    #     if self.verbose and len(self._pp_steps) > 0:
-    #         print("   Pre-processing Done")
-
-    #     return _imgs
-
-    # def _preprocess_cached(self, **preprocess_kws):
-    #     """Preprocess the z-stack"""
-    #     preprocess_cached = CACHE_PREPROCESS.subcache(_preprocess_main)
-    #     return preprocess_cached(self, **preprocess_kws)
-
-    # def _preprocess(self, **preprocess_kws):
-    #     """Preprocess the z-stack"""
-    #     return _preprocess_main(self, **preprocess_kws)
 
     #
     # === HISTORY ====================================================
@@ -288,83 +279,6 @@ class PreProcess(Process):
         return f'< Images from "{self.path_short}">'
 
     #
-    # == Normalize =====================================================
-
-    @staticmethod
-    def normalize(imgs: np.ndarray) -> np.ndarray:
-        """Normalize the images by its max value"""
-        return imgs / imgs.max()
-
-    #
-    # == BG Subtract ===================================================
-
-    @staticmethod
-    def get_background_by_percentile(
-        img: np.ndarray, percentile=10
-    ) -> np.float64:
-        """Defines background as percentile of the stack"""
-        return np.percentile(img, percentile, axis=0)
-
-    @staticmethod
-    def get_background_by_threshold(
-        img: np.ndarray, threshold=0.05
-    ) -> np.float64:
-        """Defines background as threshold * max value"""
-        return img.max() * threshold
-
-    @staticmethod
-    def get_background(
-        img: np.ndarray, method="triangle", sigma: float = None, **kws
-    ) -> np.float64:
-        ### Blur if sigma is given
-        # > Improves thresholding by decreasing variance of bg
-
-        ### Blur
-        if not sigma is None:
-            img = ski.filters.gaussian(img, sigma=sigma)
-
-        ### Apply Filters
-        if method == "otsu":
-            return ski.filters.threshold_otsu(img, **kws)
-        elif method == "mean":
-            return ski.filters.threshold_mean(img, **kws)
-        elif method == "triangle":
-            return ski.filters.threshold_triangle(img, **kws)
-        elif method == "percentile":
-            return PreProcess.get_background_by_percentile(img, **kws)
-        elif method == "threshold":
-            return PreProcess.get_background_by_threshold(img, **kws)
-        else:
-            raise ValueError(f"Unknown method: {method}")
-
-    @staticmethod
-    def subtract(img: np.ndarray, value: float) -> np.ndarray:
-        """subtracts value from stack and sets negative values to 0"""
-        img_bg = img - value
-        ### Set negative values to 0
-        img_bg[img_bg < 0] = 0
-
-        return img_bg
-
-    @staticmethod
-    def subtract_background(
-        imgs: np.ndarray,
-        method: str,
-        sigma: float,
-        bg_per_img=False,
-    ) -> np.ndarray:
-        if bg_per_img:
-            imgs_bg = np.zeros(imgs.shape)
-            for i, img in enumerate(imgs):
-                bg = PreProcess.get_background(img, method=method, sigma=sigma)
-                imgs_bg[i] = PreProcess.subtract(img, value=bg)
-            return imgs_bg
-
-        else:
-            bg = PreProcess.get_background(imgs, method=method, sigma=sigma)
-            return PreProcess.subtract(imgs, value=bg)
-
-    #
     # == Z-Stack optimizations ============================================
     def remove_empty_slices(
         self, imgs: np.ndarray = None, threshold=0.10
@@ -379,13 +293,13 @@ class PreProcess(Process):
         imgs = self.imgs if imgs is None else imgs
 
         ### Perform entropy filtering
-        _imgs = self.transform.entropy(imgs=imgs)
+        _imgs = self.filter.entropy(imgs=imgs)
 
         ### Get 99th percentiles for each image
         percentiles = np.percentile(_imgs, 99, axis=(1, 2))
 
         ### Show
-        if self.DEBUG:
+        if rc.DEBUG:
             self.imshow(imgs=imgs, slice=3)  # original
             self.imshow(imgs=_imgs, slice=3)  # filtered
             plt.plot(percentiles / percentiles.max(), label="99percentiles")
@@ -402,35 +316,6 @@ class PreProcess(Process):
 # !! ===================================================================
 
 
-# # == preprocess_main ===================================================
-# def _preprocess_main(
-#     preprocess_object: PreProcess,
-#     parallel=True,
-#     **preprocess_kws,
-# ) -> np.ndarray:
-#     self = preprocess_object
-
-#     _imgs = self.imgs.copy()
-
-#     ### Denoise
-#     if preprocess_kws["denoise"]:
-#         _imgs = self.transform.denoise(parallel=parallel)
-
-#     ### Subtract Background
-#     if preprocess_kws["subtract_bg"]:
-#         _imgs = self.subtract_background(
-#             imgs=_imgs,
-#             **preprocess_kws["subtract_bg_kws"],
-#         )
-
-#     ### Normalize
-#     if preprocess_kws["normalize"]:
-#         _imgs = self.normalize(imgs=_imgs)
-
-#     if preprocess_kws["remove_empty_slices"]:
-#         _imgs = self.remove_empty_slices(imgs=_imgs)
-
-#     return _imgs
 
 
 # %%
@@ -440,11 +325,11 @@ if __name__ == "__main__":
     ### Import from a txt file.
     # > Rough
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
+    # > x_µm = fast axis amplitude * calibration =  1.5 V * 115.4 µm/V
+    # > z_dist = n_imgs * stepsize = 10 * 0.250 µm
     kws = dict(
-        # z_dist=10 * 0.250,  # > stepsize * 0.250 µm
-        x_µm=1.5
-        # > fast axis amplitude 1.5 V * calibration 115.4 µm/V
-        * 115.4,
+        # z_dist=10 * 0.250,
+        x_µm=(1.5 * 115.4),
     )
     # > Detailed
     # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
@@ -453,27 +338,52 @@ if __name__ == "__main__":
     #     x_µm=1.5
     #     * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
     # )
+    I = 17
     Z = PreProcess(
-        path=path,
+        data=path,
         denoise=True,
-        subtract_bg=False,
+        subtract_bg=True,
+        subtract_bg_kws=dict(
+            method="triangle",
+            sigma=1.5,
+            bg_per_img=True,
+        ),
         scalebar_microns=50,
-        # cache_preprocessing=False,
+        snapshot_index=I,
         **kws,
     )
-    Z.imgs.shape
-    Z.imgs.max()
+    print(Z.imgs.shape)
+    print(Z._shape_original)
+
     # plt.imshow(zstack.stack[0])
 
     # %%
     ### Check history
     Z.info
-
-    # %%
-    # CACHE_PREPROCESS.list_objects()
-
     # %%
     Z.history
+
+    # %%
+    ### Check snapshots
+    # Z.snapshots_array
+    # %%
+    Z.plot_snapshots()
+    
+    #%%
+    # print(Z.background.threshold)
+
+    
+    # %%
+    # imshow(Z.snapshots_array)
+    # %%
+    # imshow(Z.filter.denoise()[I])
+
+    # %%
+    # Z[I].imshow()
+
+    # imshow(Z.snapshots_array)
+    # %%
+    hä
 
     # %%
     Z.kws_preprocess

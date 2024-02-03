@@ -119,31 +119,54 @@ classDiagram
       ...
       ....()
    }
-   class import {
-      ...
+   class ImgsImport {
+      imgs
+      verbose
       from_textfile()
    }
-   class Images{
+   numpy_ndarray *-- ImgsImport
+   
+   class Imgs{
       pixel_size
       x_µm
       y_µm
       ....()
    }
+   ImgsImport <-- Imgs
    
+   %% == Preprocessing ==============================================
+
+   class Filters{
+      imgs
+      verbose
+      denoise()
+      ....()
+   }
+   Pipeline *-- Filters
    
-   #%% == Preprocessing ==============================================
-   
+   class Pipeline {
+      history
+      snapshots
+      ...
+      capture_snapshot()
+      ....()
+   }
+   Imgs <-- Pipeline
+
+   class Background{
+      imgs
+      verbose
+      subtract()
+      ....()
+   }
+   PreProcess *-- Background
    
    class PreProcess {
       ...
       ....()
    }
+   Pipeline <-- PreProcess
    
-   #%% == Visualize ===============================================
-   class ZStack{
-      z_µm
-      ....()
-    }
    class Annotate{
       ...
       ....()
@@ -152,18 +175,31 @@ classDiagram
       ...
       ....()
    }
+   PreProcess <-- Segment
+   
+   %% == Visualize ===============================================
+   class ZStack{
+      z_µm
+      ....()
+    }
+   PreProcess <-- ZStack
+   
+   %% == Analysis ===============================================
    class FibreDiameter{
       data_check_integrity()
       ....()
    }
-   
-
-   numpy_ndarray *-- import
-   import *-- PreProcess
-   PreProcess <-- ZStack
-   PreProcess <-- Annotate
-   Annotate <-- Segment
    Segment <-- FibreDiameter
+
+   class Nuclei{
+      percentage()
+      ...
+      ....()
+   }
+   Segment <-- Nuclei
+
+
+
 
 
 

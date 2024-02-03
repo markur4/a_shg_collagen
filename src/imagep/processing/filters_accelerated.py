@@ -306,14 +306,14 @@ if __name__ == "__main__":
 def _median(
     imgs: np.ndarray,
     kernel_radius: int = 2,
-    cross_z: bool = True,
+    kernel_3D: bool = True,
     normalize=False,
     **filter_kws,
 ) -> np.ndarray:
     """Performs median filter on image"""
 
     ### Apply 3D or 2D filter
-    if cross_z:
+    if kernel_3D:
         axes = None  # > Cross-talk in z-axis
         kernel = ski.morphology.ball(radius=kernel_radius)
     else:
@@ -339,7 +339,7 @@ def _median(
 def median(
     imgs: np.ndarray,
     kernel_radius: int = 2,
-    cross_z: bool = True,
+    kernel_3D: bool = True,
     normalize=False,
     cached: bool = True,
     **filter_kws,
@@ -347,7 +347,7 @@ def median(
     """Implements caching"""
     kws = dict(
         kernel_radius=kernel_radius,
-        cross_z=cross_z,
+        kernel_3D=kernel_3D,
         normalize=normalize,
         **filter_kws,
     )
