@@ -26,6 +26,7 @@ from .pipelines.diameter import FibreDiameter  # :: ip.FibreDiameter(**kws)
 
 ### Libraries for tools
 from .processing import filters  # :: e.g. 'ip.filters.denoise(**kws)'
+from .processing import filters_accelerated
 from ._utils import utils  # :: 'ip.utils.<function>(**kws)'
 
 # > Plotting tools are imported directly

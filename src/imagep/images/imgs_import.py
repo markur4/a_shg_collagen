@@ -43,6 +43,7 @@ class ImgsImport:
         ### Init attributes, they will be set by the import functions
         self.path: str | Path = None
         self.imgs: np.ndarray = None
+        self.imgs_filekeys: list[str] = None
 
         ### Configure import from path
         _importconfig = rc.RC_IMPORT
@@ -69,14 +70,18 @@ class ImgsImport:
         data: str | Path | np.ndarray | list[np.ndarray] | Self,
     ) -> None:
         """Check if data is a valid image source"""
-        types = (str, Path, np.ndarray, list, type(self))
+        types = (str, Path, np.ndarray, list)
         m = (
             " Either path, array or an instance of Imgs"
             + " (or Imgs-subclasses) must be given."
         )
         if data is None:
             raise ValueError("No image source passed." + m)
-        elif not isinstance(data, types):
+        # > Z = PreProcess(data=Imgs)
+        # > issubclass(data=PreProcess, self=Imgs)
+        elif not (
+            isinstance(data, types) or issubclass(type(self), type(data))
+        ):
             raise ValueError(f"Unknown type of image source: {type(data)}." + m)
 
     def _import(
@@ -94,10 +99,12 @@ class ImgsImport:
             self.from_path(data)
         elif isinstance(data, (np.ndarray, list)):
             self.from_array(data)
-        ### Importing from Instance is replaced by full attribute transfer
-        # > Keep this here for future
-        elif isinstance(data, type(self)):
-            self.from_instance(data)
+        ### Importing from Instance
+        # > Z = PreProcess(data=Imgs)
+        # > issubclass(self=PreProcess, data=Imgs)
+        elif issubclass(type(self), type(data)):
+            # !! Can't use data.verbose, because it's not set yet
+            self.from_instance(data, verbose=self.verbose)
 
         ### dtype Conversion
         self.imgs = self.imgs.astype(dtype)
@@ -112,7 +119,7 @@ class ImgsImport:
 
         ### Check if path is valid
         if not path.exists():
-            raise FileNotFoundError(f"Path {path} does not exist.")
+            raise FileNotFoundError(f"Path does not exist: {path}")
 
         ### Set Path
         self.path = Path(path)
@@ -120,7 +127,9 @@ class ImgsImport:
         ### Import
         if self.verbose:
             print(f"=> Importing images from '{self.path_short}' ...")
-        self.imgs = self._import_imgs_from_path(path, **self._fileimport_kws)
+        self.imgs_filekeys, self.imgs = self._import_imgs_from_path(
+            path, **self._fileimport_kws
+        )
 
         if self.verbose:
             print(
@@ -197,7 +206,7 @@ class ImgsImport:
     @staticmethod
     def _import_imgs_from_path(
         path: str | Path, **fileimport_kws
-    ) -> np.ndarray:
+    ) -> tuple[list[str], np.ndarray]:
         """Import z-stack from a folder"""
         return importtools.import_imgs_from_path(path, **fileimport_kws)
 
@@ -229,7 +238,7 @@ class ImgsImport:
 
     @property
     def stack_raw(self) -> np.ndarray:
-        return self._import_imgs_from_path()
+        return self._import_imgs_from_path()[1]
 
     def __iter__(self):
         return iter(self.imgs)

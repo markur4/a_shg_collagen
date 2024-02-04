@@ -21,7 +21,8 @@ import imagep._rc as rc
 
 def import_imgs_from_path(
     path: Path,
-    fileformat: str,
+    fname_pattern: str = "",
+    fname_extension: str = "",
     sort: bool = True,
     sortkey: Callable = None,
     invertorder: bool = True,
@@ -30,11 +31,25 @@ def import_imgs_from_path(
 ) -> np.ndarray:
     """Import z-stack from a folder"""
 
-    ### Make sure fileformat starts with a dot
-    fileformat if fileformat.startswith(".") else "." + fileformat
+    ### Make sure either fname_extension or fname_pattern is given
+    if not fname_extension and not fname_pattern:
+        raise ValueError(
+            "Either arguments must be given:"
+            " 'fname_pattern' or 'fname_extension'."
+        )
+
+    ### Make sure fname_extension starts with a dot
+    (
+        fname_extension
+        if fname_extension.startswith(".")
+        else "." + fname_extension
+    )
+
+    ### Define filepattern
+    pattern = fname_pattern if fname_pattern else "*" + fname_extension
 
     ### Get all files
-    filepaths = list(path.glob("*" + fileformat))
+    filepaths = list(path.glob(pattern))
 
     ### sort txts by number
     if sort:
@@ -45,26 +60,32 @@ def import_imgs_from_path(
         filepaths = filepaths[::-1]
 
     ### Pick the right function to import
-    import_func = function_from_format(fileformat)
+    import_func = function_from_format(fname_extension)
 
     ### Import all files
     _imgs = [
         import_func(path, dtype=dtype, **importfunc_kws) for path in filepaths
     ]
     _imgs = np.array(_imgs)  # > list to array
+    
+    ### Get the keys to identify individual images
+    if not sortkey is None:
+        filekeys = [sortkey(path) for path in filepaths]
+    else:
+        filekeys = ["" for path in filepaths]
+        
+    return filekeys, _imgs
 
-    return _imgs
 
+def function_from_format(fname_extension: str) -> Callable:
+    """Pick the right function to import the fname_extension"""
 
-def function_from_format(fileformat: str) -> Callable:
-    """Pick the right function to import the fileformat"""
-
-    if fileformat == ".txt":
+    if fname_extension == ".txt":
         return txtfile_to_array
-    if fileformat in (".tif"):
+    if fname_extension in (".tif"):
         return imgfile_to_array
     else:
-        raise ValueError(f"Fileformat {fileformat} not supported.")
+        raise ValueError(f"fname_extension {fname_extension} not supported.")
 
 
 # %%
@@ -121,6 +142,7 @@ def imgfile_to_array(
     """Import from image formats"""
 
     return ski.io.imread(path, as_gray=as_gray).astype(dtype)
+
 
 if __name__ == "__main__":
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/240201 Imunocyto/Exp. 1/Dmp1/D0 LTMC DAPI 40x.tif"

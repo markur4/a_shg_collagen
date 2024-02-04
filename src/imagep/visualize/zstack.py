@@ -218,8 +218,8 @@ class ZStack(PreProcess):
             volplot.render()
             volplot.write_frame()
 
+    # !! == End Class ==================================================
 
-# !! ===================================================================
 
 if __name__ == "__main__":
     pass

@@ -6,7 +6,13 @@ from typing import TYPE_CHECKING, Tuple
 import numpy as np
 import skimage as ski
 
+import matplotlib.pyplot as plt
+
 # > Local
+import imagep._rc as rc
+import imagep._utils.utils as ut
+
+# from imagep.processing.pipeline import Pipeline
 # from imagep.processing.preprocess import PreProcess
 import imagep.processing.filters as filters
 
@@ -15,22 +21,108 @@ import imagep.processing.filters as filters
 # == Class: Background =================================================
 class Background:
 
-    def __init__(self, imgs: np.ndarray, verbose: bool = True) -> np.ndarray:
+    def __init__(
+        self,
+        ### Images
+        imgs: np.ndarray,
+        verbose: bool = True,
+        ### Settings
+        method: str = "triangle",
+        sigma: float = 1.5,
+        per_img: bool = False,
+    ) -> np.ndarray:
+        # super().__init__(imgs=imgs, verbose=verbose) # !! no
+        ### info
         self.imgs = imgs
         self.verbose = verbose
 
-        ### Store the threshold value
-        self.threshold = None
+        ### Settings
+        self.method = method
+        self.sigma = sigma
+        self.per_img = per_img
 
-    def subtract_threshold(self, method: str, sigma: float, bg_per_img=False):
+        # ### Check Arguments
+        # ut.check_arguments(kws, ["method", "sigma", "per_img"])
+        # self.method = kws.get("method", "triangle")  # > Method for thresholding
+        # self.sigma = kws.get("sigma", 1.5)
+        # self.per_img = kws.get("bg_per_img", False)
+
+        ### Access to specific KWS
+
+        ### Store information
+        self.subtracted: bool = False  # > Was it subtracted..?
+        self.threshold: list = [None]  # > Threshold(s) used for subtraction
+
+    # == History =======================================================
+
+    @property
+    def _per_img_info(self) -> str:
+        """Returns True if the background was subtracted per image"""
+        if self.per_img:
+            return "Individual thresholds per image"
+        else:
+            return "One threshold for the stack"
+        # return self.kws.get("bg_per_img", False)
+
+    @property
+    def info(self) -> str:
+        """Returns information about the background printable by
+        _info"""
+
+        form = lambda x: ut.format_num(x, exponent=rc._EXPONENT)
+
+        if self.subtracted:
+            ### Thresholds
+            if self.per_img:
+                mean = form(np.mean(self.threshold))
+                std = form(np.std(self.threshold))
+                threshold = f"{mean} ± {std}"
+            else:
+                threshold = f"{self.threshold[0]}"
+
+            msg = f"{self._per_img_info} = {threshold}"
+        elif self.subtracted is None:
+            msg = "No background subtracted, since undefined"
+        else:
+            msg = "No background subtracted"
+
+        return msg
+
+    #
+    # == Subtract MAIN functions =======================================
+
+    def subtract_threshold(
+        self,
+        method: str = None,
+        sigma: float = None,
+        per_img: bool = None,
+    ):
         """Subtracts a threshold from the images"""
-        _imgs, threshold = subtract_threshold(
-            imgs=self.imgs,
-            method=method,
-            sigma=sigma,
-            bg_per_img=bg_per_img,
+
+        ### Collect KWS
+        kws = dict(
+            method=self.method if method is None else method,
+            sigma=self.sigma if sigma is None else sigma,
+            per_img=self.per_img if per_img is None else per_img,
         )
+
+        if self.verbose:
+            msg = f"Subtracting threshold"
+            msg_ap = f"(Method: {kws['method']}, sigma={kws['sigma']};"
+            msg_ap += f" {self._per_img_info})"
+            _imgs, threshold = ut._messaged_execution(
+                f=_subtract_threshold,
+                msg=msg,
+                msg_after_points=msg_ap,
+                filter_KWS=dict(imgs=self.imgs, **kws),
+            )
+        else:
+            _imgs, threshold = _subtract_threshold(**kws)
+
+        ### Store results
+        self.subtracted = True
         self.threshold = threshold
+
         return _imgs
 
     def subtract_local_threshold(self, **kws):
@@ -39,9 +131,12 @@ class Background:
         """
         raise NotImplementedError
 
+    #
+    # !! == End Class ==================================================
+
 
 #
-# == BG Subtract ===================================================
+# == Static functions ==================================================
 
 
 def get_threshold_by_percentile(
@@ -82,6 +177,14 @@ def get_threshold_from_array(
 
 def subtract(img: np.ndarray, value: float) -> np.ndarray:
     """subtracts value from stack and sets negative values to 0"""
+
+    ### Raise error if value is larger than the max value
+    if value > img.max():
+        raise ValueError(
+            f"Background value {ut.format_num(value)} is larger than"
+            f" the max value {ut.format_num(img.max())}. "
+        )
+
     img_bg = img - value
     ### Set negative values to 0
     img_bg[img_bg < 0] = 0
@@ -89,32 +192,30 @@ def subtract(img: np.ndarray, value: float) -> np.ndarray:
     return img_bg
 
 
-def subtract_threshold(
+def _subtract_threshold(
     imgs: np.ndarray,
-    # self,
     method: str,
     sigma: float,
-    bg_per_img=False,
-    # inplace=True,
-) -> tuple[np.ndarray, float | list[float]]:
+    per_img=False,
+) -> tuple[np.ndarray, list[float]]:
     """Subtracts a threshold (calculated by method) from the images"""
-    kernel_3D = False if bg_per_img else True
+    kernel_3D = False if per_img else True
 
     ### Gaussian blur
     imgs_blurred = filters.blur(
         imgs, sigma=sigma, kernel_3D=kernel_3D, normalize=True
     )
 
-    if not bg_per_img:
-        ### Threshold for the stack
-        threshold: float = get_threshold_from_array(imgs_blurred, method=method)
+    if not per_img:
+        ### List with ONE threshold for the stack
+        threshold = [get_threshold_from_array(imgs_blurred, method=method)]
 
         ### Subtract
         _imgs = [subtract(img, value=threshold) for img in imgs]
 
     else:
         ### Threshold for each image
-        threshold: list = [
+        threshold = [
             get_threshold_from_array(img, method=method) for img in imgs_blurred
         ]
         ### Subtract
@@ -124,8 +225,7 @@ def subtract_threshold(
     _imgs = np.array(_imgs, dtype=imgs.dtype)
     return _imgs, threshold
 
-
-# !! ===================================================================
+    # !! == End Class ==================================================
 
 
 # %%

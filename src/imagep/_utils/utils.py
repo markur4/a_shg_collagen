@@ -4,22 +4,107 @@
 from typing import Generator, Callable, TypedDict
 
 import os
-
+from pathlib import Path
+import time
 
 import numpy as np
 
+import matplotlib.pyplot as plt
+
+# from imagep._rc import _EXPONENT
+
 
 # %%
-# == Importing =========================================================
+# == Configs =========================================================
 class ConfigImport(TypedDict):
     """Configuration for importing images"""
 
-    fileformat: str
+    # fname_extension: str
     sort: bool
-    sortkey: Callable
+    # sortkey: Callable
     invertorder: bool
     dtype: np.dtype
     # import_kws: dict
+
+
+# TODO: make config for mpl, so the user's won't be overridden
+
+
+# %%
+# == Print Messages ================================================
+def _print_start_message(
+    msg: str,
+    msg_after_points: str = "",
+    cached: bool = None,
+    parallel=None,
+    n_cores: int = None,
+) -> str:
+    m = f"\t> {msg} ..."
+    if msg_after_points:
+        m += f" {msg_after_points}"
+
+    if parallel:
+        m += f" ({n_cores} workers)"
+    if cached:
+        m += " (checking cache)"
+
+    print(m)
+    return m
+
+
+def _print_end_message(
+    msg: str,
+    msg_after_done: str = "",
+    split: str = " ... ",
+    dt: float | str = "",
+) -> None:
+    ### Remove the ">" from the message
+    msg = msg.replace("> ", "  ")
+
+    ### Remove info that comes after ": "
+    # > e.g. msg = "Subtracting threshold: method=triangle, sigma=1.5"
+    if split in msg:
+        msg = msg.split(split)[0]
+    # > delta time
+    if dt:
+        dt = f"({dt:.2f} s)"
+
+    msg = f"  {msg} DONE {dt} {msg_after_done}"
+
+    print(msg)
+    print()
+
+
+def _messaged_execution(
+    f: Callable,
+    msg: str,
+    msg_after_points: str = "",
+    msg_after_done: str = "",
+    split: str = " ... ",
+    acc_KWS: dict = dict(),
+    filter_KWS: dict = dict(),
+) -> np.ndarray:
+    ### Start message
+    msg = _print_start_message(
+        msg=msg,
+        msg_after_points=msg_after_points,
+        **acc_KWS,
+    )
+    t1 = time.time()
+
+    ### Excetute
+    results = f(**filter_KWS, **acc_KWS)
+
+    ### End message
+    dt = time.time() - t1
+    _print_end_message(
+        msg=msg,
+        msg_after_done=msg_after_done,
+        dt=dt,
+        split=split,
+    )
+
+    return results
 
 
 # %%
@@ -52,9 +137,6 @@ if __name__ == "__main__":
 
 # %%
 ### Set runtime configuration for exponent
-_EXPONENT = 2
-
-
 def format_num(
     number: int | float, position: int = 0, exponent: int = 2
 ) -> str:
@@ -67,10 +149,17 @@ def format_num(
         bigger/smaller than this, defaults to 2
     :type exp: int, optional
     """
+    ### If number is nested in a list, get it
+    if isinstance(number, (list, tuple)):
+        if len(number) == 1:
+            number = number[0]
+        else:
+            raise ValueError(f"Number is a list of length {len(number)}")
+    
     ### Return 0 if number is 0
     if number == 0:
         return "0"
-    
+
     ### Get exponent
     e = np.floor(np.log10(number))
 
@@ -116,8 +205,8 @@ def _test_format_num():
     print(format_num(0.00011))
     print(format_num(0.00001))
     print()
-    print(format_num(0.01, exponent=_EXPONENT))
-    print(format_num(1.2, exponent=_EXPONENT))
+    print(format_num(0.01, exponent=2))
+    print(format_num(1.2, exponent=2))
 
 
 if __name__ == "__main__":
@@ -178,7 +267,7 @@ def _test_indices_from_slice(verbose=False):
 if __name__ == "__main__":
     _test_indices_from_slice()
 
-
+#
 # == Performance ===================================================
 def toint(x: float) -> int:
     """Round to int"""
@@ -266,3 +355,22 @@ def _test_get_n_cores_from_shape():
 
 if __name__ == "__main__":
     _test_get_n_cores_from_shape()
+
+#
+# == I/O ===============================================================
+
+def saveplot(fname:str, verbose:bool=True) -> None:
+    """Saves current plot to file"""
+    
+    if not isinstance(fname, str):
+        raise ValueError(f"You must provide a filename for save. Got: {fname}")
+    
+    # > add .pdf as suffix if no suffix is present
+    if  "." in fname:
+        fname = Path(fname)
+    else:
+        fname = Path(fname).with_suffix(".pdf")
+    plt.savefig(fname, bbox_inches="tight")
+    
+    if verbose:
+        print(f"Saved plot to: {fname.resolve()}")

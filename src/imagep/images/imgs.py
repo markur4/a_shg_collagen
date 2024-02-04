@@ -41,10 +41,10 @@ class Imgs(ImgsImport):
 
     def __init__(
         self,
-        ### kws for ImgsImport:
+        ### ImgsImport kws:
         data: str | Path | np.ndarray | list[np.ndarray] | Self = None,
         verbose: bool = True,
-        ### kws for Imgs
+        ### Imgs kws
         x_µm: float = 200.0,
         scalebar_microns: int = 10,
         ### KWS for importing from file
@@ -147,7 +147,7 @@ class Imgs(ImgsImport):
         scalebar=True,
         scalebar_kws: dict = dict(),
         colorbar=True,
-        fname: bool | str = False,
+        saveto: str = None,
         **imshow_kws,
     ) -> None:
         """Show the images"""
@@ -170,6 +170,7 @@ class Imgs(ImgsImport):
             scalebar=scalebar,
             scalebar_kws=scalebar_KWS,
             colorbar=colorbar,
+            # saveto=None,
         )
         KWS.update(imshow_kws)
 
@@ -193,6 +194,9 @@ class Imgs(ImgsImport):
                 f"    {img.shape[0]}x{img.shape[1]}  {img.dtype}"
                 # f"\nmin={form(img.min())}  mean={form(img.mean())}  max={form(img.max())}"
             )
+            if not self.imgs_filekeys is None:
+                fk = self.imgs_filekeys[i]
+                AXTITLE = f"'{fk}'\n" + AXTITLE
             ax.set_title(AXTITLE, fontsize="medium")
 
         ### Fig title
@@ -202,8 +206,11 @@ class Imgs(ImgsImport):
         imageplots.figtitle_to_plot(FIGTITLE, fig=fig, axes=axes)
 
         plt.tight_layout()
-        # bbox_y = 1.05 if axes.shape[0] <= 2 else 1.01
-        # fig.suptitle(FIGTITLE, ha="left", x=0.01, y=bbox_y, fontsize=12)
+        
+        ### Save
+        if not saveto is None:
+            ut.saveplot(fname=saveto, verbose=self.verbose)
+
 
     def mip(self, scalebar=True, **mip_kws) -> np.ndarray | None:
         ### Make copy in case of burning in scalebar
@@ -224,7 +231,7 @@ class Imgs(ImgsImport):
 
 
 #
-# !! ===================================================================
+# !! == End Class ==================================================
 # %%
 # == Testdata ==========================================================
 if __name__ == "__main__":

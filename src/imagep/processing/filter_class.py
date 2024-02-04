@@ -33,45 +33,6 @@ class Filter:
         return iter(self.imgs)
 
     #
-    # == Print Messages ================================================
-    def _print_start_message(
-        self, msg: str, cached: bool = None, parallel=None, n_cores: int = None
-    ) -> None:
-        m = f"\t{msg} ..."
-        if parallel:
-            m += f" ({n_cores} workers)"
-        if cached:
-            m += " (checking cache)"
-
-        # m += " ..."
-
-        print(m)
-
-    def _print_end_message(self, msg: str, dt: float) -> None:
-        print(f"\t{msg} DONE ({dt:.2f} s)")
-        print()
-
-    def _messaged_execution(
-        self,
-        f: Callable,
-        msg: str,
-        acc_KWS: dict = dict(),
-        filter_KWS: dict = dict(),
-    ) -> np.ndarray:
-        ### Start message
-        self._print_start_message(msg=msg, **acc_KWS)
-        t1 = time.time()
-
-        ### Excetute
-        _imgs = f(**filter_KWS, **acc_KWS)
-
-        ### End message
-        dt = time.time() - t1
-        self._print_end_message(msg=msg, dt=dt)
-
-        return _imgs
-
-    #
     # == Denoise =======================================================
     def denoise(
         self,
@@ -95,9 +56,9 @@ class Filter:
 
         ### Execute
         if self.verbose:
-            return self._messaged_execution(
+            return ut._messaged_execution(
                 f=filt_acc.denoise,
-                msg="> Denoising",
+                msg="Denoising",
                 acc_KWS=acc_KWS,
                 filter_KWS=filter_KWS,
             )
@@ -140,9 +101,9 @@ class Filter:
 
         ### Execute
         if self.verbose:
-            return self._messaged_execution(
+            return ut._messaged_execution(
                 f=filt_acc.entropy,
-                msg="> Calculating local entropy",
+                msg="Calculating local entropy",
                 acc_KWS=acc_KWS,
                 filter_KWS=filter_KWS,
             )
@@ -154,7 +115,7 @@ class Filter:
     def median(
         self,
         kernel_radius: int = 2,
-        cross_z: bool = True,
+        kernel_3D: bool = True,
         normalize: bool = True,
         cached: bool = True,
         **filter_kws,
@@ -166,16 +127,16 @@ class Filter:
         filter_KWS = dict(
             imgs=self.imgs,
             kernel_radius=kernel_radius,
-            cross_z=cross_z,
+            kernel_3D=kernel_3D,
             normalize=normalize,
         )
         filter_KWS.update(filter_kws)
 
         ### Execute
         if self.verbose:
-            return self._messaged_execution(
+            return ut._messaged_execution(
                 f=filt_acc.median,
-                msg="> Median filtering",
+                msg="Median filtering",
                 acc_KWS=dict(cached=cached),
                 filter_KWS=filter_KWS,
             )
@@ -206,16 +167,15 @@ class Filter:
 
         ### Execute
         if self.verbose:
-            return self._messaged_execution(
+            return ut._messaged_execution(
                 f=filt.blur,
-                msg="> Gaussian Blurring",
+                msg="Gaussian Blurring",
                 filter_KWS=filter_KWS,
             )
         else:
             return filt.blur(**filter_KWS)
 
-
-# !! ===================================================================
+    # !! == End Class ==================================================
 
 
 # %%

@@ -20,19 +20,18 @@ DTYPE_DEFAULT: np.dtype = np.float32
 # == Importing from files ==============================================
 
 RC_IMPORT = ut.ConfigImport(
-    fileformat=".txt",
+    # fname_extension=".txt",
     sort=True,
-    sortkey=lambda x: int(Path(x).stem.split("_")[-1]),
+    # sortkey=lambda x: int(Path(x).stem.split("_")[-1]),
     invertorder=True,
     dtype=DTYPE_DEFAULT,
     # import_kws=dict(),
 )
 # print(IMPORTCONFIG)
-# IMPORTCONFIG.update(dict(fileformat=".png", sortkey= lambda x: x*2))
+# IMPORTCONFIG.update(dict(fname_extension=".png", sortkey= lambda x: x*2))
 # print(IMPORTCONFIG)
 
 # == matplotlib ========================================================
-
 
 
 ### Image quality
@@ -68,3 +67,5 @@ CORES_BUT_ONE: float = ut.cores_from_percent(1.00) - 1
 
 # == Debugging =========================================================
 DEBUG = False
+
+_EXPONENT = 2

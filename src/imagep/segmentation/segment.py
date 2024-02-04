@@ -14,6 +14,7 @@ import skimage as ski
 from sklearn.ensemble import RandomForestClassifier
 
 from imagep.processing.preprocess import PreProcess
+
 # from imagep.visualise.zstack import ZStack
 
 # %%
@@ -58,14 +59,15 @@ class Segment(PreProcess):
         self._segm_smooth = np.zeros(self.imgs.shape, dtype=self.imgs.dtype)
 
         ### Execute Segmentation
+        # TODO: rewrite
         self.segmented: np.ndarray = self.segment_main(**self.kws_segment)
 
     def segment_main(self, **segment_kws) -> np.ndarray:
         """Main function to segment the images"""
-        
+
         if self.verbose:
             print("=> Segmenting ...")
-        
+
         ### Mip binning: Reduce z-resolution by binning?
         mip_bin = segment_kws["mip_binning"]
         if mip_bin:
@@ -107,6 +109,8 @@ class Segment(PreProcess):
             print("   Segmentation done")
 
         return self._imgs
+    
+
 
     # == MIP binning ===================================================
 
@@ -191,34 +195,38 @@ class Segment(PreProcess):
     def _segment_background(
         imgs: np.ndarray, thresh_per_img=True, sigma=2
     ) -> np.ndarray:
-        """Segments by thresholding the background"""
+        """Segments by setting all pixel values larger than 0 to 1
+        """
 
-        ### Init empty stack
-        R = np.zeros(imgs.shape).astype(np.uint8)
+        return (imgs > 0).astype(np.uint8)
+        # _imgs = np.zeros(imgs.shape).astype(np.uint8)
 
-        ### Segmentation
-        for i, img in enumerate(imgs):
-            ### Recalculate threshold for each individual image
-            if thresh_per_img:
-                img_blur = ski.filters.gaussian(img, sigma=sigma)
-                threshold = ski.filters.threshold_triangle(img_blur)
-            else:
-                threshold = 0
+        # ### Init empty stack
+        # R = np.zeros(imgs.shape).astype(np.uint8)
 
-            ### Segment
-            R[i] = img > threshold
-            R[i] = R[i].astype(np.uint8)
-        return R
+        # ### Segmentation
+        # for i, img in enumerate(imgs):
+        #     ### Recalculate threshold for each individual image
+        #     if thresh_per_img:
+        #         img_blur = ski.filters.gaussian(img, sigma=sigma)
+        #         threshold = ski.filters.threshold_triangle(img_blur)
+        #     else:
+        #         threshold = 0
+
+        #     ### Segment
+        #     R[i] = img > threshold
+        #     R[i] = R[i].astype(np.uint8)
+        # return R
 
     def _segment_random_forest(imgs: np.ndarray) -> np.ndarray:
         pass
 
     #
     # == Feature Extraction ============================================
-    
+
     #
     # == Visualization =================================================
-    
+
     def plot_masked_by_segmentation(self, I=0, alpha=0.4):
         """Plot an image masked by segmentation"""
         img = self.imgs_use[I]
@@ -228,7 +236,7 @@ class Segment(PreProcess):
         masked = np.ma.masked_where(seg == 0, img)
 
         plt.imshow(masked, interpolation="none", cmap="gray", alpha=alpha)
-    
+
 
 # !!
 # ======================================================================
@@ -251,7 +259,7 @@ if __name__ == "__main__":
     # %%
     Z.info
 
-    #%%
+    # %%
     Z.mip()
 
     # %%

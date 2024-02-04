@@ -30,12 +30,12 @@ if __name__ == "__main__":
 
 # %%
 # == UTILS =============================================================
-def _fname(fname: bool | str, extension=".png") -> Path:
-    """Tool to get filename for saving"""
-    if not isinstance(fname, str):
-        raise ValueError("You must provide a filename for save")
-    fname = Path(fname).with_suffix(".png")
-    return fname
+# def _fname(fname: bool | str, extension=".png") -> Path:
+#     """Tool to get filename for saving"""
+#     if not isinstance(fname, str):
+#         raise ValueError("You must provide a filename for save")
+#     fname = Path(fname).with_suffix(".png")
+#     return fname
 
 
 def figtitle_to_plot(title: str, fig: plt.Figure, axes: np.ndarray) -> None:
@@ -140,7 +140,7 @@ def imshow(
     scalebar_kws: dict = dict(),
     colorbar=True,
     share_cmap: bool = True,
-    fname: bool | str = False,
+    saveto: str = None,
     **imshow_kws,
 ) -> tuple[plt.Figure, np.ndarray[plt.Axes]]:
     """Show the images"""
@@ -255,6 +255,9 @@ def imshow(
     # plt.suptitle(f"{imgs.shape[0]} images, {imgs.dtype}", ha="left", x=0.05)
     plt.tight_layout()
 
+    if saveto:
+        ut.saveplot(fname=saveto, verbose=True)
+
     return fig, axes
 
 
@@ -311,4 +314,3 @@ def mip(
 
     if return_array:
         return mip
-

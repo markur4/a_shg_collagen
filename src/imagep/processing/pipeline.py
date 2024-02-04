@@ -17,6 +17,7 @@ import imagep._rc as rc
 import imagep._utils.utils as ut
 from imagep.images.imgs import Imgs
 from imagep.processing.filter_class import Filter
+
 # from imagep.processing.background import Background
 import imagep._plots.imageplots as imageplots
 
@@ -33,7 +34,7 @@ class Pipeline(Imgs):
     def __init__(
         self,
         *imgs_args,
-        snapshot_index: int = 6,
+        snapshot_index: int = None,
         keep_original: bool = True,
         **imgs_kws,
     ):
@@ -47,18 +48,21 @@ class Pipeline(Imgs):
         super().__init__(*imgs_args, **imgs_kws)
 
         ### Collect Samples for each processing step
-        self.snapshot_index = snapshot_index
+        self.snapshot_index = (
+            self._half_index() if snapshot_index is None else snapshot_index
+        )
         self.snapshots: OrderedDict[str, np.ndarray] = OrderedDict()
-        
+
         ### Keep original images for the user to compare results
         if keep_original:
             # !! Never reference to this in code, because it might not be there
             self.imgs_original = self.imgs.copy()
-        
+
         ### Update information about the image
         # > e.g. if images are removed, we want to know that
         self._shape_changed = False  # > will change when shape changed
         # todo: set this in remove_empty_images()
+
     #
     # == Access to filter functions as methods =========================
     @property
@@ -67,6 +71,10 @@ class Pipeline(Imgs):
 
     #
     # == Snapshots Documenting Process =================================
+    def _half_index(self) -> int:
+        """Get the index of the image to be used for snapshots"""
+        return len(self.imgs) // 2
+
     def capture_snapshot(self, step: str) -> None:
         """Capture a snapshot of the images during processing"""
         self.snapshots[step] = self.imgs[self.snapshot_index].copy()
@@ -79,6 +87,7 @@ class Pipeline(Imgs):
     def plot_snapshots(
         self,
         return_fig_axes=False,
+        saveto: str = None,
     ) -> None | tuple[plt.Figure, np.ndarray[plt.Axes]]:
         """Plot sample images from preprocessing steps"""
 
@@ -94,7 +103,9 @@ class Pipeline(Imgs):
             self.snapshots_array,
             max_cols=2,
             scalebar=True,
-            scalebar_kws=dict(pixel_size=self.pixel_size, microns=self.scalebar_microns),
+            scalebar_kws=dict(
+                pixel_size=self.pixel_size, microns=self.scalebar_microns
+            ),
             share_cmap=False,
         )
 
@@ -118,7 +129,10 @@ class Pipeline(Imgs):
             f"   Took image #{I+1}/{T} (i={I}/{T-1}) as sample"
         )
         imageplots.figtitle_to_plot(FIGTITLE, fig=fig, axes=axes)
-
+        
+        if saveto:
+            ut.saveplot(fname=saveto, verbose=self.verbose)
+        
         if return_fig_axes:
             return fig, axes
 

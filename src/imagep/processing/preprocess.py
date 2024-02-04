@@ -6,6 +6,7 @@ from typing import Self
 # from pprint import pprint
 
 from collections import OrderedDict
+from typing import TypedDict
 
 # > Processpool for CPU-bound tasks, ThreadPool for IO-bound tasks
 from concurrent.futures import ProcessPoolExecutor
@@ -50,18 +51,49 @@ from imagep.processing.background import Background
 
 
 # %%
+### Config for preprocessing
+class PreProcessKWS(TypedDict):
+    denoise: bool
+    normalize: bool
+    subtract_bg: bool
+    subtract_bg_kws: dict
+    remove_empty_slices: bool
+
+
+if __name__ == "__main__":
+    config = PreProcessKWS(
+        denoise=True,
+        normalize=True,
+        subtract_bg=True,
+        subtract_bg_kws=dict(
+            method="triangle",
+            sigma=1.5,
+        ),
+        remove_empty_slices=True,
+    )
+    print(config.denoise)
+
+
+# %%
 # == CLASS PREPROCESSING ===============================================
 class PreProcess(Pipeline):
     def __init__(
         self,
-        *imgs_args,
-        denoise=False,
+        ### Imgs and Pipeline args
+        *args,
+        # data=None,
+        # verbose: bool = True,
+        ### Preprocessing kws
+        median: bool = False,
+        denoise=True,
         normalize=True,
         subtract_bg: bool = False,
-        subtract_bg_kws: dict = dict(method="triangle", sigma=1.5),
+        subtract_bg_kws: dict = dict(
+            method="triangle", sigma=1.5, per_img=False
+        ),
         remove_empty_slices: bool = True,
-        ### Imgs kws
-        **imgs_process_kws,
+        ### Imgs and pipeline kws
+        **kws,
     ) -> None:
         """Preprocessing pipeline for image stacks
 
@@ -73,28 +105,28 @@ class PreProcess(Pipeline):
             the processing steps, defaults to 6
         :type sample_index: int, optional
         """
-        super().__init__(*imgs_args, **imgs_process_kws)
+        super().__init__(*args, **kws)
 
-        ### Check Arguments
-        ut.check_arguments(subtract_bg_kws, ["method", "sigma"])
+        ### Access to background functionality
+        self._background = Background(
+            imgs=self.imgs, verbose=self.verbose, **subtract_bg_kws
+        )
 
         ### Collect all preprocessing kws
         self.kws_preprocess = {
+            "median": median,
             "denoise": denoise,
             "normalize": normalize,
             "subtract_bg": subtract_bg,
-            "subtract_bg_kws": subtract_bg_kws,
+            # "subtract_bg_kws": subtract_bg_kws,
             "remove_empty_slices": remove_empty_slices,
         }
 
         ### Document History of processing steps
         self.history: OrderedDict = self._init_history(**self.kws_preprocess)
         # > List of preprocessing steps
-        self._pp_steps = list(self.history.keys())[1:]
-        
-        ### Access to background
-        self._background = Background(imgs=self.imgs, verbose=self.verbose)
-        
+        self.history_steps = list(self.history.keys())[1:]
+
         ### Execute !
         # self.imgs = self.preprocess(cache_preprocessing=cache_preprocessing)
         self.preprocess()
@@ -104,6 +136,7 @@ class PreProcess(Pipeline):
     def background(self):
         ### Keep imgs up-to-date
         self._background.imgs = self.imgs
+        # self._background.kws = self.kws_preprocess["subtract_bg_kws"]
         self._background.verbose = self.verbose
         ### Preserve background instance
         return self._background
@@ -114,13 +147,18 @@ class PreProcess(Pipeline):
     def preprocess(self) -> np.ndarray:
 
         if self.verbose:
-            print("=> Pre-processing ...")
+            print(f"=> Pre-processing: {self.history_steps} ...")
 
         ### Shorten kws
         kws = self.kws_preprocess
 
         ### Get Sample of image before preprocessing
         self.capture_snapshot("before preprocessing")
+
+        ### Median filter
+        if kws["median"]:
+            self.imgs = self.filter.median(kernel_radius=2, kernel_3D=False)
+            self.capture_snapshot("median")
 
         ### Denoise
         if kws["denoise"]:
@@ -129,9 +167,7 @@ class PreProcess(Pipeline):
 
         ### Subtract Background
         if kws["subtract_bg"]:
-            self.imgs = self.background.subtract_threshold(
-                **kws["subtract_bg_kws"]
-            )
+            self.imgs = self.background.subtract_threshold()
             self.capture_snapshot("subtract_bg")
 
         ### Normalize
@@ -143,7 +179,6 @@ class PreProcess(Pipeline):
         if kws["remove_empty_slices"]:
             self.imgs = self.remove_empty_slices(imgs=self.imgs)
 
-
     #
     # === HISTORY ====================================================
 
@@ -154,14 +189,19 @@ class PreProcess(Pipeline):
 
         OD["Import"] = f"'{self.path}'"
 
+        if preprocess_kws["median"]:
+            OD["Median Filter"] = (
+                "Median filter using a 2D disk shaped kernel with radius of 2 pixels."
+            )
+
         if preprocess_kws["denoise"]:
             OD["Denoising"] = "Non-local means"
 
         if preprocess_kws["subtract_bg"]:
-            kws = preprocess_kws.get("subtract_bg_kws", dict())
+            # kws = self.background.kws
             OD["BG Subtraction"] = (
-                f"Calculated threshold (method = {kws['method']}) of"
-                f" blurred images (gaussian filter, sigma = {kws['sigma']})."
+                f"Calculated threshold (method = {self.background.method}) of"
+                f" blurred images (gaussian filter, sigma = {self.background.sigma})."
                 " Subtracted threshold from images and set negative"
                 " values to 0"
             )
@@ -172,7 +212,7 @@ class PreProcess(Pipeline):
             )
 
         if preprocess_kws["remove_empty_slices"]:
-            OD["Empty Removal"] = (
+            OD["Remove Empty"] = (
                 "Removed empty slices from stack. An entropy filter was"
                 " applied to images. Images were removed if the 99th"
                 " percentile of entropy was lower than"
@@ -198,7 +238,7 @@ class PreProcess(Pipeline):
         """Returns info about brightness for a Stack"""
         ### Formatting functions
         just = lambda s: ut.justify_str(s, justify=ut._JUSTIFY)
-        form = lambda num: ut.format_num(num, exponent=ut._EXPONENT)
+        form = lambda num: ut.format_num(num, exponent=rc._EXPONENT)
 
         ### Ignore background (0)
         # > or it'll skew statistics when bg is subtracted
@@ -220,12 +260,12 @@ class PreProcess(Pipeline):
         """String representation of the object for __repr__"""
         ### Formatting functions
         just = lambda s: ut.justify_str(s, justify=ut._JUSTIFY)
-        form = lambda num: ut.format_num(num, exponent=ut._EXPONENT)
+        form = lambda num: ut.format_num(num, exponent=rc._EXPONENT)
 
         imgs = self.imgs
 
-        ### Check if background was subtracted
-        bg_subtracted = str(self.kws_preprocess["subtract_bg"])
+        # ### Check if background was subtracted
+        # bg_subtracted = str(self.kws_preprocess["subtract_bg"])
 
         ### Fill info
         ID = OrderedDict()
@@ -245,7 +285,7 @@ class PreProcess(Pipeline):
         ]
         ID["Brightness"] = [
             "=== Brightness ===",
-            just("BG subtracted") + bg_subtracted,
+            just("BG subtracted") + self.background.info,
         ] + self._info_brightness(self.imgs)
 
         ID["History"] = [
@@ -313,9 +353,7 @@ class PreProcess(Pipeline):
 
 
 #
-# !! ===================================================================
-
-
+# !! == End Class ==================================================
 
 
 # %%
@@ -368,11 +406,10 @@ if __name__ == "__main__":
     # Z.snapshots_array
     # %%
     Z.plot_snapshots()
-    
-    #%%
+
+    # %%
     # print(Z.background.threshold)
 
-    
     # %%
     # imshow(Z.snapshots_array)
     # %%

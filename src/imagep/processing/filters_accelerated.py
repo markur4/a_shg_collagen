@@ -3,6 +3,7 @@
 - all have similar interface
 - If accelerated, then parallelized and cached
 """
+
 # %%
 import os
 from pprint import pprint
@@ -299,14 +300,15 @@ if __name__ == "__main__":
     _imgs7 = entropy(_imgs3_bg, parallel=True, cached=True)
     imshow(_imgs7[I])
 
-#%%
-# !! ===================================================================
+# %%
+# !! == End Class ==================================================
 # !! Median ============================================================
+
 
 def _median(
     imgs: np.ndarray,
     kernel_radius: int = 2,
-    kernel_3D: bool = True,
+    kernel_3D: bool = False,
     normalize=False,
     **filter_kws,
 ) -> np.ndarray:
@@ -326,7 +328,7 @@ def _median(
         axes=axes,
         **filter_kws,
     )
-    
+
     ### Execute
     _imgs = sp.ndimage.median_filter(imgs, **kws)
     _imgs = np.array(_imgs, dtype=imgs.dtype)
@@ -335,6 +337,7 @@ def _median(
         _imgs = _imgs / _imgs.max()
 
     return _imgs
+
 
 def median(
     imgs: np.ndarray,
