@@ -32,13 +32,17 @@ class ImgsImport:
 
     def __init__(
         self,
-        data: str | Path | np.ndarray | list[np.ndarray] | Self = None,
+        data: str | Path | list[str|Path]| np.ndarray | list[np.ndarray] | Self = None,
         verbose: bool = True,
         ### KWS for importing from file
         **fileimport_kws,
     ) -> None:
         ### Make sure that either path or array is given
         self.verbose = verbose
+
+        ### Allow path as an argument instead of data
+        if "path" in fileimport_kws:
+            data = fileimport_kws["path"]
 
         ### Init attributes, they will be set by the import functions
         self.path: str | Path = None
@@ -67,7 +71,7 @@ class ImgsImport:
 
     def _check_data_type(
         self,
-        data: str | Path | np.ndarray | list[np.ndarray] | Self,
+        data: str | Path | list[str|Path] | np.ndarray | list[np.ndarray] | Self,
     ) -> None:
         """Check if data is a valid image source"""
         types = (str, Path, np.ndarray, list)
@@ -86,7 +90,7 @@ class ImgsImport:
 
     def _import(
         self,
-        data: str | Path | np.ndarray | list[np.ndarray] | Self,
+        data: str | Path | list[str|Path] | np.ndarray | list[np.ndarray] | Self,
         dtype: np.dtype,
     ) -> None:
         """Main import function. Calls the appropriate import function."""
@@ -98,6 +102,7 @@ class ImgsImport:
         if isinstance(data, (str, Path)):
             self.from_path(data)
         elif isinstance(data, (np.ndarray, list)):
+            
             self.from_array(data)
         ### Importing from Instance
         # > Z = PreProcess(data=Imgs)

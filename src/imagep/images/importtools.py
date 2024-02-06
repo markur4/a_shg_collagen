@@ -16,7 +16,35 @@ from imagep._plots.imageplots import imshow
 import imagep._utils.utils as ut
 import imagep._rc as rc
 
+
 # %%
+def import_imgs_from_paths(paths: list[str | Path], **import_kws) -> np.ndarray:
+    """Imports from multiple paths by appending stacks from different
+    folders onto another, and also returning their keys from filename
+    data
+    """
+    ### Image stacks from multiple folders
+    # > fks = filekeys
+    # > fk = filekey
+    imgs_nested: list[np.ndarray] = []
+    fks_nested: list[list[str]] = []
+    for path in paths:
+        fks, _imgs = import_imgs_from_path(path=path, **import_kws)
+        imgs_nested.append(_imgs)
+        fks_nested.append(fks)
+    _imgs = [import_imgs_from_path(path, **import_kws)[1] for path in paths]
+
+    flatten = lambda x: [item for row in x for item in row]
+
+    ### Flatten filekeys and imgs
+    fks = flatten(fks_nested)
+    _imgs = np.array(flatten(imgs_nested))
+    
+    return 
+
+    # filekeys_flat = [filekeys[i] for i in range(len())]
+
+    ###
 
 
 def import_imgs_from_path(
@@ -67,13 +95,15 @@ def import_imgs_from_path(
         import_func(path, dtype=dtype, **importfunc_kws) for path in filepaths
     ]
     _imgs = np.array(_imgs)  # > list to array
-    
+
     ### Get the keys to identify individual images
+    filekeys = ["" for _ in filepaths]  # > Initialize
+
     if not sortkey is None:
-        filekeys = [sortkey(path) for path in filepaths]
-    else:
-        filekeys = ["" for path in filepaths]
-        
+        # > Get the parents of the path
+        folderkey = str(path.parent.name + "/" + path.name)
+        filekeys = [f"{folderkey}: {sortkey(path)}" for path in filepaths]
+
     return filekeys, _imgs
 
 
