@@ -18,7 +18,17 @@ import imagep._rc as rc
 
 
 # %%
-def import_imgs_from_paths(paths: list[str | Path], **import_kws) -> np.ndarray:
+def homogenize(imgs: list[np.ndarray]) -> np.ndarray:
+    """Converts list of arrays of different sizes into an homogenous
+    array
+    """
+    
+
+def import_imgs_from_paths(
+    paths: list[str | Path],
+    imgkey_positions: list[int],
+    **import_kws,
+) -> tuple[list[str], np.ndarray]:
     """Imports from multiple paths by appending stacks from different
     folders onto another, and also returning their keys from filename
     data
@@ -28,19 +38,26 @@ def import_imgs_from_paths(paths: list[str | Path], **import_kws) -> np.ndarray:
     # > fk = filekey
     imgs_nested: list[np.ndarray] = []
     fks_nested: list[list[str]] = []
-    for path in paths:
-        fks, _imgs = import_imgs_from_path(path=path, **import_kws)
+    for path, imgkey_position in zip(paths, imgkey_positions):
+        _fks, _imgs = import_imgs_from_path(
+            path=path,
+            imgkey_position=imgkey_position,
+            **import_kws,
+        )
+        print(_imgs.shape)
         imgs_nested.append(_imgs)
-        fks_nested.append(fks)
-    _imgs = [import_imgs_from_path(path, **import_kws)[1] for path in paths]
+        fks_nested.append(_fks)
 
+    # _imgs = [import_imgs_from_path(path, **import_kws)[1] for path in paths]
     flatten = lambda x: [item for row in x for item in row]
 
     ### Flatten filekeys and imgs
-    fks = flatten(fks_nested)
-    _imgs = np.array(flatten(imgs_nested))
+    imgs, fks = flatten(imgs_nested), flatten(fks_nested)
     
-    return 
+    ### Handle inhomogenous images
+    imgs = homogenize(imgs)
+
+    return fks, imgs
 
     # filekeys_flat = [filekeys[i] for i in range(len())]
 
@@ -52,7 +69,7 @@ def import_imgs_from_path(
     fname_pattern: str = "",
     fname_extension: str = "",
     sort: bool = True,
-    sortkey: Callable = None,
+    imgkey_position: int = None,
     invertorder: bool = True,
     dtype: np.dtype = rc.DTYPE_DEFAULT,
     **importfunc_kws,
@@ -79,9 +96,12 @@ def import_imgs_from_path(
     ### Get all files
     filepaths = list(path.glob(pattern))
 
-    ### sort txts by number
+    ### Fun ction to extract key from filename
+    if not imgkey_position is None:
+        get_sortkey = lambda x: Path(x).stem.split(" ")[imgkey_position]
+    #> sort txts by number
     if sort:
-        filepaths = sorted(filepaths, key=sortkey)
+        filepaths = sorted(filepaths, key=get_sortkey)
 
     ### Invert if the first image is the bottom one
     if invertorder:
@@ -99,10 +119,10 @@ def import_imgs_from_path(
     ### Get the keys to identify individual images
     filekeys = ["" for _ in filepaths]  # > Initialize
 
-    if not sortkey is None:
+    if not imgkey_position is None:
         # > Get the parents of the path
         folderkey = str(path.parent.name + "/" + path.name)
-        filekeys = [f"{folderkey}: {sortkey(path)}" for path in filepaths]
+        filekeys = [f"{folderkey}: {get_sortkey(path)}" for path in filepaths]
 
     return filekeys, _imgs
 

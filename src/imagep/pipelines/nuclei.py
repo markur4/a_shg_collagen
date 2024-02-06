@@ -29,7 +29,12 @@ class Nuclei(Segment):
 # == Import ============================================================
 
 if __name__ == "__main__":
-    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/240201 Imunocyto/Exp. 1/Dmp1/"
+    parent = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/240201 Imunocyto/"
+    path = [
+        parent + "Exp. 1/Dmp1/",
+        parent + "Exp. 2/Dmp1/",
+        parent + "Exp. 3 (im Paper)/Dmp1"
+    ]
     # > contains e.g.: "D0 LTMC DAPI 40x.tif"
 
     import imagep as ip
@@ -39,7 +44,8 @@ if __name__ == "__main__":
         data=path,
         fname_pattern="*DAPI*.tif",
         # invert=False,
-        sortkey=lambda x: Path(x).stem.split(" ")[0],
+        sort=False,
+        imgkey_positions=[0, 2, 2], #> Extract a key from the filename
     )
     print(Z.imgs.shape, Z.imgs.dtype)
     _img = Z.imgs[0]
@@ -111,17 +117,14 @@ if __name__ == "__main__":
     ### show difference between original and segmented
     ip.imshow(S_imgs[I] - Zpp.imgs[I], saveto="Segmented_D7_diff")
 
-
     # %%
     ### Calculate percentage of area covered by nuclei
-    perc = [
-        np.sum(img) / np.prod(img.shape) for img in S_opened
-    ]
-    # > round 
+    perc = [np.sum(img) / np.prod(img.shape) for img in S_opened]
+    # > round
     perc = np.round(perc, 3)
-    
-    #> associate percentages with filekeys
-    perc_d = dict(zip(Z.imgs_filekeys, perc))
-    #> pretty print
+
+    # > associate percentages with filekeys
+    perc_d = dict(zip(Z.imgkeys, perc))
+    # > pretty print
     for k, v in perc_d.items():
         print(f"{k}: {v}")

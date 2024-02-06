@@ -29,10 +29,13 @@ class ImgsImport:
     """
 
     PATH_PLACEHOLDER = "Source: Numpy array"
+    IMGKEY_PLACEHOLDER = "NOKEY"
 
     def __init__(
         self,
-        data: str | Path | list[str|Path]| np.ndarray | list[np.ndarray] | Self = None,
+        data: (
+            str | Path | list[str | Path] | np.ndarray | list[np.ndarray] | Self
+        ) = None,
         verbose: bool = True,
         ### KWS for importing from file
         **fileimport_kws,
@@ -45,9 +48,9 @@ class ImgsImport:
             data = fileimport_kws["path"]
 
         ### Init attributes, they will be set by the import functions
-        self.path: str | Path = None
+        self.path: str | Path | list[str | Path] = self.PATH_PLACEHOLDER
         self.imgs: np.ndarray = None
-        self.imgs_filekeys: list[str] = None
+        self.imgkeys: list[str] = self.IMGKEY_PLACEHOLDER
 
         ### Configure import from path
         _importconfig = rc.RC_IMPORT
@@ -71,13 +74,15 @@ class ImgsImport:
 
     def _check_data_type(
         self,
-        data: str | Path | list[str|Path] | np.ndarray | list[np.ndarray] | Self,
+        data: (
+            str | Path | list[str | Path] | np.ndarray | list[np.ndarray] | Self
+        ),
     ) -> None:
         """Check if data is a valid image source"""
-        types = (str, Path, np.ndarray, list)
+        types = (str, Path, list, np.ndarray)
         m = (
-            " Either path, array or an instance of Imgs"
-            + " (or Imgs-subclasses) must be given."
+            " Either (list of) path, (list of) array or an instance of Imgs"
+            + " must be given."
         )
         if data is None:
             raise ValueError("No image source passed." + m)
@@ -90,7 +95,9 @@ class ImgsImport:
 
     def _import(
         self,
-        data: str | Path | list[str|Path] | np.ndarray | list[np.ndarray] | Self,
+        data: (
+            str | Path | list[str | Path] | np.ndarray | list[np.ndarray] | Self
+        ),
         dtype: np.dtype,
     ) -> None:
         """Main import function. Calls the appropriate import function."""
@@ -100,10 +107,16 @@ class ImgsImport:
 
         ### Import
         if isinstance(data, (str, Path)):
-            self.from_path(data)
-        elif isinstance(data, (np.ndarray, list)):
-            
-            self.from_array(data)
+            self.imgkeys, self.imgs = self.from_path(data)
+            self.path = data
+        elif isinstance(data[0], (str, Path)):
+            self.imgkeys, self.imgs = self.from_paths(data)
+            self.path = data
+        elif isinstance(data, (np.ndarray, list)) or isinstance(
+            data[0], np.ndarray
+        ):
+            self.imgs = self.from_array(data)
+            self.path = self.PATH_PLACEHOLDER
         ### Importing from Instance
         # > Z = PreProcess(data=Imgs)
         # > issubclass(self=PreProcess, data=Imgs)
@@ -116,35 +129,74 @@ class ImgsImport:
 
     #
     # == From Path, Array or Instance ==================================
-    def from_path(self, path: str | Path) -> None:
+    def from_paths(
+        self, paths: list[str | Path]
+    ) -> tuple[list[str], np.ndarray]:
+        """Import images from a list of folders"""
+
+        ### Convert if string
+        paths = [Path(path) for path in paths]
+
+        ### Check if paths are valid
+        for i, path in enumerate(paths):
+            if not path.exists():
+                raise FileNotFoundError(f"Folder does not exist: {i}. '{path}'")
+
+        ### Message
+        if self.verbose:
+            shortpaths = [self._shorten(path) for path in paths]
+            print("=> Importing images from multiple folders:")
+            for i, spath in enumerate(shortpaths):
+                print(f"͘    {i}: '{spath}'")
+
+        ### Import
+        fks, _imgs = importtools.import_imgs_from_paths(
+            paths, **self._fileimport_kws
+        )
+        # > Done
+        if self.verbose:
+            self._done_import_message(_imgs)
+
+        ### Return
+        return fks, _imgs
+
+    def from_path(self, path: str | Path) -> tuple[str, np.ndarray]:
         """Import images from a folder"""
 
-        ### If string, convert to Path
+        ### Convert if string
         path = Path(path)
 
         ### Check if path is valid
         if not path.exists():
-            raise FileNotFoundError(f"Path does not exist: {path}")
+            raise FileNotFoundError(f"Folder does not exist: '{path}'")
 
-        ### Set Path
-        self.path = Path(path)
+        ### Message
+        if self.verbose:
+            print(f"=> Importing images from '{self._shorten(path)}' ...")
 
         ### Import
-        if self.verbose:
-            print(f"=> Importing images from '{self.path_short}' ...")
-        self.imgs_filekeys, self.imgs = self._import_imgs_from_path(
+        # fks, _imgs = self._import_imgs_from_path(path, **self._fileimport_kws)
+        fks, _imgs = importtools.import_imgs_from_path(
             path, **self._fileimport_kws
         )
 
+        # > Done
         if self.verbose:
-            print(
-                f"   Import DONE ({self.imgs.shape[0]} images,"
-                f" {self.imgs.shape[1]}x{self.imgs.shape[2]},"
-                f" {self.imgs.dtype})"
-            )
-            print()
+            self._done_import_message(_imgs)
 
-    def from_array(self, array: np.ndarray | list) -> None:
+        ### Return
+        return fks, _imgs
+
+    @staticmethod
+    def _done_import_message(imgs: np.ndarray) -> None:
+        print(
+            f"   Import DONE ({imgs.shape[0]} images,"
+            f" {imgs.shape[1]}x{imgs.shape[2]},"
+            f" {imgs.dtype})"
+        )
+        print()
+
+    def from_array(self, array: np.ndarray | list) -> np.ndarray:
         """Import images from a numpy array"""
         ### If list of arrays
         waslist = False
@@ -167,12 +219,7 @@ class ImgsImport:
                 + f" {array.shape[1]}x{array.shape[2]},"
                 + f" {array.dtype}) ..."
             )
-        self.path = self.PATH_PLACEHOLDER
-        self.imgs = array
-
-        if self.verbose:
-            print("   Transfer DONE")
-            print()
+        return array
 
     def from_instance(self, instance: Self, verbose: bool) -> None:
         """Transfer images and path from another instance"""
@@ -197,13 +244,20 @@ class ImgsImport:
     #
     # == Path ==========================================================
 
+    @staticmethod
+    def _shorten(path: str | Path) -> str:
+        path = Path(path)
+        return path.parent.name + "/" + path.name
+
     @property
-    def path_short(self) -> str:
+    def path_short(self) -> str | list[str]:
         """Shortened path"""
         if self.path == self.PATH_PLACEHOLDER:
             return self.PATH_PLACEHOLDER
-        else:
-            return str(self.path.parent.name + "/" + self.path.name)
+        elif isinstance(self.path, (str | Path)):
+            return self._shorten(self.path)
+        elif isinstance(self.path, list):
+            return [self._shorten(path) for path in self.path]
 
     #
     # == Import From Files =============================================
@@ -241,9 +295,9 @@ class ImgsImport:
     #
     # == Access/Slice Images ===========================================
 
-    @property
-    def stack_raw(self) -> np.ndarray:
-        return self._import_imgs_from_path()[1]
+    # @property
+    # def stack_raw(self) -> np.ndarray:
+    #     return self._import_imgs_from_path()[1]
 
     def __iter__(self):
         return iter(self.imgs)

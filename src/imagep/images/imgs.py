@@ -194,8 +194,8 @@ class Imgs(ImgsImport):
                 f"    {img.shape[0]}x{img.shape[1]}  {img.dtype}"
                 # f"\nmin={form(img.min())}  mean={form(img.mean())}  max={form(img.max())}"
             )
-            if not self.imgs_filekeys is None:
-                fk = self.imgs_filekeys[i]
+            if not self.imgkeys is None:
+                fk = self.imgkeys[i]
                 AXTITLE = f"'{fk}'\n" + AXTITLE
             ax.set_title(AXTITLE, fontsize="medium")
 
@@ -206,11 +206,10 @@ class Imgs(ImgsImport):
         imageplots.figtitle_to_plot(FIGTITLE, fig=fig, axes=axes)
 
         plt.tight_layout()
-        
+
         ### Save
         if not saveto is None:
             ut.saveplot(fname=saveto, verbose=self.verbose)
-
 
     def mip(self, scalebar=True, **mip_kws) -> np.ndarray | None:
         ### Make copy in case of burning in scalebar
