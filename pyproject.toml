@@ -89,26 +89,28 @@ dependencies = [
     "scipy",
     #* Image processing
     "pyvista",
-    "trame", #' required for interactive pyvista plots
+    "trame",         #' required for interactive pyvista plots
     "trame_vtk",
     "trame-vuetify",
-    "napari[all]", #!! python -m pip install "napari[all]"
+    "napari[all]",   #!! python -m pip install "napari[all]"
     "scikit-image",
     "scikit-learn",
-    "PyWavelets",  #' Required by skimage for denoising
+    "PyWavelets",    #' Required by skimage for denoising
     # "opencv-python",
-    
+
     # "statannot",   #' Superseded by statannotations
-#     "statannotations",
-#     "pingouin",
-#     #* Excel
-#     "xlsxwriter",    #' For saving results to excel
-#     "openpyxl",      #' Optional for Pandas, but error when not installed
-#     #* Misc
-#     "joblib",      #' Caching
-#     "colour",      #' For custom colour maps
-#     "ipynbname",   #' Used by utils
-#     "icecream",    #' Better than print (and maybe later logging)
+    #     "statannotations",
+    #     "pingouin",
+    #     #* Excel
+    #     "xlsxwriter",    #' For saving results to excel
+    #     "openpyxl",      #' Optional for Pandas, but error when not installed
+    #* Misc
+    "joblib", #' Caching
+    #     "colour",      #' For custom colour maps
+    #     "ipynbname",   #' Used by utils
+    #     "icecream",    #' Better than print (and maybe later logging)
+    #* Security issues
+    "aiohttp>=3.9.2",
 ]
 
 ### Dynamic fields
