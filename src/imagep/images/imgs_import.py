@@ -49,7 +49,7 @@ class ImgsImport:
 
         ### Init attributes, they will be set by the import functions
         self.path: str | Path | list[str | Path] = self.PATH_PLACEHOLDER
-        self.imgs: np.ndarray = None
+        self.imgs: np.ndarray | ListOfArrays = None
         self.imgkeys: list[str] = self.IMGKEY_PLACEHOLDER
 
         ### Configure import from path
@@ -66,7 +66,7 @@ class ImgsImport:
         ### Slicing
         # > Remember if this object has been sliced
         self._slice: bool | str = False
-        self._shape_original: int = self.imgs.shape
+        self._shape_original: tuple[int | set] = self.imgs.shape
         self._slice_indices: list[int] = list(range(self._shape_original[0]))
 
     #
@@ -125,13 +125,14 @@ class ImgsImport:
             self.from_instance(data, verbose=self.verbose)
 
         ### dtype Conversion
-        self.imgs = self.imgs.astype(dtype)
+        # !! dtype only changed in importtools!
+        # self.imgs = self.imgs.astype(dtype)
 
     #
     # == From Path, Array or Instance ==================================
     def from_paths(
         self, paths: list[str | Path]
-    ) -> tuple[list[str], np.ndarray]:
+    ) -> tuple[list[str], np.ndarray | list[np.ndarray]]:
         """Import images from a list of folders"""
 
         ### Convert if string
@@ -147,18 +148,19 @@ class ImgsImport:
             shortpaths = [self._shorten(path) for path in paths]
             print("=> Importing images from multiple folders:")
             for i, spath in enumerate(shortpaths):
-                print(f"͘    {i}: '{spath}'")
+                print(f"   | {i}: '{spath}'")
 
         ### Import
-        fks, _imgs = importtools.import_imgs_from_paths(
+        imgkeys, _imgs = importtools.import_imgs_from_paths(
             paths, **self._fileimport_kws
         )
+        
         # > Done
         if self.verbose:
             self._done_import_message(_imgs)
 
         ### Return
-        return fks, _imgs
+        return imgkeys, _imgs
 
     def from_path(self, path: str | Path) -> tuple[str, np.ndarray]:
         """Import images from a folder"""
@@ -176,7 +178,7 @@ class ImgsImport:
 
         ### Import
         # fks, _imgs = self._import_imgs_from_path(path, **self._fileimport_kws)
-        fks, _imgs = importtools.import_imgs_from_path(
+        imgkeys, _imgs = importtools.import_imgs_from_path(
             path, **self._fileimport_kws
         )
 
@@ -185,7 +187,7 @@ class ImgsImport:
             self._done_import_message(_imgs)
 
         ### Return
-        return fks, _imgs
+        return imgkeys, _imgs
 
     @staticmethod
     def _done_import_message(imgs: np.ndarray) -> None:
@@ -269,29 +271,6 @@ class ImgsImport:
         """Import z-stack from a folder"""
         return importtools.import_imgs_from_path(path, **fileimport_kws)
 
-    # @staticmethod
-    # def _import_imgs_from_path(path: Path, dtype: np.dtype) -> np.ndarray:
-    #     """Import z-stack from a folder"""
-
-    #     ### Get all txt files
-    #     txts = list(path.glob("*.txt"))
-
-    #     ### sort txts by number
-    #     txts = sorted(txts, key=lambda x: int(x.stem.split("_")[-1]))
-
-    #     ### Invert, since the first image is the bottom one
-    #     txts = txts[::-1]
-
-    #     ### Import all txt files
-    #     imgs = []
-    #     for txt in txts:
-    #         imgs.append(importtools.from_txt(txt))
-
-    #     ### Convert to numpy array
-    #     imgs = np.array(imgs, dtype=dtype)
-
-    #     return imgs
-
     #
     # == Access/Slice Images ===========================================
 
@@ -302,7 +281,9 @@ class ImgsImport:
     def __iter__(self):
         return iter(self.imgs)
 
-    def __getitem__(self, val: slice) -> Self | "Imgs" | "PreProcess":
+    def __getitem__(
+        self, val: int | slice | tuple | list
+    ) -> Self | "Imgs" | "PreProcess":
         # > Create a copy of this instance
         _self = copy.deepcopy(self)
         # > Assign the sliced imgs to the new instance
@@ -318,13 +299,13 @@ class ImgsImport:
             _self.imgs = self.imgs[val, ...]
             indices = range(*val.indices(self._shape_original[0]))
         # > Z[1,2,5]
-        elif isinstance(val, tuple):
+        elif isinstance(val, (list, tuple)):
             _self.imgs = self.imgs[list(val), ...]
             indices = val
         # > or Z[[1,2,5]] pick multiple images
-        elif isinstance(val, list):
-            _self.imgs = self.imgs[val, ...]
-            indices = val
+        # elif isinstance(val, list):
+        #     _self.imgs = self.imgs[val, ...]
+        #     indices = val
 
         ### Remember how this object was sliced
         _self._slice = str(val)
@@ -343,7 +324,68 @@ class ImgsImport:
         """Load the z-stack from a folder"""
         self.imgs = np.load(fname)
 
+    #
+    # !! End class Imgs ================================================
 
+
+#
+# ======================================================================
+# == Class ListOfArrays ================================================
+class ListOfArrays:
+    """Encapsulate variable-sized images within a structured object,
+    providing easy access to properties like shape and dtype without
+    complicating subsequent code.
+    """
+
+    def __init__(self, larry: list[np.ndarray]):
+        if not isinstance(larry, list) and isinstance(larry[0], np.ndarray):
+            raise TypeError(
+                f"Must pass list of numpy arrays, not '{type(larry)}'"
+            )
+
+        ### larry = list of Arrays
+        self.larry = larry
+
+    @property
+    def shape(self):
+        """Returns (z, {y}, {x}), with x and y sets of all widths and
+        heights occurring in the data"""
+        y = {img.shape[0] for img in self.larry}
+        x = {img.shape[1] for img in self.larry}
+        return (len(self.larry), y, x)
+
+    def __getitem__(self, value: slice):
+        return self.larry[value]
+
+    def __len__(self):
+        return len(self.larry)
+
+    @property
+    def dtype(self):
+        return self.larry[0].dtype if self.larry else None
+
+    def astype(self, dtype: np.dtype):
+        return [img.astype(dtype) for img in self.larry]
+
+    # !! == End  Class =================================================
+
+
+if __name__ == "__main__":
+    import imagep as ip
+
+    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    Z = ip.Imgs(
+        data=path, fname_extension="txt", verbose=True, x_µm=1.5 * 115.4
+    )
+    I = 6
+
+    # %%
+    loar = ListOfArrays(larry=list(Z.imgs))
+    loar.shape
+    # Z.imgs.tolist()
+
+
+# %%
 #
 # == Class ImgsGreyscale ===============================================
 class ImgsGreyscale:

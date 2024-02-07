@@ -3,6 +3,8 @@
 # %%
 from typing import Callable
 
+import re
+
 from pathlib import Path
 import numpy as np
 
@@ -15,6 +17,7 @@ import skimage as ski
 from imagep._plots.imageplots import imshow
 import imagep._utils.utils as ut
 import imagep._rc as rc
+from imagep.images.imgs_import import ListOfArrays
 
 
 # %%
@@ -22,46 +25,58 @@ def homogenize(imgs: list[np.ndarray]) -> np.ndarray:
     """Converts list of arrays of different sizes into an homogenous
     array
     """
-    
+
 
 def import_imgs_from_paths(
     paths: list[str | Path],
-    imgkey_positions: list[int],
+    imgkey_positions: int | list[int],
     **import_kws,
 ) -> tuple[list[str], np.ndarray]:
     """Imports from multiple paths by appending stacks from different
     folders onto another, and also returning their keys from filename
     data
     """
+    ### If just one imagekey position, make a list
+    if isinstance(imgkey_positions, int):
+        imgkey_positions = [imgkey_positions for _ in range(len(paths))]
+
     ### Image stacks from multiple folders
     # > fks = filekeys
     # > fk = filekey
     imgs_nested: list[np.ndarray] = []
-    fks_nested: list[list[str]] = []
+    imgkeys_nested: list[list[str]] = []
     for path, imgkey_position in zip(paths, imgkey_positions):
-        _fks, _imgs = import_imgs_from_path(
+        _imgkeys, _imgs = import_imgs_from_path(
             path=path,
             imgkey_position=imgkey_position,
             **import_kws,
         )
         print(_imgs.shape)
         imgs_nested.append(_imgs)
-        fks_nested.append(_fks)
-
-    # _imgs = [import_imgs_from_path(path, **import_kws)[1] for path in paths]
-    flatten = lambda x: [item for row in x for item in row]
+        imgkeys_nested.append(_imgkeys)
 
     ### Flatten filekeys and imgs
-    imgs, fks = flatten(imgs_nested), flatten(fks_nested)
-    
-    ### Handle inhomogenous images
-    imgs = homogenize(imgs)
+    flatten = lambda x: [item for row in x for item in row]
+    imgkeys, imgs = flatten(imgkeys_nested), flatten(imgs_nested)
 
-    return fks, imgs
+    ### Convert to Array or ListOfArrays
+    shapes: set = {img.shape for img in imgs}
+    if len(shapes) == 1:
+        imgs = np.array(imgs)
+        print(imgs.dtype, imgs.shape)
+    else:
+        imgs = ListOfArrays(larry=imgs)
 
-    # filekeys_flat = [filekeys[i] for i in range(len())]
+    # dtype = imgs[0].dtype if len(shapes) == 1 else object
 
-    ###
+    print(imgs.dtype, imgs.shape)
+
+    return imgkeys, imgs
+
+
+def _split_fname(s: str | Path) -> str:
+    p = "|".join([" ", "_"])  # > Split at these characters
+    return re.split(p, Path(s).stem)
 
 
 def import_imgs_from_path(
@@ -69,7 +84,7 @@ def import_imgs_from_path(
     fname_pattern: str = "",
     fname_extension: str = "",
     sort: bool = True,
-    imgkey_position: int = None,
+    imgkey_position: int = 0,
     invertorder: bool = True,
     dtype: np.dtype = rc.DTYPE_DEFAULT,
     **importfunc_kws,
@@ -84,47 +99,43 @@ def import_imgs_from_path(
         )
 
     ### Make sure fname_extension starts with a dot
-    (
-        fname_extension
-        if fname_extension.startswith(".")
-        else "." + fname_extension
-    )
+    if not fname_extension.startswith("."):
+        fname_extension = "." + fname_extension
 
     ### Define filepattern
     pattern = fname_pattern if fname_pattern else "*" + fname_extension
 
     ### Get all files
-    filepaths = list(path.glob(pattern))
+    _imgpaths = list(path.glob(pattern))
 
-    ### Fun ction to extract key from filename
-    if not imgkey_position is None:
-        get_sortkey = lambda x: Path(x).stem.split(" ")[imgkey_position]
-    #> sort txts by number
+    ### Function to extract key from filename
+    # if not imgkey_position is None:
+    get_sortkey = lambda x: _split_fname(x)[imgkey_position]
+    # > sort txts by number
     if sort:
-        filepaths = sorted(filepaths, key=get_sortkey)
+        _imgpaths = sorted(_imgpaths, key=get_sortkey)
 
     ### Invert if the first image is the bottom one
     if invertorder:
-        filepaths = filepaths[::-1]
+        _imgpaths = _imgpaths[::-1]
 
     ### Pick the right function to import
     import_func = function_from_format(fname_extension)
 
     ### Import all files
     _imgs = [
-        import_func(path, dtype=dtype, **importfunc_kws) for path in filepaths
+        import_func(path, dtype=dtype, **importfunc_kws) for path in _imgpaths
     ]
     _imgs = np.array(_imgs)  # > list to array
 
     ### Get the keys to identify individual images
-    filekeys = ["" for _ in filepaths]  # > Initialize
-
+    _imgkeys = ["" for _ in _imgpaths]  # > Initialize
     if not imgkey_position is None:
         # > Get the parents of the path
         folderkey = str(path.parent.name + "/" + path.name)
-        filekeys = [f"{folderkey}: {get_sortkey(path)}" for path in filepaths]
+        _imgkeys = [f"{folderkey}: {get_sortkey(path)}" for path in _imgpaths]
 
-    return filekeys, _imgs
+    return _imgkeys, _imgs
 
 
 def function_from_format(fname_extension: str) -> Callable:
@@ -135,7 +146,7 @@ def function_from_format(fname_extension: str) -> Callable:
     if fname_extension in (".tif"):
         return imgfile_to_array
     else:
-        raise ValueError(f"fname_extension {fname_extension} not supported.")
+        raise ValueError(f"fname_extension '{fname_extension}' not supported.")
 
 
 # %%

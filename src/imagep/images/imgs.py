@@ -65,7 +65,7 @@ class Imgs(ImgsImport):
         """
         ### GET ATTRIBUTES
         # > super().__init__(), OR retrieve attributes from instance
-        self._transfer_attributes(data, verbose, **fileimport_kws)
+        self._get_attributes(data, verbose, **fileimport_kws)
 
         ### Total width, height, depth in µm
         self.x_µm = x_µm
@@ -79,7 +79,7 @@ class Imgs(ImgsImport):
 
     # == Import from parent Instance ===================================
     #
-    def _transfer_attributes(self, data: Self, verbose: bool, **fileimport_kws):
+    def _get_attributes(self, data: Self, verbose: bool, **fileimport_kws):
         """Import images from another Imgs instance. This will transfer
         all attributes from the Imgs instance. Methods are transferred
         by inheritance, because we want the option to import images at
@@ -192,7 +192,6 @@ class Imgs(ImgsImport):
             AXTITLE = (
                 f"Image {i+1}/{T} (i={_i}/{T-1})"
                 f"    {img.shape[0]}x{img.shape[1]}  {img.dtype}"
-                # f"\nmin={form(img.min())}  mean={form(img.mean())}  max={form(img.max())}"
             )
             if not self.imgkeys is None:
                 fk = self.imgkeys[i]
@@ -229,8 +228,10 @@ class Imgs(ImgsImport):
         dataplots.histogram(self.imgs, bins=bins, log=log)
 
 
-#
-# !! == End Class ==================================================
+    #
+    # !! == End Class ==================================================
+    
+    
 # %%
 # == Testdata ==========================================================
 if __name__ == "__main__":

@@ -30,7 +30,7 @@ class Nuclei(Segment):
 
 if __name__ == "__main__":
     parent = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/240201 Imunocyto/"
-    path = [
+    paths = [
         parent + "Exp. 1/Dmp1/",
         parent + "Exp. 2/Dmp1/",
         parent + "Exp. 3 (im Paper)/Dmp1"
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     from pathlib import Path
 
     Z = ip.Imgs(
-        data=path,
+        data=paths,
         fname_pattern="*DAPI*.tif",
         # invert=False,
         sort=False,
