@@ -1,6 +1,7 @@
 """A file to store scientific plots like histograms, boxplots gained
 from image processing"""
-#%%
+
+# %%
 
 from pathlib import Path
 
@@ -23,7 +24,7 @@ if __name__ == "__main__":
 
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
     Z = Imgs(data=path, verbose=True, x_µm=1.5 * 115.4)
-    print("pixelsize=", Z.pixel_size)
+    print("pixelsize=", Z.pixel_length)
     I = 6
 
 

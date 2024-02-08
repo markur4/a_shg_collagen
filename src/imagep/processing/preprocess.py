@@ -187,7 +187,7 @@ class PreProcess(Pipeline):
 
         OD = OrderedDict()
 
-        OD["Import"] = f"'{self.path}'"
+        OD["Import"] = f"'{self.folder}'"
 
         if preprocess_kws["median"]:
             OD["Median Filter"] = (
@@ -279,7 +279,7 @@ class PreProcess(Pipeline):
         ]
         ID["Size"] = [
             "=== Size [µm] ===",
-            just("pixel size xy") + f"{form(self.pixel_size)}",
+            just("pixel size xy") + f"{form(self.pixel_length)}",
             just("width, height (x,y)")
             + f"{form(self.x_µm)}, {form(self.y_µm)}",
         ]
@@ -452,7 +452,7 @@ if __name__ == "__main__":
     print(Z.x_µm)
     print(Z.y_µm)
     # print(Z.z_µm)
-    print(Z.pixel_size)
+    print(Z.pixel_length)
     print(Z.spacing)
 
     # %%

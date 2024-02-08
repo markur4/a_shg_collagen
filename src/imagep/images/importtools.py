@@ -20,15 +20,10 @@ import imagep._rc as rc
 from imagep.images.imgs_import import ListOfArrays
 
 
-# %%
-def homogenize(imgs: list[np.ndarray]) -> np.ndarray:
-    """Converts list of arrays of different sizes into an homogenous
-    array
-    """
-
-
-def import_imgs_from_paths(
-    paths: list[str | Path],
+#
+# == Multiple Images, Multiple Folders =================================
+def arrays_from_list_of_folders(
+    folders: list[str | Path],
     imgkey_positions: int | list[int],
     **import_kws,
 ) -> tuple[list[str], np.ndarray]:
@@ -38,16 +33,16 @@ def import_imgs_from_paths(
     """
     ### If just one imagekey position, make a list
     if isinstance(imgkey_positions, int):
-        imgkey_positions = [imgkey_positions for _ in range(len(paths))]
+        imgkey_positions = [imgkey_positions for _ in range(len(folders))]
 
     ### Image stacks from multiple folders
     # > fks = filekeys
     # > fk = filekey
     imgs_nested: list[np.ndarray] = []
     imgkeys_nested: list[list[str]] = []
-    for path, imgkey_position in zip(paths, imgkey_positions):
-        _imgkeys, _imgs = import_imgs_from_path(
-            path=path,
+    for path, imgkey_position in zip(folders, imgkey_positions):
+        _imgkeys, _imgs = arrays_from_folder(
+            folder=path,
             imgkey_position=imgkey_position,
             **import_kws,
         )
@@ -74,19 +69,16 @@ def import_imgs_from_paths(
     return imgkeys, imgs
 
 
-def _split_fname(s: str | Path) -> str:
-    p = "|".join([" ", "_"])  # > Split at these characters
-    return re.split(p, Path(s).stem)
-
-
-def import_imgs_from_path(
-    path: Path,
+# %%
+# == Multiple Images, One Folder =======================================
+def arrays_from_folder(
+    folder: Path,
     fname_pattern: str = "",
     fname_extension: str = "",
     sort: bool = True,
     imgkey_position: int = 0,
     invertorder: bool = True,
-    dtype: np.dtype = rc.DTYPE_DEFAULT,
+    dtype: np.dtype = rc.DTYPE,
     **importfunc_kws,
 ) -> np.ndarray:
     """Import z-stack from a folder"""
@@ -105,56 +97,104 @@ def import_imgs_from_path(
     ### Define filepattern
     pattern = fname_pattern if fname_pattern else "*" + fname_extension
 
-    ### Get all files
-    _imgpaths = list(path.glob(pattern))
-
-    ### Function to extract key from filename
-    # if not imgkey_position is None:
-    get_sortkey = lambda x: _split_fname(x)[imgkey_position]
-    # > sort txts by number
-    if sort:
-        _imgpaths = sorted(_imgpaths, key=get_sortkey)
-
-    ### Invert if the first image is the bottom one
-    if invertorder:
-        _imgpaths = _imgpaths[::-1]
+    ### Get all files and sort them
+    _imgpaths = list(folder.glob(pattern))
+    _imgpaths = _order_imgpaths(
+        _imgpaths,
+        sort=sort,
+        imgkey_position=imgkey_position,
+        invertorder=invertorder,
+    )
 
     ### Pick the right function to import
-    import_func = function_from_format(fname_extension)
+    import_func = _function_from_format(fname_extension)
 
     ### Import all files
     _imgs = [
         import_func(path, dtype=dtype, **importfunc_kws) for path in _imgpaths
     ]
     _imgs = np.array(_imgs)  # > list to array
-
+    
+    _get_sortkey = lambda path: _split_fname(path)[imgkey_position]
+    
     ### Get the keys to identify individual images
     _imgkeys = ["" for _ in _imgpaths]  # > Initialize
     if not imgkey_position is None:
         # > Get the parents of the path
-        folderkey = str(path.parent.name + "/" + path.name)
-        _imgkeys = [f"{folderkey}: {get_sortkey(path)}" for path in _imgpaths]
+        folderkey = str(folder.parent.name + "/" + folder.name)
+        _imgkeys = [
+            f"{folderkey}: {_get_sortkey(path)}"
+            for path in _imgpaths
+        ]
 
     return _imgkeys, _imgs
 
 
-def function_from_format(fname_extension: str) -> Callable:
+def _order_imgpaths(
+    imgpaths: list[Path],
+    sort: bool,
+    imgkey_position: int,
+    invertorder: bool,
+) -> list[Path]:
+    """Function to re-order the image paths"""
+
+    ### Make a Callable
+    _get_sortkey = lambda path: _split_fname(path)[imgkey_position]
+
+    # > sort txts by number
+    if sort:
+        imgpaths = sorted(imgpaths, key=_get_sortkey)
+
+    ### Invert if the first image is the bottom one
+    if invertorder:
+        imgpaths = imgpaths[::-1]
+
+    return imgpaths
+
+# def _get_sortkey(path, imgkey_position=0) -> Callable:
+#     return lambda path: _split_fname(path)[imgkey_position]
+
+
+
+def _split_fname(path: str | Path) -> str:
+    fname = Path(path).stem
+    pattern = "|".join([" ", "_"])  # > Split at these characters
+    return re.split(pattern, fname)
+
+
+# %%
+# == One path, One Image ===============================================
+def array_from_path(
+    path: str | Path,
+    **importfunc_kws,
+) -> np.ndarray:
+    extension = _scan_extension(path)
+    func = _function_from_format(extension)
+    return func(path=path, **importfunc_kws)
+
+
+def _scan_extension(path: str | Path) -> str:
+    path = Path(path)
+    return path.suffix
+
+
+def _function_from_format(fname_extension: str) -> Callable:
     """Pick the right function to import the fname_extension"""
 
     if fname_extension == ".txt":
-        return txtfile_to_array
+        return _txtfile_to_array
     if fname_extension in (".tif"):
-        return imgfile_to_array
+        return _imgfile_to_array
     else:
         raise ValueError(f"fname_extension '{fname_extension}' not supported.")
 
 
 # %%
 # == Import from txt ===================================================
-def txtfile_to_array(
+def _txtfile_to_array(
     path: str,
     skiprows: int = None,
-    dtype: np.dtype = rc.DTYPE_DEFAULT,
+    dtype: np.dtype = rc.DTYPE,
 ) -> np.ndarray:
     """Import from a txt file."""
 
@@ -181,7 +221,7 @@ if __name__ == "__main__":
     # plt.show()
 
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_7.txt"
-    img = txtfile_to_array(path, dtype=t)
+    img = _txtfile_to_array(path, dtype=t)
     print(img.min(), img.max())
     plt.imshow(img)
 
@@ -191,13 +231,12 @@ if __name__ == "__main__":
     print(img_diff.min(), img_diff.max())
     plt.imshow(img_diff)
 
+
 # %%
 # == Import from Image formats =========================================
-
-
-def imgfile_to_array(
+def _imgfile_to_array(
     path: str,
-    dtype=rc.DTYPE_DEFAULT,
+    dtype=rc.DTYPE,
     as_gray: bool = True,
 ) -> np.ndarray:
     """Import from image formats"""
@@ -207,7 +246,7 @@ def imgfile_to_array(
 
 if __name__ == "__main__":
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/240201 Imunocyto/Exp. 1/Dmp1/D0 LTMC DAPI 40x.tif"
-    img = imgfile_to_array(path, dtype=np.float32)
+    img = _imgfile_to_array(path, dtype=np.float32)
     print(img.min(), img.max())
     imshow(img)
     imshow(img, cmap="gray")

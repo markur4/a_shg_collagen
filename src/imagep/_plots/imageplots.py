@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
     Z = Imgs(data=path, verbose=True, x_µm=1.5 * 115.4)
-    print("pixelsize=", Z.pixel_size)
+    print("pixelsize=", Z.pixel_length)
     I = 6
 
 
@@ -145,10 +145,6 @@ def imshow(
 ) -> tuple[plt.Figure, np.ndarray[plt.Axes]]:
     """Show the images"""
 
-    # ### If imgs is an instance of Imgs, retrieve the images
-    # if isinstance(imgs, Imgs): # !! circular import
-    #     imgs = imgs.imgs
-
     ### If single image, make it nested
     if len(imgs.shape) == 2:
         imgs = np.array([imgs])
@@ -168,7 +164,7 @@ def imshow(
         ut.check_arguments(
             scalebar_kws,
             kws_name="scalebar_kws",
-            required=["pixel_size"],
+            required=["pixel_length"],
         )
         _imgs = scaleb.burn_scalebars(
             imgs=_imgs,
@@ -266,7 +262,7 @@ def _test_imshow_global(Z):
         max_cols=2,
         scalebar=True,
         scalebar_kws=dict(
-            pixel_size=0.05,  # !! must be provided when scalebar
+            pixel_length=0.05,  # !! must be provided when scalebar
         ),
     )
     imgs = Z.imgs

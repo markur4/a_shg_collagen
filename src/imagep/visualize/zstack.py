@@ -67,7 +67,7 @@ class ZStack(PreProcess):
         image has a thickness of z_dist in µm"""
 
         ### Calculate number how often each image has to be repeated
-        thickness_pixel = self.z_dist / self.pixel_size
+        thickness_pixel = self.z_dist / self.pixel_length
         thickness_pixel = int(round(thickness_pixel))
 
         ### Duplicate images n times so that each layer has thickness

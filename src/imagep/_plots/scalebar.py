@@ -11,14 +11,14 @@ import imagep._utils.utils as ut
 # %%
 def burn_scalebars(
     imgs: np.ndarray,
-    pixel_size: float,
-    microns: int = 10,
+    pixel_length: float,
+    length: int = 10,
     thickness_px: int = 20,  # > In pixels
     xy_pad: tuple[float] = (0.05, 0.05),
     bar_color: int | float = None,
     frame_color: int | float = None,
     text_color: tuple[int] | str = None,
-    inplace = False,
+    inplace=False,
 ):
 
     imgs = imgs if inplace else imgs.copy()
@@ -26,8 +26,8 @@ def burn_scalebars(
     for i, img in enumerate(imgs):
         imgs[i] = burn_scalebar_to_img(
             img=img,
-            microns=microns,
-            pixel_size=pixel_size,
+            length=length,
+            pixel_length=pixel_length,
             thickness_px=thickness_px,
             xy_pad=xy_pad,
             bar_color=bar_color,
@@ -35,7 +35,7 @@ def burn_scalebars(
         )
         imgs[i] = burn_micronlength_to_img(
             img=img,
-            microns=microns,
+            length=length,
             thickness_px=thickness_px,
             xy_pad=xy_pad,
             textcolor=text_color,
@@ -45,8 +45,8 @@ def burn_scalebars(
 
 def burn_scalebar_to_img(
     img: np.ndarray,
-    pixel_size: float,
-    microns: int = 10,
+    pixel_length: float,
+    length: int = 10,
     thickness_px: int = 20,  # > In pixels
     xy_pad: tuple[float] = (0.05, 0.05),
     bar_color: int | float = None,
@@ -56,10 +56,10 @@ def burn_scalebar_to_img(
 
     :param img: _description_, defaults to None
     :type img: np.ndarray, optional
-    :param pixel_size: _description_, defaults to None
-    :type pixel_size: float, optional
-    :param microns: _description_, defaults to 10
-    :type microns: int, optional
+    :param pixel_length: _description_, defaults to None
+    :type pixel_length: float, optional
+    :param length: _description_, defaults to 10
+    :type length: int, optional
     :param xy_pad: Distance from bottom right corner in % of image size, defaults to (0.05, 0.05)
     :type xy_pad: tuple[float], optional
     :param bar_color: The bar color measured on the same scale as the
@@ -75,8 +75,8 @@ def burn_scalebar_to_img(
     frame_color = img.max() * 0.9 if frame_color is None else frame_color
 
     ### Convert µm to pixels
-    len_px = int(round(microns / pixel_size))
-    # thickness_px = int(round(thickness / pixel_size))
+    len_px = int(round(length / pixel_length))
+    # thickness_px = int(round(thickness / pixel_length))
 
     ### Define Scalebar as an array
     # > Color is derived from img colormap
@@ -103,7 +103,7 @@ def burn_scalebar_to_img(
 
 def burn_micronlength_to_img(
     img: np.ndarray,
-    microns: int = 10,
+    length: int = 10,
     thickness_px: int = 3,
     xy_pad: tuple[float] = (0.05, 0.05),
     textcolor: tuple[int] | str = None,
@@ -114,7 +114,7 @@ def burn_micronlength_to_img(
     img = Image.fromarray(img, mode="F")  # > mode ="F" means float32
 
     ### Define Text
-    text = f"{microns} µm"
+    text = f"{length} µm"
     textcolor = img.getextrema()[1] if textcolor is None else textcolor
 
     ### Define padding from bottom right corner
@@ -146,5 +146,3 @@ def burn_micronlength_to_img(
     # img = np.array(img, dtype=dtype) / 255
     img = np.array(img, dtype=dtype)
     return img
-
-

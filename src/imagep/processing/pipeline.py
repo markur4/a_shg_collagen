@@ -99,12 +99,13 @@ class Pipeline(Imgs):
         # steps = list(self.snapshots.keys())
 
         ### Plot
+        scalebar = False if self.scalebar_length is None else True
         fig, axes = imageplots.imshow(
             self.snapshots_array,
             max_cols=2,
-            scalebar=True,
+            scalebar=scalebar,
             scalebar_kws=dict(
-                pixel_size=self.pixel_size, microns=self.scalebar_microns
+                pixel_length=self.pixel_length, length=self.scalebar_length
             ),
             share_cmap=False,
         )
@@ -129,10 +130,10 @@ class Pipeline(Imgs):
             f"   Took image #{I+1}/{T} (i={I}/{T-1}) as sample"
         )
         imageplots.figtitle_to_plot(FIGTITLE, fig=fig, axes=axes)
-        
+
         if saveto:
             ut.saveplot(fname=saveto, verbose=self.verbose)
-        
+
         if return_fig_axes:
             return fig, axes
 

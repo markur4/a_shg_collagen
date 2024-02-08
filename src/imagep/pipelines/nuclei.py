@@ -32,8 +32,8 @@ if __name__ == "__main__":
     parent = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/240201 Imunocyto/"
     paths = [
         parent + "Exp. 1/Dmp1/",
-        parent + "Exp. 2/Dmp1/",
-        parent + "Exp. 3 (im Paper)/Dmp1"
+        # parent + "Exp. 2/Dmp1/",
+        # parent + "Exp. 3 (im Paper)/Dmp1"
     ]
     # > contains e.g.: "D0 LTMC DAPI 40x.tif"
 

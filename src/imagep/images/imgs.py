@@ -33,11 +33,149 @@ if TYPE_CHECKING:
 
 
 # %%
+# ======================================================================
+# == Class Img =========================================================
+class Img(np.ndarray):
+    """Extends np.array with image properties:
+    - Scale and unit [meter/pixel]
+    """
+
+    def __new__(
+        cls,
+        array: np.ndarray,
+        meter_per_pixel: float = None,
+        unit: str = rc.UNIT_LENGTH,
+    ):
+        """Using __new__ is preferred over __init__ because numpy
+        arrays are immutable objects, meaning their attributes cannot be
+        modified after creation. It allows you to customize the creation
+        of the object before it's initialized.
+        """
+        obj = np.asarray(array).view(cls)
+        obj.pixel_length = meter_per_pixel
+        obj.unit = unit
+        return obj
+
+    def __array_finalize__(self, new_obj):
+        """Modifies instances of np.ndarray that's used to initialize
+        Img.
+
+        - When a new array object is created from an existing array,
+          numpy checks if the class of the new array (Subclass Img)
+          defines a __array_finalize__ method.
+
+        - numpy calls this method with the new array object as an
+          argument.
+
+        - Inside the __array_finalize__ method, `self` references to the
+          original array object !!!
+
+        - This modifies the original object according to the subclass.
+        """
+
+        if new_obj is None:
+            return None
+
+        ### self references to the original np.array!
+        self.pixel_length = getattr(new_obj, "pixel_length", None)
+        self.unit = getattr(new_obj, "unit", rc.UNIT_LENGTH)
+
+    @property
+    def info(self) -> str:
+        form = ut.justify_str
+        u = self.unit
+
+        info = [
+            "<class 'imagep.Img'>",
+            form("Array type") + f"{type(self)}",
+            form("Pixel type") + f"{self.dtype}",
+            form("Shape") + f"{self.shape} pixels",
+            (
+                form("Pixel size") + f"{self.pixel_length} {u}/pixel"
+                if self.pixel_length is not None
+                else "Pixel size not defined"
+            ),
+            form("Width") + f"{self.width_meter} {u}",
+            form("Height") + f"{self.height_meter} {u}",
+        ]
+        return "\n".join(info)
+
+    #
+    # == Check Attributes ==============================================
+
+    def _check_pixelsize(self):
+        if self.pixel_length is None:
+            raise ValueError(
+                "No pixel size defined was set. (micro)meter/pixel"
+            )
+
+    #
+    # == Properties ====================================================
+
+    @property
+    def width_meter(self):
+        self._check_pixelsize()
+        return self.shape[1] * self.pixel_length
+
+    @property
+    def height_meter(self):
+        self._check_pixelsize()
+        return self.shape[0] * self.pixel_length
+
+    # !! == End Class ==================================================
+
+
+# == Test ==========================================================
+
+
+def _test_img(img: Img):
+    instructions = [
+        ">>> type(img)",
+        type(img),
+        "",
+        ">>> Retrieve np.array attributes (not in Img)",
+        "img.shape:",
+        img.shape,
+        "img.dtype:",
+        img.dtype,
+        "",
+        ">>> img.width_meter",
+        img.width_meter,
+        "",
+        ">>> Call __repr__()",
+        img,
+        "",
+        ">>> img + img",
+        img + img,
+        "",
+        "img.info",
+        img.info,
+    ]
+
+    for ins in instructions:
+        print(ins)
+
+
+if __name__ == "__main__":
+    P = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/"
+    ### From txt
+    # path = P + "/231215_adipose_tissue/2 healthy z-stack detailed/Image4_12.txt"
+    ### From
+    path = P + "/240201 Imunocyto/Exp. 3 (im Paper)/Dmp1/LTMC I D0 DAPI.tif"
+    array = importtools.array_from_path(path=path)
+    img = Img(array=array, pixel_length=2.3)
+    _test_img(img)
+
+    # %%
+    ### Test if array is returned when referencing the image
+    img
+
+
+# %%
+# ======================================================================
 # == Class Imgs ========================================================
-
-
 class Imgs(ImgsImport):
-    """Interface for handling image types."""
+    """Interface for handling stacks of Img"""
 
     def __init__(
         self,
@@ -45,8 +183,9 @@ class Imgs(ImgsImport):
         data: str | Path | np.ndarray | list[np.ndarray] | Self = None,
         verbose: bool = True,
         ### Imgs kws
+        pixel_length: float | list[float] = None,
         x_µm: float = 200.0,
-        scalebar_microns: int = 10,
+        scalebar_length: int = None,  # > in (micro)meter
         ### KWS for importing from file
         **fileimport_kws,
     ):
@@ -70,12 +209,13 @@ class Imgs(ImgsImport):
         ### Total width, height, depth in µm
         self.x_µm = x_µm
         self.y_µm = self.imgs.shape[1] * self.x_µm / self.imgs.shape[2]
-        self.pixel_size = self.x_µm / self.imgs.shape[2]
+        self.pixel_length = self.x_µm / self.imgs.shape[2]
         self.spacing = (self.x_µm, self.y_µm)
+        # self.pixel_length = pixel_length
 
         # == Other ==
         ### Define scalebar length here, required by e.g. mip
-        self.scalebar_microns = scalebar_microns
+        self.scalebar_length = scalebar_length
 
     # == Import from parent Instance ===================================
     #
@@ -127,8 +267,8 @@ class Imgs(ImgsImport):
         imgs = scaleb.burn_scalebars(
             imgs=imgs,
             # slice=slice,
-            microns=self.scalebar_microns,
-            pixel_size=self.pixel_size,
+            length=self.scalebar_length,
+            pixel_length=self.pixel_length,
             thickness_px=thickness_px,
             xy_pad=xy_pad,
             bar_color=imgs.max(),
@@ -144,7 +284,7 @@ class Imgs(ImgsImport):
         self,
         cmap: str = "gist_ncar",
         max_cols: int = 2,
-        scalebar=True,
+        scalebar: bool = False,
         scalebar_kws: dict = dict(),
         colorbar=True,
         saveto: str = None,
@@ -157,8 +297,8 @@ class Imgs(ImgsImport):
 
         ### Update KWS
         scalebar_KWS = dict(
-            microns=self.scalebar_microns,
-            pixel_size=self.pixel_size,
+            length=self.scalebar_length,
+            pixel_length=self.pixel_length,
         )
         scalebar_KWS.update(scalebar_kws)
 
@@ -193,9 +333,12 @@ class Imgs(ImgsImport):
                 f"Image {i+1}/{T} (i={_i}/{T-1})"
                 f"    {img.shape[0]}x{img.shape[1]}  {img.dtype}"
             )
+
+            ### Add Image keys
             if not self.imgkeys is None:
                 fk = self.imgkeys[i]
-                AXTITLE = f"'{fk}'\n" + AXTITLE
+                path, imgk = fk.split(": ")
+                AXTITLE = f"'{path}': '{imgk}'\n" + AXTITLE
             ax.set_title(AXTITLE, fontsize="medium")
 
         ### Fig title
@@ -227,16 +370,15 @@ class Imgs(ImgsImport):
 
         dataplots.histogram(self.imgs, bins=bins, log=log)
 
-
     #
     # !! == End Class ==================================================
-    
-    
+
+
 # %%
 # == Testdata ==========================================================
 if __name__ == "__main__":
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-    Z = Imgs(data=path, verbose=True, x_µm=1.5 * 115.4)
+    Z = Imgs(data=path, fname_extension="txt", verbose=True, x_µm=1.5 * 115.4)
     I = 6
 
     # %%
@@ -264,7 +406,8 @@ def _test_import_from_types(Z, I=6):
 
 
 if __name__ == "__main__":
-    _test_import_from_types(Z=Z, I=I)
+    pass
+    # _test_import_from_types(Z=Z, I=I)
 
 
 # %%
@@ -289,4 +432,5 @@ def _test_imshow_method(Z):
 
 
 if __name__ == "__main__":
-    _test_imshow_method(Z)
+    pass
+    # _test_imshow_method(Z)

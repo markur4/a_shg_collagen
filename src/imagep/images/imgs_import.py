@@ -48,12 +48,12 @@ class ImgsImport:
             data = fileimport_kws["path"]
 
         ### Init attributes, they will be set by the import functions
-        self.path: str | Path | list[str | Path] = self.PATH_PLACEHOLDER
+        self.folder: str | Path | list[str | Path] = self.PATH_PLACEHOLDER
         self.imgs: np.ndarray | ListOfArrays = None
         self.imgkeys: list[str] = self.IMGKEY_PLACEHOLDER
 
         ### Configure import from path
-        _importconfig = rc.RC_IMPORT
+        _importconfig = rc.IMPORTCONFIG
         _importconfig.update(fileimport_kws)
         self._fileimport_kws = _importconfig
         # > Remember the target dtype, could be useful
@@ -106,17 +106,20 @@ class ImgsImport:
         self._check_data_type(data)
 
         ### Import
+        # > One Folder
         if isinstance(data, (str, Path)):
-            self.imgkeys, self.imgs = self.from_path(data)
-            self.path = data
+            self.imgkeys, self.imgs = self.from_folder(data)
+            self.folder = data
+        # > Multiple Folders
         elif isinstance(data[0], (str, Path)):
-            self.imgkeys, self.imgs = self.from_paths(data)
-            self.path = data
+            self.imgkeys, self.imgs = self.from_folders(data)
+            self.folder = data
+        # > Array or list of Arrays
         elif isinstance(data, (np.ndarray, list)) or isinstance(
             data[0], np.ndarray
         ):
             self.imgs = self.from_array(data)
-            self.path = self.PATH_PLACEHOLDER
+            self.folder = self.PATH_PLACEHOLDER
         ### Importing from Instance
         # > Z = PreProcess(data=Imgs)
         # > issubclass(self=PreProcess, data=Imgs)
@@ -130,31 +133,31 @@ class ImgsImport:
 
     #
     # == From Path, Array or Instance ==================================
-    def from_paths(
-        self, paths: list[str | Path]
+    def from_folders(
+        self, folders: list[str | Path]
     ) -> tuple[list[str], np.ndarray | list[np.ndarray]]:
         """Import images from a list of folders"""
 
         ### Convert if string
-        paths = [Path(path) for path in paths]
+        folders = [Path(path) for path in folders]
 
         ### Check if paths are valid
-        for i, path in enumerate(paths):
+        for i, path in enumerate(folders):
             if not path.exists():
                 raise FileNotFoundError(f"Folder does not exist: {i}. '{path}'")
 
         ### Message
         if self.verbose:
-            shortpaths = [self._shorten(path) for path in paths]
+            shortpaths = [self._shorten(path) for path in folders]
             print("=> Importing images from multiple folders:")
             for i, spath in enumerate(shortpaths):
                 print(f"   | {i}: '{spath}'")
 
         ### Import
-        imgkeys, _imgs = importtools.import_imgs_from_paths(
-            paths, **self._fileimport_kws
+        imgkeys, _imgs = importtools.arrays_from_list_of_folders(
+            folders, **self._fileimport_kws
         )
-        
+
         # > Done
         if self.verbose:
             self._done_import_message(_imgs)
@@ -162,24 +165,24 @@ class ImgsImport:
         ### Return
         return imgkeys, _imgs
 
-    def from_path(self, path: str | Path) -> tuple[str, np.ndarray]:
+    def from_folder(self, folder: str | Path) -> tuple[str, np.ndarray]:
         """Import images from a folder"""
 
         ### Convert if string
-        path = Path(path)
+        folder = Path(folder)
 
         ### Check if path is valid
-        if not path.exists():
-            raise FileNotFoundError(f"Folder does not exist: '{path}'")
+        if not folder.exists():
+            raise FileNotFoundError(f"Folder does not exist: '{folder}'")
 
         ### Message
         if self.verbose:
-            print(f"=> Importing images from '{self._shorten(path)}' ...")
+            print(f"=> Importing images from '{self._shorten(folder)}' ...")
 
         ### Import
         # fks, _imgs = self._import_imgs_from_path(path, **self._fileimport_kws)
-        imgkeys, _imgs = importtools.import_imgs_from_path(
-            path, **self._fileimport_kws
+        imgkeys, _imgs = importtools.arrays_from_folder(
+            folder, **self._fileimport_kws
         )
 
         # > Done
@@ -254,12 +257,12 @@ class ImgsImport:
     @property
     def path_short(self) -> str | list[str]:
         """Shortened path"""
-        if self.path == self.PATH_PLACEHOLDER:
+        if self.folder == self.PATH_PLACEHOLDER:
             return self.PATH_PLACEHOLDER
-        elif isinstance(self.path, (str | Path)):
-            return self._shorten(self.path)
-        elif isinstance(self.path, list):
-            return [self._shorten(path) for path in self.path]
+        elif isinstance(self.folder, (str | Path)):
+            return self._shorten(self.folder)
+        elif isinstance(self.folder, list):
+            return [self._shorten(path) for path in self.folder]
 
     #
     # == Import From Files =============================================
@@ -269,7 +272,7 @@ class ImgsImport:
         path: str | Path, **fileimport_kws
     ) -> tuple[list[str], np.ndarray]:
         """Import z-stack from a folder"""
-        return importtools.import_imgs_from_path(path, **fileimport_kws)
+        return importtools.arrays_from_folder(path, **fileimport_kws)
 
     #
     # == Access/Slice Images ===========================================
@@ -373,9 +376,9 @@ class ListOfArrays:
 if __name__ == "__main__":
     import imagep as ip
 
-    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    folder = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
     Z = ip.Imgs(
-        data=path, fname_extension="txt", verbose=True, x_µm=1.5 * 115.4
+        data=folder, fname_extension="txt", verbose=True, x_µm=1.5 * 115.4
     )
     I = 6
 
@@ -405,24 +408,24 @@ class ImgsColored:
 
 
 #
-# == Class ImgsSameSize ================================================
-class ImgsSameSize(ImgsImport):
-    """These images all have the same Size with"""
+# # == Class ImgsSameSize ================================================
+# class ImgsSameSize(ImgsImport):
+#     """These images all have the same Size with"""
 
-    def __init__(
-        self,
-        path: str | Path = None,
-        verbose: bool = True,
-    ) -> None:
-        super().__init__(path, verbose)
+#     def __init__(
+#         self,
+#         path: str | Path = None,
+#         verbose: bool = True,
+#     ) -> None:
+#         super().__init__(path, verbose)
 
-        ### Check if all images have the same size
-        self._check_size()
+#         ### Check if all images have the same size
+#         self._check_size()
 
-    def _check_size(self) -> None:
-        """Check if all images have the same size"""
-        sizes = [img.shape for img in self.imgs]
-        if not all([size == sizes[0] for size in sizes]):
-            raise ValueError(
-                f"Not all images have the same size. Found these {set(sizes)}!"
-            )
+#     def _check_size(self) -> None:
+#         """Check if all images have the same size"""
+#         sizes = [img.shape for img in self.imgs]
+#         if not all([size == sizes[0] for size in sizes]):
+#             raise ValueError(
+#                 f"Not all images have the same size. Found these {set(sizes)}!"
+#             )

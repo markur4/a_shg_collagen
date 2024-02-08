@@ -9,7 +9,7 @@ from . import _rc
 
 ### Import & Processing Interfaces
 # :: 'ip.<Interface>(**kws)'
-from .images.imgs import Imgs  # :: ip.Imgs(**kws)
+from .images.imgs import Img, Imgs  # :: ip.Imgs(**kws)
 from .processing.preprocess import PreProcess  # :: ip.PreProcess(**kws)
 from .segmentation.segment import Segment  # , Annotate
 

@@ -14,25 +14,31 @@ import numpy as np
 # > local imports
 import imagep._utils.utils as ut
 
-# == Dtypes ============================================================
-DTYPE_DEFAULT: np.dtype = np.float32
+#
+# == Img Properties ====================================================
+UNIT_LENGTH = "µm"
 
+#
+# == Dtypes ============================================================
+DTYPE: np.dtype = np.float32
+
+#
 # == Importing from files ==============================================
 
-RC_IMPORT = ut.ConfigImport(
+IMPORTCONFIG = ut.ConfigImport(
     # fname_extension=".txt",
     sort=True,
     # sortkey=lambda x: int(Path(x).stem.split("_")[-1]),
     invertorder=True,
-    dtype=DTYPE_DEFAULT,
+    dtype=DTYPE,
     # import_kws=dict(),
 )
 # print(IMPORTCONFIG)
 # IMPORTCONFIG.update(dict(fname_extension=".png", sortkey= lambda x: x*2))
 # print(IMPORTCONFIG)
 
+#
 # == matplotlib ========================================================
-
 
 ### Image quality
 mpl.rcParams["figure.dpi"] = 300
@@ -50,6 +56,7 @@ mpl.rcParams["legend.fancybox"] = False
 mpl.rcParams["font.family"] = "sans-serif"
 mpl.rcParams["font.sans-serif"] = ["Arial Narrow"]
 
+#
 # == Cache =============================================================
 
 ### Total cache size

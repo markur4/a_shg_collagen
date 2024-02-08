@@ -38,7 +38,7 @@ class FibreDiameter(Segment):
         **preprocess_kws,
     ):
         super().__init__(*imgs_args, **preprocess_kws)
-        
+
         ### Collect kws
         self.kws_diameter = {
             "prune": prune,
@@ -339,7 +339,7 @@ class FibreDiameter(Segment):
 
             ### Convert to µm
             if in_µm:
-                values = values * self.pixel_size
+                values = values * self.pixel_length
 
             ### Calculate the diameter of each fiber
             diameters.append(values)
@@ -365,7 +365,7 @@ class FibreDiameter(Segment):
 
         ### Convert to µm
         if in_μm:
-            diameters = diameters * self.pixel_size
+            diameters = diameters * self.pixel_length
 
         ### Plot
         fig, ax = plt.subplots(figsize=(4, 2.5))
@@ -474,7 +474,6 @@ class FibreDiameter(Segment):
             skel, cmap="spring", interpolation="none", alpha=skelet_alpha
         )
 
-
     def plot_skeleton_and_intersections(
         self, I=0, alpha=0.4, skel="skeldist_removed"
     ):
@@ -508,7 +507,7 @@ class FibreDiameter(Segment):
         skel = np.ma.masked_where(skel == 0, skel)
 
         ### Convert to µm
-        skel = skel * self.pixel_size * 2
+        skel = skel * self.pixel_length * 2
 
         ### Plot skeleton
         sk = plt.imshow(skel, interpolation="none", cmap="gist_ncar")
