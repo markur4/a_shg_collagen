@@ -9,7 +9,7 @@ from . import _rc
 
 ### Import & Processing Interfaces
 # :: 'ip.<Interface>(**kws)'
-from .images.imgs import Img, Imgs  # :: ip.Imgs(**kws)
+from .images.imgs import ImgWithMetadata, Imgs  # :: ip.Imgs(**kws)
 from .processing.preprocess import PreProcess  # :: ip.PreProcess(**kws)
 from .segmentation.segment import Segment  # , Annotate
 
@@ -30,7 +30,7 @@ from .processing import filters_accelerated
 from ._utils import utils  # :: 'ip.utils.<function>(**kws)'
 
 # > Plotting tools are imported directly
-# :: 'import ip.imageplots as ipl' 
-from ._plots.imageplots import * # :: e.g. 'ip.imshow(**kws)'
-from ._plots.dataplots import * # :: e.g. 'ip.histogram(**kws)'
-from ._plots.scalebar import * # :: e.g. 'ip.burn_scalebars(**kws)'
+# :: 'import ip.imageplots as ipl'
+from ._plots.imageplots import *  # :: e.g. 'ip.imshow(**kws)'
+from ._plots.dataplots import *  # :: e.g. 'ip.histogram(**kws)'
+from ._plots.scalebar import *  # :: e.g. 'ip.burn_scalebars(**kws)'

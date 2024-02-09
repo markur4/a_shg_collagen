@@ -114,18 +114,15 @@ def arrays_from_folder(
         import_func(path, dtype=dtype, **importfunc_kws) for path in _imgpaths
     ]
     _imgs = np.array(_imgs)  # > list to array
-    
+
     _get_sortkey = lambda path: _split_fname(path)[imgkey_position]
-    
+
     ### Get the keys to identify individual images
     _imgkeys = ["" for _ in _imgpaths]  # > Initialize
     if not imgkey_position is None:
         # > Get the parents of the path
         folderkey = str(folder.parent.name + "/" + folder.name)
-        _imgkeys = [
-            f"{folderkey}: {_get_sortkey(path)}"
-            for path in _imgpaths
-        ]
+        _imgkeys = [f"{folderkey}: {_get_sortkey(path)}" for path in _imgpaths]
 
     return _imgkeys, _imgs
 
@@ -151,9 +148,9 @@ def _order_imgpaths(
 
     return imgpaths
 
+
 # def _get_sortkey(path, imgkey_position=0) -> Callable:
 #     return lambda path: _split_fname(path)[imgkey_position]
-
 
 
 def _split_fname(path: str | Path) -> str:

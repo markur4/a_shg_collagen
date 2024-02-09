@@ -43,6 +43,9 @@ def burn_scalebars(
     return imgs
 
 
+#
+
+
 def burn_scalebar_to_img(
     img: np.ndarray,
     pixel_length: float,

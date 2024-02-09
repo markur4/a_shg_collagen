@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 # %%
 # ======================================================================
 # == Class Img =========================================================
-class Img(np.ndarray):
+class ImgWithMetadata(np.ndarray):
     """Extends np.array with image properties:
     - Scale and unit [meter/pixel]
     """
@@ -128,7 +128,7 @@ class Img(np.ndarray):
 # == Test ==========================================================
 
 
-def _test_img(img: Img):
+def _test_img(img: ImgWithMetadata):
     instructions = [
         ">>> type(img)",
         type(img),
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     ### From
     path = P + "/240201 Imunocyto/Exp. 3 (im Paper)/Dmp1/LTMC I D0 DAPI.tif"
     array = importtools.array_from_path(path=path)
-    img = Img(array=array, pixel_length=2.3)
+    img = ImgWithMetadata(array=array, pixel_length=2.3)
     _test_img(img)
 
     # %%
@@ -175,16 +175,20 @@ if __name__ == "__main__":
 # ======================================================================
 # == Class Imgs ========================================================
 class Imgs(ImgsImport):
-    """Interface for handling stacks of Img"""
+    """Interface for handling images
+    - Adds experimental information to Images
+    """
 
     def __init__(
         self,
         ### ImgsImport kws:
         data: str | Path | np.ndarray | list[np.ndarray] | Self = None,
         verbose: bool = True,
-        ### Imgs kws
+        ### Metadata
         pixel_length: float | list[float] = None,
-        x_µm: float = 200.0,
+        unit: str = "µm",
+        ### Imgs kws
+        # x_µm: float = 200.0,
         scalebar_length: int = None,  # > in (micro)meter
         ### KWS for importing from file
         **fileimport_kws,
@@ -193,25 +197,36 @@ class Imgs(ImgsImport):
         - Block super()__init__ if to avoid re-loading images
 
 
-        :param path: pathlike string or object
-        :type path: str | Path
+        :param data: pathlike string or object
+        :type data: str | Path | np.ndarray | list[np.ndarray] | Self
         :param x_µm: Total width of image in µm, defaults to 200
         :type x_µm: float, optional
-        :param scalebar_microns: Length of scalebar in µm. This won't
+        :param scalebar_length: Length of scalebar in µm. This won't
             add a scalebar, it's called once needed, defaults to
             10
-        :type scalebar_microns: int, optional
+        :type scalebar_length: int, optional
         """
         ### GET ATTRIBUTES
         # > super().__init__(), OR retrieve attributes from instance
         self._get_attributes(data, verbose, **fileimport_kws)
+        # > Declare types for IDE
+        self.data: str | Path | np.ndarray | list[np.ndarray] | Self
+        self.imgs: np.ndarray
+        self.verbose: str
 
         ### Total width, height, depth in µm
-        self.x_µm = x_µm
-        self.y_µm = self.imgs.shape[1] * self.x_µm / self.imgs.shape[2]
-        self.pixel_length = self.x_µm / self.imgs.shape[2]
-        self.spacing = (self.x_µm, self.y_µm)
-        # self.pixel_length = pixel_length
+        # self.x_µm = x_µm
+        # self.y_µm = self.imgs.shape[1] * self.x_µm / self.imgs.shape[2]
+        # self.pixel_length = self.x_µm / self.imgs.shape[2]
+        # self.spacing = (self.x_µm, self.y_µm)
+        ### Metadata for (individual) images
+        self.pixel_length = pixel_length
+        self.unit = unit
+
+        self._check_metadata()
+
+        ### Convert self.imgs into type ImgWithMetadata
+        self._to_img_with_metadata()
 
         # == Other ==
         ### Define scalebar length here, required by e.g. mip
@@ -231,6 +246,48 @@ class Imgs(ImgsImport):
         # > If not, call the parent __init__ method
         else:
             super().__init__(data, verbose, **fileimport_kws)
+
+    #
+    # == Convert Array Images to Img ===================================
+
+    def _check_same_folderlength(self, metadata: str, val: int | list):
+        """Checks if its value of a metadata-type has the same length
+        as the number of folders. If not, raises an error.
+        """
+        m = f"When passing multiple folders, '{metadata}' "
+        if not (isinstance(val, list) or isinstance(val, int)):
+            raise TypeError(m + "should also be an int or a list of int")
+        elif not len(val) == len(self.data):
+            raise ValueError(
+                m + "should have the same length as number of folders"
+            )
+
+    def _check_metadata(self):
+        """Checks if metadata is compatible with the object:
+        - Metadata is assigned to each folders (same length)
+        - etc.
+        """
+        if self._source_type == "Multiple Folders":
+            self._check_same_folderlength(
+                metadata="pixel_length", val=self.pixel_length
+            )
+
+    def _to_img_with_metadata(self):
+        """Converts images from 2D numpy Arrays into a ImgWithMetadata
+        by assigning metadata to each folder"""
+
+        
+
+        ### Che
+        self.imgs =[
+            ImgWithMetadata(
+                array=img,
+                meter_per_pixel=m_per_pixel,
+                # unit=self.unit,
+            )
+            for img in self.imgs
+        ]
+
 
     #
     # == Scalebar ======================================================
@@ -303,7 +360,7 @@ class Imgs(ImgsImport):
         scalebar_KWS.update(scalebar_kws)
 
         ### Update kwargs
-        KWS = dict(
+        _imshow_kws = dict(
             imgs=_imgs,
             max_cols=max_cols,
             cmap=cmap,
@@ -312,13 +369,13 @@ class Imgs(ImgsImport):
             colorbar=colorbar,
             # saveto=None,
         )
-        KWS.update(imshow_kws)
+        _imshow_kws.update(imshow_kws)
 
         ### Total number of images
         T = self._shape_original[0]
 
         ### MAKE IMAGE
-        fig, axes = imageplots.imshow(**KWS)
+        fig, axes = imageplots.imshow(**_imshow_kws)
 
         ### Add Ax titles
         for i, ax in enumerate(axes.flat):
@@ -329,7 +386,7 @@ class Imgs(ImgsImport):
             _i = self._slice_indices[i] if self._slice else i
 
             img = _imgs[i]  # > retrieve image
-            AXTITLE = (
+            _ax_tit = (
                 f"Image {i+1}/{T} (i={_i}/{T-1})"
                 f"    {img.shape[0]}x{img.shape[1]}  {img.dtype}"
             )
@@ -338,14 +395,14 @@ class Imgs(ImgsImport):
             if not self.imgkeys is None:
                 fk = self.imgkeys[i]
                 path, imgk = fk.split(": ")
-                AXTITLE = f"'{path}': '{imgk}'\n" + AXTITLE
-            ax.set_title(AXTITLE, fontsize="medium")
+                _ax_tit = f"'{path}': '{imgk}'\n" + _ax_tit
+            ax.set_title(_ax_tit, fontsize="medium")
 
         ### Fig title
-        FIGTITLE = f"{self.path_short}\n - {T} Total images"
+        _fig_tit = f"{self.path_short}\n - {T} Total images"
         if self._slice:
-            FIGTITLE += f"; Sliced to {len(_imgs)} image(s) (i=[{self._slice}])"
-        imageplots.figtitle_to_plot(FIGTITLE, fig=fig, axes=axes)
+            _fig_tit += f"; Sliced to {len(_imgs)} image(s) (i=[{self._slice}])"
+        imageplots.figtitle_to_plot(_fig_tit, fig=fig, axes=axes)
 
         plt.tight_layout()
 

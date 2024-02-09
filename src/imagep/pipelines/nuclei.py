@@ -11,9 +11,8 @@ import matplotlib.pyplot as plt
 # > Local
 from imagep.segmentation.segment import Segment
 
+
 # %%
-
-
 class Nuclei(Segment):
 
     def __init__(self, image, **segment_kws):
@@ -45,7 +44,7 @@ if __name__ == "__main__":
         fname_pattern="*DAPI*.tif",
         # invert=False,
         sort=False,
-        imgkey_positions=[0, 2, 2], #> Extract a key from the filename
+        imgkey_positions=[0, 2, 2],  # > Extract a key from the filename
     )
     print(Z.imgs.shape, Z.imgs.dtype)
     _img = Z.imgs[0]

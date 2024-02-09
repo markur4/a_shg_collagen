@@ -20,6 +20,8 @@ from imagep.processing.preprocess import PreProcess
 # %%
 # ======================================================================
 
+#
+
 
 class Segment(PreProcess):
     def __init__(
@@ -109,8 +111,6 @@ class Segment(PreProcess):
             print("   Segmentation done")
 
         return self._imgs
-    
-
 
     # == MIP binning ===================================================
 
@@ -195,8 +195,7 @@ class Segment(PreProcess):
     def _segment_background(
         imgs: np.ndarray, thresh_per_img=True, sigma=2
     ) -> np.ndarray:
-        """Segments by setting all pixel values larger than 0 to 1
-        """
+        """Segments by setting all pixel values larger than 0 to 1"""
 
         return (imgs > 0).astype(np.uint8)
         # _imgs = np.zeros(imgs.shape).astype(np.uint8)

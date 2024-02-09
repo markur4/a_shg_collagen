@@ -155,7 +155,7 @@ def format_num(
             number = number[0]
         else:
             raise ValueError(f"Number is a list of length {len(number)}")
-    
+
     ### Return 0 if number is 0
     if number == 0:
         return "0"
@@ -267,6 +267,7 @@ def _test_indices_from_slice(verbose=False):
 if __name__ == "__main__":
     _test_indices_from_slice()
 
+
 #
 # == Performance ===================================================
 def toint(x: float) -> int:
@@ -359,18 +360,19 @@ if __name__ == "__main__":
 #
 # == I/O ===============================================================
 
-def saveplot(fname:str, verbose:bool=True) -> None:
+
+def saveplot(fname: str, verbose: bool = True) -> None:
     """Saves current plot to file"""
-    
+
     if not isinstance(fname, str):
         raise ValueError(f"You must provide a filename for save. Got: {fname}")
-    
+
     # > add .pdf as suffix if no suffix is present
-    if  "." in fname:
+    if "." in fname:
         fname = Path(fname)
     else:
         fname = Path(fname).with_suffix(".pdf")
     plt.savefig(fname, bbox_inches="tight")
-    
+
     if verbose:
         print(f"Saved plot to: {fname.resolve()}")

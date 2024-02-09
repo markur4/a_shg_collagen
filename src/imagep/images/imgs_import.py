@@ -60,7 +60,7 @@ class ImgsImport:
         self._dtype = self._fileimport_kws["dtype"]
 
         ### IMPORT data and convert it into dtype
-        self._source_type = type(data)  # > Remember the source type
+        self._source_type:str = "undefined"  # > Remember the source type
         self._import(data, dtype=self._dtype)
 
         ### Slicing
@@ -98,7 +98,6 @@ class ImgsImport:
         data: (
             str | Path | list[str | Path] | np.ndarray | list[np.ndarray] | Self
         ),
-        dtype: np.dtype,
     ) -> None:
         """Main import function. Calls the appropriate import function."""
 
@@ -106,18 +105,18 @@ class ImgsImport:
         self._check_data_type(data)
 
         ### Import
-        # > One Folder
         if isinstance(data, (str, Path)):
+            self._source_type = "One Folder"
             self.imgkeys, self.imgs = self.from_folder(data)
             self.folder = data
-        # > Multiple Folders
         elif isinstance(data[0], (str, Path)):
+            self._source_type = "Multiple Folders"
             self.imgkeys, self.imgs = self.from_folders(data)
             self.folder = data
-        # > Array or list of Arrays
         elif isinstance(data, (np.ndarray, list)) or isinstance(
             data[0], np.ndarray
         ):
+            self._source_type = "Array" # > can't track origin
             self.imgs = self.from_array(data)
             self.folder = self.PATH_PLACEHOLDER
         ### Importing from Instance
@@ -127,9 +126,7 @@ class ImgsImport:
             # !! Can't use data.verbose, because it's not set yet
             self.from_instance(data, verbose=self.verbose)
 
-        ### dtype Conversion
-        # !! dtype only changed in importtools!
-        # self.imgs = self.imgs.astype(dtype)
+
 
     #
     # == From Path, Array or Instance ==================================
@@ -203,7 +200,8 @@ class ImgsImport:
 
     def from_array(self, array: np.ndarray | list) -> np.ndarray:
         """Import images from a numpy array"""
-        ### If list of arrays
+        
+        ### Convert if list
         waslist = False
         if isinstance(array, list):
             waslist = True
@@ -214,7 +212,8 @@ class ImgsImport:
             raise ValueError(
                 f"Array must have shape (z, y, x), not {array.shape}"
             )
-        ### Set path and imgs
+        
+        ### Message
         if self.verbose:
             m = " list of arrays" if waslist else " array"
             print(

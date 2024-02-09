@@ -185,21 +185,21 @@ class PreProcess(Pipeline):
     def _init_history(self, **preprocess_kws) -> OrderedDict:
         """Update the history of processing steps"""
 
-        OD = OrderedDict()
+        od = OrderedDict()
 
-        OD["Import"] = f"'{self.folder}'"
+        od["Import"] = f"'{self.folder}'"
 
         if preprocess_kws["median"]:
-            OD["Median Filter"] = (
+            od["Median Filter"] = (
                 "Median filter using a 2D disk shaped kernel with radius of 2 pixels."
             )
 
         if preprocess_kws["denoise"]:
-            OD["Denoising"] = "Non-local means"
+            od["Denoising"] = "Non-local means"
 
         if preprocess_kws["subtract_bg"]:
             # kws = self.background.kws
-            OD["BG Subtraction"] = (
+            od["BG Subtraction"] = (
                 f"Calculated threshold (method = {self.background.method}) of"
                 f" blurred images (gaussian filter, sigma = {self.background.sigma})."
                 " Subtracted threshold from images and set negative"
@@ -207,19 +207,19 @@ class PreProcess(Pipeline):
             )
 
         if preprocess_kws["normalize"]:
-            OD["Normalization"] = (
+            od["Normalization"] = (
                 "Division by max value of every image in folder"
             )
 
         if preprocess_kws["remove_empty_slices"]:
-            OD["Remove Empty"] = (
+            od["Remove Empty"] = (
                 "Removed empty slices from stack. An entropy filter was"
                 " applied to images. Images were removed if the 99th"
                 " percentile of entropy was lower than"
-                " than 10% of max entropy found in all images"
+                " than 10%\ of max entropy found in all images"
             )
 
-        return OD
+        return od
 
     def _history_to_str(self) -> str:
         """Returns the history of processing steps"""
@@ -268,32 +268,32 @@ class PreProcess(Pipeline):
         # bg_subtracted = str(self.kws_preprocess["subtract_bg"])
 
         ### Fill info
-        ID = OrderedDict()
+        id = OrderedDict()
 
-        ID["Data"] = [
+        id["Data"] = [
             "=== Data ===",
             just("folder") + str(self.path_short),
             just("dtype") + str(imgs.dtype),
             just("shape") + str(imgs.shape),
             just("images") + str(len(imgs)),
         ]
-        ID["Size"] = [
+        id["Size"] = [
             "=== Size [µm] ===",
             just("pixel size xy") + f"{form(self.pixel_length)}",
             just("width, height (x,y)")
             + f"{form(self.x_µm)}, {form(self.y_µm)}",
         ]
-        ID["Brightness"] = [
+        id["Brightness"] = [
             "=== Brightness ===",
             just("BG subtracted") + self.background.info,
         ] + self._info_brightness(self.imgs)
 
-        ID["History"] = [
+        id["History"] = [
             "=== Processing History ===",
             self._history_to_str(),
         ]
 
-        return ID
+        return id
 
     @staticmethod
     def _info_to_str(info: dict | OrderedDict) -> str:
