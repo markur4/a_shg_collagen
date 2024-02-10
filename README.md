@@ -119,20 +119,35 @@ classDiagram
       ...
       ....()
    }
+   class Mdarray {
+      pixel_length
+      name
+      folder
+      unit
+      width_meter
+   }
+   numpy_ndarray <-- Mdarray
+   
    class ImgsImport {
       imgs
       verbose
       from_textfile()
    }
-   numpy_ndarray *-- ImgsImport
+   Mdarray *-- ImgsImport
    
-   class Imgs{
-      pixel_size
-      x_µm
-      y_µm
+      class ImgsMeta{
+      pixel_length
+      unit
+      scalebar
       ....()
    }
-   ImgsImport <-- Imgs
+   ImgsImport <-- ImgsMeta
+   
+   class Imgs{
+      ...
+      ....()
+   }
+   ImgsMeta <-- Imgs
    
    %% == Preprocessing ==============================================
 

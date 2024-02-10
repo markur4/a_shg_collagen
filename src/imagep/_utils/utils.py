@@ -109,6 +109,13 @@ def _messaged_execution(
 
 # %%
 # == Formatting ========================================================
+def shortenpath(path: Path | str) -> str:
+    """Shorten the path to the last 2 elements"""
+    path = Path(path)
+    return str(path.parent.name + "/" + path.name)
+
+
+# %%
 ### Set runtime configuration for Justifying text
 _JUSTIFY = 23
 
@@ -376,3 +383,30 @@ def saveplot(fname: str, verbose: bool = True) -> None:
 
     if verbose:
         print(f"Saved plot to: {fname.resolve()}")
+
+
+#
+# == Check arguments ===================================================
+
+
+def check_samelength_or_number(
+    key: str,
+    val: int | float | list[int | float | str],
+    target_key: str,
+    target_n: int,
+) -> list[int | float]:
+
+    if isinstance(val, (int, float, str)):
+        val = [val for _ in range(target_n)]
+    elif not isinstance(val, (list, tuple)):
+        raise ValueError(
+            f"{key} must be a list or a single number, not {type(val)}"
+        )
+    elif len(val) == 1:
+        val = [val[0] for _ in range(target_n)]
+    elif len(val) != target_n:
+        raise ValueError(
+            f"'{key}' can't contain {len(val)} entries, it must be as"
+            f" long as '{target_key}' (has {target_n} entries)"
+        )
+    return val

@@ -9,15 +9,17 @@ from pathlib import Path
 import numpy as np
 
 # > Local
+import imagep._utils.utils as ut
 import imagep._rc as rc
 import imagep.images.importtools as importtools
-
-# from imagep.images.imgs import Imgs
+from imagep.images.mdarray import Mdarray
 
 if TYPE_CHECKING:
+    import imagep as ip
     from imagep.images.imgs import Imgs
-    from imagep.processing.pipeline import Pipeline
+    # from imagep.processing.pipeline import Pipeline
     from imagep.processing.preprocess import PreProcess
+    from imagep.images.list_of_arrays import ListOfArrays
 
 
 # %%
@@ -49,19 +51,17 @@ class ImgsImport:
 
         ### Init attributes, they will be set by the import functions
         self.folder: str | Path | list[str | Path] = self.PATH_PLACEHOLDER
-        self.imgs: np.ndarray | ListOfArrays = None
-        self.imgkeys: list[str] = self.IMGKEY_PLACEHOLDER
+        self.imgs: ip.Mdarray | ListOfArrays = None
+        self.imgnames: dict[str, str] = self.IMGKEY_PLACEHOLDER
 
         ### Configure import from path
-        _importconfig = rc.IMPORTCONFIG
+        _importconfig = copy.deepcopy(rc.IMPORTCONFIG)
         _importconfig.update(fileimport_kws)
         self._fileimport_kws = _importconfig
-        # > Remember the target dtype, could be useful
-        self._dtype = self._fileimport_kws["dtype"]
 
         ### IMPORT data and convert it into dtype
-        self._source_type:str = "undefined"  # > Remember the source type
-        self._import(data, dtype=self._dtype)
+        self._source_type: str = "undefined"  # > Remember the source type
+        self._import(data)
 
         ### Slicing
         # > Remember if this object has been sliced
@@ -70,7 +70,42 @@ class ImgsImport:
         self._slice_indices: list[int] = list(range(self._shape_original[0]))
 
     #
-    # == Import Source Data ============================================
+    # == ImgsDict ======================================================
+    @property
+    def imgs_dict(self) -> dict[str, np.ndarray]:
+        """Returns dictionary with short folder names as keys and the
+        images as values by retrieving metadata from the images"""
+
+        D = {shortpath: [] for shortpath in self.path_short}
+        for img in self.imgs:
+            # folder = img.folder
+            D[img.folder].append(img)
+        return D
+
+    #
+    # == Path ==========================================================
+
+    @property
+    def path_short(self) -> list[str]:
+        """Shortened path"""
+        if self.folder == self.PATH_PLACEHOLDER:
+            return [self.PATH_PLACEHOLDER]
+        elif isinstance(self.folder, (str | Path)):
+            return [ut.shortenpath(self.folder)]
+        elif isinstance(self.folder, list):
+            return [ut.shortenpath(path) for path in self.folder]
+
+    @property
+    def imgname_dict(self) -> dict[str, str]:
+        """Returns a dictionary with short folder names as keys and the
+        list of image names as values"""
+        if self.imgnames == self.IMGKEY_PLACEHOLDER:
+            return {self.IMGKEY_PLACEHOLDER: self.IMGKEY_PLACEHOLDER}
+        elif isinstance(self.imgnames, list):
+            return {self.path_short[0]: self.imgnames}
+
+    #
+    # == Import Data ===================================================
 
     def _check_data_type(
         self,
@@ -106,17 +141,18 @@ class ImgsImport:
 
         ### Import
         if isinstance(data, (str, Path)):
-            self._source_type = "One Folder"
-            self.imgkeys, self.imgs = self.from_folder(data)
-            self.folder = data
-        elif isinstance(data[0], (str, Path)):
-            self._source_type = "Multiple Folders"
-            self.imgkeys, self.imgs = self.from_folders(data)
+            data = [data]
+            # self._source_type = "One Folder"
+            # self.imgnames, self.imgs = self.from_folder(data)
+            # self.folder = data
+        if isinstance(data[0], (str, Path)):
+            self._source_type = "Folders"
+            self.imgnames, self.imgs = self.from_folders(data)
             self.folder = data
         elif isinstance(data, (np.ndarray, list)) or isinstance(
             data[0], np.ndarray
         ):
-            self._source_type = "Array" # > can't track origin
+            self._source_type = "Array"  # > can't track origin
             self.imgs = self.from_array(data)
             self.folder = self.PATH_PLACEHOLDER
         ### Importing from Instance
@@ -125,8 +161,6 @@ class ImgsImport:
         elif issubclass(type(self), type(data)):
             # !! Can't use data.verbose, because it's not set yet
             self.from_instance(data, verbose=self.verbose)
-
-
 
     #
     # == From Path, Array or Instance ==================================
@@ -145,49 +179,22 @@ class ImgsImport:
 
         ### Message
         if self.verbose:
-            shortpaths = [self._shorten(path) for path in folders]
-            print("=> Importing images from multiple folders:")
+            shortpaths = [ut.shortenpath(path) for path in folders]
+            print("=> Importing images from folder(s):")
             for i, spath in enumerate(shortpaths):
                 print(f"   | {i}: '{spath}'")
 
         ### Import
-        imgkeys, _imgs = importtools.arrays_from_list_of_folders(
+        imgkeys_dict, imgs = importtools.arrays_from_folderlist(
             folders, **self._fileimport_kws
         )
 
         # > Done
         if self.verbose:
-            self._done_import_message(_imgs)
+            self._done_import_message(imgs)
 
         ### Return
-        return imgkeys, _imgs
-
-    def from_folder(self, folder: str | Path) -> tuple[str, np.ndarray]:
-        """Import images from a folder"""
-
-        ### Convert if string
-        folder = Path(folder)
-
-        ### Check if path is valid
-        if not folder.exists():
-            raise FileNotFoundError(f"Folder does not exist: '{folder}'")
-
-        ### Message
-        if self.verbose:
-            print(f"=> Importing images from '{self._shorten(folder)}' ...")
-
-        ### Import
-        # fks, _imgs = self._import_imgs_from_path(path, **self._fileimport_kws)
-        imgkeys, _imgs = importtools.arrays_from_folder(
-            folder, **self._fileimport_kws
-        )
-
-        # > Done
-        if self.verbose:
-            self._done_import_message(_imgs)
-
-        ### Return
-        return imgkeys, _imgs
+        return imgkeys_dict, imgs
 
     @staticmethod
     def _done_import_message(imgs: np.ndarray) -> None:
@@ -200,7 +207,7 @@ class ImgsImport:
 
     def from_array(self, array: np.ndarray | list) -> np.ndarray:
         """Import images from a numpy array"""
-        
+
         ### Convert if list
         waslist = False
         if isinstance(array, list):
@@ -212,7 +219,7 @@ class ImgsImport:
             raise ValueError(
                 f"Array must have shape (z, y, x), not {array.shape}"
             )
-        
+
         ### Message
         if self.verbose:
             m = " list of arrays" if waslist else " array"
@@ -246,24 +253,6 @@ class ImgsImport:
             print()
 
     #
-    # == Path ==========================================================
-
-    @staticmethod
-    def _shorten(path: str | Path) -> str:
-        path = Path(path)
-        return path.parent.name + "/" + path.name
-
-    @property
-    def path_short(self) -> str | list[str]:
-        """Shortened path"""
-        if self.folder == self.PATH_PLACEHOLDER:
-            return self.PATH_PLACEHOLDER
-        elif isinstance(self.folder, (str | Path)):
-            return self._shorten(self.folder)
-        elif isinstance(self.folder, list):
-            return [self._shorten(path) for path in self.folder]
-
-    #
     # == Import From Files =============================================
 
     @staticmethod
@@ -275,10 +264,6 @@ class ImgsImport:
 
     #
     # == Access/Slice Images ===========================================
-
-    # @property
-    # def stack_raw(self) -> np.ndarray:
-    #     return self._import_imgs_from_path()[1]
 
     def __iter__(self):
         return iter(self.imgs)
@@ -329,62 +314,6 @@ class ImgsImport:
     #
     # !! End class Imgs ================================================
 
-
-#
-# ======================================================================
-# == Class ListOfArrays ================================================
-class ListOfArrays:
-    """Encapsulate variable-sized images within a structured object,
-    providing easy access to properties like shape and dtype without
-    complicating subsequent code.
-    """
-
-    def __init__(self, larry: list[np.ndarray]):
-        if not isinstance(larry, list) and isinstance(larry[0], np.ndarray):
-            raise TypeError(
-                f"Must pass list of numpy arrays, not '{type(larry)}'"
-            )
-
-        ### larry = list of Arrays
-        self.larry = larry
-
-    @property
-    def shape(self):
-        """Returns (z, {y}, {x}), with x and y sets of all widths and
-        heights occurring in the data"""
-        y = {img.shape[0] for img in self.larry}
-        x = {img.shape[1] for img in self.larry}
-        return (len(self.larry), y, x)
-
-    def __getitem__(self, value: slice):
-        return self.larry[value]
-
-    def __len__(self):
-        return len(self.larry)
-
-    @property
-    def dtype(self):
-        return self.larry[0].dtype if self.larry else None
-
-    def astype(self, dtype: np.dtype):
-        return [img.astype(dtype) for img in self.larry]
-
-    # !! == End  Class =================================================
-
-
-if __name__ == "__main__":
-    import imagep as ip
-
-    folder = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-    Z = ip.Imgs(
-        data=folder, fname_extension="txt", verbose=True, x_µm=1.5 * 115.4
-    )
-    I = 6
-
-    # %%
-    loar = ListOfArrays(larry=list(Z.imgs))
-    loar.shape
-    # Z.imgs.tolist()
 
 
 # %%

@@ -98,10 +98,10 @@ if __name__ == "__main__":
     ip.imshow(S)
     # %%
     ### Morphology: open (erode + dilate)
-    import scipy as sp
+    from scipy import ndimage as sp_ndimage
 
     S_opened = np.array(
-        [sp.ndimage.binary_opening(img, iterations=8) for img in S]
+        [sp_ndimage.binary_opening(img, iterations=8) for img in S]
     )
     ip.imshow(S_opened.astype(np.float32), saveto="Segmented_all_opened")
 
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     perc = np.round(perc, 3)
 
     # > associate percentages with filekeys
-    perc_d = dict(zip(Z.imgkeys, perc))
+    perc_d = dict(zip(Z.imgnames, perc))
     # > pretty print
     for k, v in perc_d.items():
         print(f"{k}: {v}")

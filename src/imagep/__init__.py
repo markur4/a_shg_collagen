@@ -9,7 +9,9 @@ from . import _rc
 
 ### Import & Processing Interfaces
 # :: 'ip.<Interface>(**kws)'
-from .images.imgs import ImgWithMetadata, Imgs  # :: ip.Imgs(**kws)
+from .images.mdarray import Mdarray  # :: ip.mdarray(**kws)
+# from .images.imgs_meta import ImgsMeta  # :: ip.ImgsMeta(**kws)
+from .images.imgs import Imgs  # :: ip.Imgs(**kws)
 from .processing.preprocess import PreProcess  # :: ip.PreProcess(**kws)
 from .segmentation.segment import Segment  # , Annotate
 

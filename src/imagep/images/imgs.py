@@ -12,6 +12,8 @@ from typing import Self, TYPE_CHECKING
 
 import copy
 
+from pprint import pprint
+
 from pathlib import Path
 import numpy as np
 
@@ -20,9 +22,11 @@ import seaborn as sns
 
 # > Local
 import imagep._rc as rc
-import imagep.images.importtools as importtools
-from imagep.images.imgs_import import ImgsImport
-import imagep._plots.scalebar as scaleb
+
+# import imagep.images.importtools as importtools
+# from imagep.images.imgs_import import ImgsImport
+from imagep.images.imgs_meta import ImgsMeta
+import imagep._plots.scalebar as scalebar
 import imagep._plots.imageplots as imageplots
 import imagep._plots.dataplots as dataplots
 import imagep._utils.utils as ut
@@ -34,147 +38,8 @@ if TYPE_CHECKING:
 
 # %%
 # ======================================================================
-# == Class Img =========================================================
-class ImgWithMetadata(np.ndarray):
-    """Extends np.array with image properties:
-    - Scale and unit [meter/pixel]
-    """
-
-    def __new__(
-        cls,
-        array: np.ndarray,
-        meter_per_pixel: float = None,
-        unit: str = rc.UNIT_LENGTH,
-    ):
-        """Using __new__ is preferred over __init__ because numpy
-        arrays are immutable objects, meaning their attributes cannot be
-        modified after creation. It allows you to customize the creation
-        of the object before it's initialized.
-        """
-        obj = np.asarray(array).view(cls)
-        obj.pixel_length = meter_per_pixel
-        obj.unit = unit
-        return obj
-
-    def __array_finalize__(self, new_obj):
-        """Modifies instances of np.ndarray that's used to initialize
-        Img.
-
-        - When a new array object is created from an existing array,
-          numpy checks if the class of the new array (Subclass Img)
-          defines a __array_finalize__ method.
-
-        - numpy calls this method with the new array object as an
-          argument.
-
-        - Inside the __array_finalize__ method, `self` references to the
-          original array object !!!
-
-        - This modifies the original object according to the subclass.
-        """
-
-        if new_obj is None:
-            return None
-
-        ### self references to the original np.array!
-        self.pixel_length = getattr(new_obj, "pixel_length", None)
-        self.unit = getattr(new_obj, "unit", rc.UNIT_LENGTH)
-
-    @property
-    def info(self) -> str:
-        form = ut.justify_str
-        u = self.unit
-
-        info = [
-            "<class 'imagep.Img'>",
-            form("Array type") + f"{type(self)}",
-            form("Pixel type") + f"{self.dtype}",
-            form("Shape") + f"{self.shape} pixels",
-            (
-                form("Pixel size") + f"{self.pixel_length} {u}/pixel"
-                if self.pixel_length is not None
-                else "Pixel size not defined"
-            ),
-            form("Width") + f"{self.width_meter} {u}",
-            form("Height") + f"{self.height_meter} {u}",
-        ]
-        return "\n".join(info)
-
-    #
-    # == Check Attributes ==============================================
-
-    def _check_pixelsize(self):
-        if self.pixel_length is None:
-            raise ValueError(
-                "No pixel size defined was set. (micro)meter/pixel"
-            )
-
-    #
-    # == Properties ====================================================
-
-    @property
-    def width_meter(self):
-        self._check_pixelsize()
-        return self.shape[1] * self.pixel_length
-
-    @property
-    def height_meter(self):
-        self._check_pixelsize()
-        return self.shape[0] * self.pixel_length
-
-    # !! == End Class ==================================================
-
-
-# == Test ==========================================================
-
-
-def _test_img(img: ImgWithMetadata):
-    instructions = [
-        ">>> type(img)",
-        type(img),
-        "",
-        ">>> Retrieve np.array attributes (not in Img)",
-        "img.shape:",
-        img.shape,
-        "img.dtype:",
-        img.dtype,
-        "",
-        ">>> img.width_meter",
-        img.width_meter,
-        "",
-        ">>> Call __repr__()",
-        img,
-        "",
-        ">>> img + img",
-        img + img,
-        "",
-        "img.info",
-        img.info,
-    ]
-
-    for ins in instructions:
-        print(ins)
-
-
-if __name__ == "__main__":
-    P = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/"
-    ### From txt
-    # path = P + "/231215_adipose_tissue/2 healthy z-stack detailed/Image4_12.txt"
-    ### From
-    path = P + "/240201 Imunocyto/Exp. 3 (im Paper)/Dmp1/LTMC I D0 DAPI.tif"
-    array = importtools.array_from_path(path=path)
-    img = ImgWithMetadata(array=array, pixel_length=2.3)
-    _test_img(img)
-
-    # %%
-    ### Test if array is returned when referencing the image
-    img
-
-
-# %%
-# ======================================================================
 # == Class Imgs ========================================================
-class Imgs(ImgsImport):
+class Imgs(ImgsMeta):
     """Interface for handling images
     - Adds experimental information to Images
     """
@@ -184,14 +49,19 @@ class Imgs(ImgsImport):
         ### ImgsImport kws:
         data: str | Path | np.ndarray | list[np.ndarray] | Self = None,
         verbose: bool = True,
-        ### Metadata
+        ### ImgsMeta kws:
         pixel_length: float | list[float] = None,
         unit: str = "µm",
-        ### Imgs kws
-        # x_µm: float = 200.0,
         scalebar_length: int = None,  # > in (micro)meter
-        ### KWS for importing from file
-        **fileimport_kws,
+        ### fileimport_kws
+        fname_pattern: str = "",
+        fname_extension: str = "",
+        sort: bool = True,
+        imgname_position: int | list[int] = 0,
+        invertorder: bool = True,
+        dtype: np.dtype = rc.DTYPE,
+        ### kws for importfunction, like skiprows
+        **importfunc_kws,
     ):
         """Basic Image-stack functionalities.
         - Block super()__init__ if to avoid re-loading images
@@ -207,9 +77,30 @@ class Imgs(ImgsImport):
         :type scalebar_length: int, optional
         """
         ### GET ATTRIBUTES
+        # > Collect kws
+        import_kws = dict(data=data, verbose=verbose)
+        meta_kws = dict(
+            pixel_length=pixel_length,
+            unit=unit,
+            scalebar_length=scalebar_length,
+        )
+        fileimport_kws = dict(
+            imgname_position=imgname_position,
+            fname_pattern=fname_pattern,
+            fname_extension=fname_extension,
+            sort=sort,
+            invertorder=invertorder,
+            dtype=dtype,
+            **importfunc_kws,
+        )
         # > super().__init__(), OR retrieve attributes from instance
-        self._get_attributes(data, verbose, **fileimport_kws)
-        # > Declare types for IDE
+        self._get_attributes(
+            import_kws=import_kws,
+            meta_kws=meta_kws,
+            fileimport_kws=fileimport_kws,
+        )
+
+        ### Declare types for IDE
         self.data: str | Path | np.ndarray | list[np.ndarray] | Self
         self.imgs: np.ndarray
         self.verbose: str
@@ -219,75 +110,40 @@ class Imgs(ImgsImport):
         # self.y_µm = self.imgs.shape[1] * self.x_µm / self.imgs.shape[2]
         # self.pixel_length = self.x_µm / self.imgs.shape[2]
         # self.spacing = (self.x_µm, self.y_µm)
-        ### Metadata for (individual) images
-        self.pixel_length = pixel_length
-        self.unit = unit
+        # ### Metadata for (individual) images
+        # self.pixel_length = pixel_length
+        # self.unit = unit
 
-        self._check_metadata()
+        # ### Convert self.imgs into type ImgWithMetadata
+        # self._assign_metadata_to_folders()
 
-        ### Convert self.imgs into type ImgWithMetadata
-        self._to_img_with_metadata()
-
-        # == Other ==
-        ### Define scalebar length here, required by e.g. mip
-        self.scalebar_length = scalebar_length
+        # # == Other ==
+        # ### Define scalebar length here, required by e.g. mip
+        # self.scalebar_length = scalebar_length
 
     # == Import from parent Instance ===================================
     #
-    def _get_attributes(self, data: Self, verbose: bool, **fileimport_kws):
+    def _get_attributes(
+        self, import_kws: dict, meta_kws: dict, fileimport_kws: dict
+    ):
         """Import images from another Imgs instance. This will transfer
         all attributes from the Imgs instance. Methods are transferred
         by inheritance, because we want the option to import images at
         every stage of the processing pipeline."""
 
         ### Transfer all attributes, if instance is passed
-        if isinstance(data, type(self)):
-            super().from_instance(instance=data, verbose=verbose)
+        if isinstance(import_kws["data"], type(self)):
+            super().from_instance(
+                **import_kws,
+                **meta_kws,
+            )
         # > If not, call the parent __init__ method
         else:
-            super().__init__(data, verbose, **fileimport_kws)
-
-    #
-    # == Convert Array Images to Img ===================================
-
-    def _check_same_folderlength(self, metadata: str, val: int | list):
-        """Checks if its value of a metadata-type has the same length
-        as the number of folders. If not, raises an error.
-        """
-        m = f"When passing multiple folders, '{metadata}' "
-        if not (isinstance(val, list) or isinstance(val, int)):
-            raise TypeError(m + "should also be an int or a list of int")
-        elif not len(val) == len(self.data):
-            raise ValueError(
-                m + "should have the same length as number of folders"
+            super().__init__(
+                **import_kws,
+                **meta_kws,
+                **fileimport_kws,
             )
-
-    def _check_metadata(self):
-        """Checks if metadata is compatible with the object:
-        - Metadata is assigned to each folders (same length)
-        - etc.
-        """
-        if self._source_type == "Multiple Folders":
-            self._check_same_folderlength(
-                metadata="pixel_length", val=self.pixel_length
-            )
-
-    def _to_img_with_metadata(self):
-        """Converts images from 2D numpy Arrays into a ImgWithMetadata
-        by assigning metadata to each folder"""
-
-        
-
-        ### Che
-        self.imgs =[
-            ImgWithMetadata(
-                array=img,
-                meter_per_pixel=m_per_pixel,
-                # unit=self.unit,
-            )
-            for img in self.imgs
-        ]
-
 
     #
     # == Scalebar ======================================================
@@ -321,7 +177,7 @@ class Imgs(ImgsImport):
         """
         imgs = self.imgs if inplace else self.imgs.copy()
 
-        imgs = scaleb.burn_scalebars(
+        imgs = scalebar.burn_scalebars(
             imgs=imgs,
             # slice=slice,
             length=self.scalebar_length,
@@ -392,8 +248,8 @@ class Imgs(ImgsImport):
             )
 
             ### Add Image keys
-            if not self.imgkeys is None:
-                fk = self.imgkeys[i]
+            if not self.imgnames is None:
+                fk = self.imgnames[i]
                 path, imgk = fk.split(": ")
                 _ax_tit = f"'{path}': '{imgk}'\n" + _ax_tit
             ax.set_title(_ax_tit, fontsize="medium")
@@ -431,40 +287,52 @@ class Imgs(ImgsImport):
     # !! == End Class ==================================================
 
 
-# %%
-# == Testdata ==========================================================
 if __name__ == "__main__":
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-    Z = Imgs(data=path, fname_extension="txt", verbose=True, x_µm=1.5 * 115.4)
+    pixel_length = 1.5 * 115.4 * 1024
+    Z = Imgs(
+        data=path,
+        fname_extension="txt",
+        verbose=True,
+        pixel_length=pixel_length,
+        imgname_position=1,
+    )
     I = 6
 
     # %%
-    # Z.imgs.tolist()
+    Z.metadata
 
 
 # %%
 def _test_import_from_types(Z, I=6):
     # > Import from Path
-    Z1 = Imgs(data=path, verbose=True, x_µm=1.5 * 115.4)
+    kws = dict(
+        verbose=True,
+        pixel_length=1.5 * 115.4 * 1024,
+        fname_extension="txt",
+        imgname_position=1,
+    )
+
+    Z1 = Imgs(data=path, **kws)
     # Z1[I].imshow()
 
     # > Import from np.ndarray
-    Z2 = Imgs(data=Z.imgs, verbose=True, x_µm=1.5 * 115.4)
+    Z2 = Imgs(data=Z.imgs, **kws)
     # Z2[I].imshow()
 
     # > Import from list of np.ndarrays
-    Z3 = Imgs(data=[im for im in Z.imgs], verbose=True, x_µm=1.5 * 115.4)
+    Z3 = Imgs(data=[im for im in Z.imgs], **kws)
     # Z3[I].imshow()
 
     # > Import from self
-    Z4 = Imgs(data=Z, verbose=True, x_µm=1.5 * 115.4)
-    Z5 = Imgs(Z, verbose=True, x_µm=1.5 * 115.4)
+    Z4 = Imgs(data=Z, **kws)
+    Z5 = Imgs(Z, **kws)
     Z5[I].imshow()
 
 
 if __name__ == "__main__":
     pass
-    # _test_import_from_types(Z=Z, I=I)
+    _test_import_from_types(Z=Z, I=I)
 
 
 # %%

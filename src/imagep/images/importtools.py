@@ -17,14 +17,15 @@ import skimage as ski
 from imagep._plots.imageplots import imshow
 import imagep._utils.utils as ut
 import imagep._rc as rc
-from imagep.images.imgs_import import ListOfArrays
+from imagep.images.mdarray import Mdarray
+from imagep.images.list_of_arrays import ListOfArrays
 
 
 #
 # == Multiple Images, Multiple Folders =================================
-def arrays_from_list_of_folders(
+def arrays_from_folderlist(
     folders: list[str | Path],
-    imgkey_positions: int | list[int],
+    imgname_position: int | list[int] = 0,
     **import_kws,
 ) -> tuple[list[str], np.ndarray]:
     """Imports from multiple paths by appending stacks from different
@@ -32,41 +33,46 @@ def arrays_from_list_of_folders(
     data
     """
     ### If just one imagekey position, make a list
-    if isinstance(imgkey_positions, int):
-        imgkey_positions = [imgkey_positions for _ in range(len(folders))]
+    if isinstance(imgname_position, int):
+        imgname_position = [imgname_position for _ in range(len(folders))]
 
-    ### Image stacks from multiple folders
-    # > fks = filekeys
-    # > fk = filekey
-    imgs_nested: list[np.ndarray] = []
-    imgkeys_nested: list[list[str]] = []
-    for path, imgkey_position in zip(folders, imgkey_positions):
+    ### raise error if imgkey_positions and folders have different lengths
+    # > and return a list of duplicated integers with same length
+    imgname_position = ut.check_samelength_or_number(
+        key="imgkey_positions",
+        val=imgname_position,
+        target_key="folders",
+        target_n=len(folders),
+    )
+
+    imgs_dict: dict[str, np.ndarray] = {}
+    imgnames_dict: dict[list[str]] = {}
+    for path, imgkey_position in zip(folders, imgname_position):
         _imgkeys, _imgs = arrays_from_folder(
             folder=path,
-            imgkey_position=imgkey_position,
+            imgname_position=imgkey_position,
             **import_kws,
         )
-        print(_imgs.shape)
-        imgs_nested.append(_imgs)
-        imgkeys_nested.append(_imgkeys)
+        p = ut.shortenpath(path)
+        imgs_dict[p] = _imgs
+        imgnames_dict[p] = _imgkeys
 
     ### Flatten filekeys and imgs
     flatten = lambda x: [item for row in x for item in row]
-    imgkeys, imgs = flatten(imgkeys_nested), flatten(imgs_nested)
+    imgs = flatten(list(imgs_dict.values()))
 
     ### Convert to Array or ListOfArrays
     shapes: set = {img.shape for img in imgs}
     if len(shapes) == 1:
-        imgs = np.array(imgs)
-        print(imgs.dtype, imgs.shape)
+        # imgs = np.array(imgs)
+        # imgs = ListOfArrays(larry=imgs)
+        imgs = Mdarray(imgs)
     else:
         imgs = ListOfArrays(larry=imgs)
 
-    # dtype = imgs[0].dtype if len(shapes) == 1 else object
-
-    print(imgs.dtype, imgs.shape)
-
-    return imgkeys, imgs
+    #!! don't use imgdict in parallel to imgs, to prevent confusion,
+    #!! construct a new dict from imgs
+    return imgnames_dict, imgs
 
 
 # %%
@@ -76,7 +82,7 @@ def arrays_from_folder(
     fname_pattern: str = "",
     fname_extension: str = "",
     sort: bool = True,
-    imgkey_position: int = 0,
+    imgname_position: int = 0,
     invertorder: bool = True,
     dtype: np.dtype = rc.DTYPE,
     **importfunc_kws,
@@ -102,7 +108,7 @@ def arrays_from_folder(
     _imgpaths = _order_imgpaths(
         _imgpaths,
         sort=sort,
-        imgkey_position=imgkey_position,
+        imgname_position=imgname_position,
         invertorder=invertorder,
     )
 
@@ -115,32 +121,45 @@ def arrays_from_folder(
     ]
     _imgs = np.array(_imgs)  # > list to array
 
-    _get_sortkey = lambda path: _split_fname(path)[imgkey_position]
-
     ### Get the keys to identify individual images
-    _imgkeys = ["" for _ in _imgpaths]  # > Initialize
-    if not imgkey_position is None:
+    _imgnames = ["" for _ in _imgpaths]  # > Initialize
+    if not imgname_position is None:
         # > Get the parents of the path
-        folderkey = str(folder.parent.name + "/" + folder.name)
-        _imgkeys = [f"{folderkey}: {_get_sortkey(path)}" for path in _imgpaths]
+        _imgnames = _imgnames_from_imgpaths(_imgpaths, imgname_position)
 
-    return _imgkeys, _imgs
+    ### Add image names as metadata
+    _imgs = [
+        Mdarray(
+            array=img,
+            name=imgname,
+            folder=ut.shortenpath(folder),
+        )
+        for img, imgname in zip(_imgs, _imgnames)
+    ]
+
+    return _imgnames, _imgs
+
+
+def _imgnames_from_imgpaths(
+    imgpaths: list[Path], imgname_position: int
+) -> list[str]:
+    """Get the keys to identify individual images"""
+
+    # imgname = _get_sortkey(imgname_position)(imgpaths[0])
+    return [_get_sortkey(imgname_position)(path) for path in imgpaths]
 
 
 def _order_imgpaths(
     imgpaths: list[Path],
     sort: bool,
-    imgkey_position: int,
+    imgname_position: int,
     invertorder: bool,
 ) -> list[Path]:
     """Function to re-order the image paths"""
 
-    ### Make a Callable
-    _get_sortkey = lambda path: _split_fname(path)[imgkey_position]
-
     # > sort txts by number
     if sort:
-        imgpaths = sorted(imgpaths, key=_get_sortkey)
+        imgpaths = sorted(imgpaths, key=_get_sortkey(imgname_position))
 
     ### Invert if the first image is the bottom one
     if invertorder:
@@ -149,8 +168,8 @@ def _order_imgpaths(
     return imgpaths
 
 
-# def _get_sortkey(path, imgkey_position=0) -> Callable:
-#     return lambda path: _split_fname(path)[imgkey_position]
+def _get_sortkey(imgkey_position=0) -> Callable:
+    return lambda path: _split_fname(path)[imgkey_position]
 
 
 def _split_fname(path: str | Path) -> str:
@@ -192,21 +211,25 @@ def _txtfile_to_array(
     path: str,
     skiprows: int = None,
     dtype: np.dtype = rc.DTYPE,
+    **importfunc_kws,
 ) -> np.ndarray:
     """Import from a txt file."""
 
+    kws = dict(dtype=dtype, **importfunc_kws)
+    
+    ### If skiprows is given, use it
     if not skiprows is None:
-        return np.loadtxt(path, skiprows=skiprows).astype(dtype)
-
-    ### Skip rows until image is succesfully imported
+        return np.loadtxt(path, skiprows=skiprows, **kws)
+    # > If not, try to skip up to 3 rows
     else:
-        for i in range(3):  # > maximum 3 rows to skip
+        for i in range(4):  # > maximum 3 rows to skip
             try:
-                return np.loadtxt(path, skiprows=i).astype(dtype)
-            except:
+                return np.loadtxt(path, skiprows=i, **kws)
+            except ValueError:
                 continue
-
-    return np.loadtxt(path, skiprows=skiprows, dtype=dtype)
+    ### If no skiprows work, raise an error
+    raise ValueError(f"Could not import '{path}'.")
+    
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ from pathlib import Path
 
 # > local imports
 import imagep._utils.utils as ut
-import imagep._plots.scalebar as scaleb
+import imagep._plots.scalebar as scalebar
 
 
 # from imagep.images.imgs import Imgs
@@ -166,7 +166,7 @@ def imshow(
             kws_name="scalebar_kws",
             required=["pixel_length"],
         )
-        _imgs = scaleb.burn_scalebars(
+        _imgs = scalebar.burn_scalebars(
             imgs=_imgs,
             **scalebar_kws,
         )
