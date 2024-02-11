@@ -12,26 +12,27 @@ import numpy as np
 import imagep._utils.utils as ut
 import imagep._rc as rc
 import imagep.images.importtools as importtools
-from imagep.images.mdarray import Mdarray
+from imagep.images.mdarray import mdarray
 
 if TYPE_CHECKING:
     import imagep as ip
-    from imagep.images.imgs import Imgs
+    from imagep.images.collection import Collection
+
     # from imagep.processing.pipeline import Pipeline
     from imagep.processing.preprocess import PreProcess
     from imagep.images.list_of_arrays import ListOfArrays
 
 
 # %%
-# == Class ImgsImport =====================================================
-class ImgsImport:
+# == Class CollectionImport =====================================================
+class CollectionImport:
     """Class for handling the most basic functionalities:
     - Imports of raw image data
     - Slicing of image stacks
     """
 
-    PATH_PLACEHOLDER = "Source: Numpy array"
-    IMGKEY_PLACEHOLDER = "NOKEY"
+    FOLDER_PLACEHOLDER = ["Source: Numpy array"]
+    IMGKEY_PLACEHOLDER = {"Source: Numpy array": "unnamed"}
 
     def __init__(
         self,
@@ -50,8 +51,8 @@ class ImgsImport:
             data = fileimport_kws["path"]
 
         ### Init attributes, they will be set by the import functions
-        self.folder: str | Path | list[str | Path] = self.PATH_PLACEHOLDER
-        self.imgs: ip.Mdarray | ListOfArrays = None
+        self.folder: str | Path | list[str | Path] = self.FOLDER_PLACEHOLDER
+        self.imgs: ip.mdarray | ListOfArrays = None
         self.imgnames: dict[str, str] = self.IMGKEY_PLACEHOLDER
 
         ### Configure import from path
@@ -60,7 +61,6 @@ class ImgsImport:
         self._fileimport_kws = _importconfig
 
         ### IMPORT data and convert it into dtype
-        self._source_type: str = "undefined"  # > Remember the source type
         self._import(data)
 
         ### Slicing
@@ -88,8 +88,8 @@ class ImgsImport:
     @property
     def path_short(self) -> list[str]:
         """Shortened path"""
-        if self.folder == self.PATH_PLACEHOLDER:
-            return [self.PATH_PLACEHOLDER]
+        if self.folder == self.FOLDER_PLACEHOLDER:
+            return self.FOLDER_PLACEHOLDER
         elif isinstance(self.folder, (str | Path)):
             return [ut.shortenpath(self.folder)]
         elif isinstance(self.folder, list):
@@ -142,19 +142,15 @@ class ImgsImport:
         ### Import
         if isinstance(data, (str, Path)):
             data = [data]
-            # self._source_type = "One Folder"
-            # self.imgnames, self.imgs = self.from_folder(data)
-            # self.folder = data
         if isinstance(data[0], (str, Path)):
-            self._source_type = "Folders"
             self.imgnames, self.imgs = self.from_folders(data)
             self.folder = data
         elif isinstance(data, (np.ndarray, list)) or isinstance(
             data[0], np.ndarray
         ):
-            self._source_type = "Array"  # > can't track origin
+            self.imgnames = self.IMGKEY_PLACEHOLDER
             self.imgs = self.from_array(data)
-            self.folder = self.PATH_PLACEHOLDER
+            self.folder = self.FOLDER_PLACEHOLDER
         ### Importing from Instance
         # > Z = PreProcess(data=Imgs)
         # > issubclass(self=PreProcess, data=Imgs)
@@ -185,7 +181,7 @@ class ImgsImport:
                 print(f"   | {i}: '{spath}'")
 
         ### Import
-        imgkeys_dict, imgs = importtools.arrays_from_folderlist(
+        imgnames_dict, imgs = importtools.arrays_from_folderlist(
             folders, **self._fileimport_kws
         )
 
@@ -194,7 +190,7 @@ class ImgsImport:
             self._done_import_message(imgs)
 
         ### Return
-        return imgkeys_dict, imgs
+        return imgnames_dict, imgs
 
     @staticmethod
     def _done_import_message(imgs: np.ndarray) -> None:
@@ -220,6 +216,9 @@ class ImgsImport:
                 f"Array must have shape (z, y, x), not {array.shape}"
             )
 
+        ### Convert to Mdarray
+        array = mdarray(array)
+
         ### Message
         if self.verbose:
             m = " list of arrays" if waslist else " array"
@@ -232,20 +231,20 @@ class ImgsImport:
             )
         return array
 
-    def from_instance(self, instance: Self, verbose: bool) -> None:
+    def from_instance(self, data: Self, verbose: bool) -> None:
         """Transfer images and path from another instance"""
 
         # !! This mustn't be self.verbose, because it's not set yet
         if verbose:
             print(
                 f"=> Transferring attributes from an instance"
-                + f" ({instance.imgs.shape[0]} images "
-                + f" {instance.imgs.shape[1]}x{instance.imgs.shape[2]},"
-                + f" {instance.imgs.dtype}; "
-                + f" from: '{instance.path_short}') ..."
+                + f" ({data.imgs.shape[0]} images "
+                + f" {data.imgs.shape[1]}x{data.imgs.shape[2]},"
+                + f" {data.imgs.dtype}; "
+                + f" from: '{data.path_short}') ..."
             )
         ### Full atrribute transfer
-        for attr, value in instance.__dict__.items():
+        for attr, value in data.__dict__.items():
             setattr(self, attr, value)
 
         if verbose:
@@ -270,7 +269,7 @@ class ImgsImport:
 
     def __getitem__(
         self, val: int | slice | tuple | list
-    ) -> Self | "Imgs" | "PreProcess":
+    ) -> Self | "Collection" | "PreProcess":
         # > Create a copy of this instance
         _self = copy.deepcopy(self)
         # > Assign the sliced imgs to the new instance
@@ -313,7 +312,6 @@ class ImgsImport:
 
     #
     # !! End class Imgs ================================================
-
 
 
 # %%

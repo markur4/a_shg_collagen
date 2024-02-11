@@ -1,5 +1,7 @@
 #
 # %%
+# from typing import TYPE_CHECKING
+
 import numpy as np
 
 from PIL import Image, ImageDraw, ImageFont
@@ -7,11 +9,15 @@ from PIL import Image, ImageDraw, ImageFont
 # > local imports
 import imagep._utils.utils as ut
 
+# if TYPE_CHECKING:
+#     from imagep.images.mdarray import Mdarray
+
 
 # %%
 def burn_scalebars(
     imgs: np.ndarray,
-    pixel_length: float,
+    pixel_length: float = None,
+    unit = "µm",
     length: int = 10,
     thickness_px: int = 20,  # > In pixels
     xy_pad: tuple[float] = (0.05, 0.05),
@@ -24,26 +30,31 @@ def burn_scalebars(
     imgs = imgs if inplace else imgs.copy()
 
     for i, img in enumerate(imgs):
+        ### Collect metadata from images
+        _px_len = img.pixel_length if pixel_length is None else pixel_length
+        _unit = img.unit if unit is None else unit
+        
+        ### Burn scalebar to image
         imgs[i] = burn_scalebar_to_img(
             img=img,
             length=length,
-            pixel_length=pixel_length,
+            pixel_length=_px_len,
             thickness_px=thickness_px,
             xy_pad=xy_pad,
             bar_color=bar_color,
             frame_color=frame_color,
         )
+        ### Burn annotation to image
         imgs[i] = burn_micronlength_to_img(
             img=img,
             length=length,
+            unit=_unit,
             thickness_px=thickness_px,
             xy_pad=xy_pad,
             textcolor=text_color,
         )
     return imgs
 
-
-#
 
 
 def burn_scalebar_to_img(
@@ -107,6 +118,7 @@ def burn_scalebar_to_img(
 def burn_micronlength_to_img(
     img: np.ndarray,
     length: int = 10,
+    unit: str = "µm",
     thickness_px: int = 3,
     xy_pad: tuple[float] = (0.05, 0.05),
     textcolor: tuple[int] | str = None,
@@ -117,7 +129,7 @@ def burn_micronlength_to_img(
     img = Image.fromarray(img, mode="F")  # > mode ="F" means float32
 
     ### Define Text
-    text = f"{length} µm"
+    text = f"{length} {unit}"
     textcolor = img.getextrema()[1] if textcolor is None else textcolor
 
     ### Define padding from bottom right corner

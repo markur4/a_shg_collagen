@@ -39,7 +39,7 @@ if __name__ == "__main__":
     import imagep as ip
     from pathlib import Path
 
-    Z = ip.Imgs(
+    Z = ip.Collection(
         data=paths,
         fname_pattern="*DAPI*.tif",
         # invert=False,

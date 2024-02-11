@@ -11,7 +11,7 @@ from pathlib import Path
 
 # > local imports
 import imagep._utils.utils as ut
-import imagep._plots.scalebar as scalebar
+import imagep._plots.scalebar as scaleb
 
 
 # from imagep.images.imgs import Imgs
@@ -20,10 +20,10 @@ import imagep._plots.scalebar as scalebar
 # == Testdata ==========================================================
 if __name__ == "__main__":
     # !! Import must not be global, or circular import
-    from imagep.images.imgs import Imgs
+    from imagep.images.collection import Collection
 
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-    Z = Imgs(data=path, verbose=True, x_µm=1.5 * 115.4)
+    Z = Collection(data=path, verbose=True, x_µm=1.5 * 115.4)
     print("pixelsize=", Z.pixel_length)
     I = 6
 
@@ -160,13 +160,7 @@ def imshow(
 
     ### Scalebar
     if scalebar:
-        ### Default values for scalebar
-        ut.check_arguments(
-            scalebar_kws,
-            kws_name="scalebar_kws",
-            required=["pixel_length"],
-        )
-        _imgs = scalebar.burn_scalebars(
+        _imgs = scaleb.burn_scalebars(
             imgs=_imgs,
             **scalebar_kws,
         )

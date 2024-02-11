@@ -119,35 +119,41 @@ classDiagram
       ...
       ....()
    }
-   class Mdarray {
+   class mdarray {
       pixel_length
       name
       folder
       unit
       width_meter
    }
-   numpy_ndarray <-- Mdarray
+   numpy_ndarray <-- mdarray
    
-   class ImgsImport {
+   class ListOfArrays{
+      ...
+      ....()
+   }
+   mdarray *-- ListOfArrays
+   
+   class CollectionImport {
       imgs
       verbose
       from_textfile()
    }
-   Mdarray *-- ImgsImport
+   ListOfArrays *-- CollectionImport
    
-      class ImgsMeta{
+   class CollectionMeta{
       pixel_length
       unit
       scalebar
       ....()
    }
-   ImgsImport <-- ImgsMeta
+   CollectionImport <-- CollectionMeta
    
-   class Imgs{
+   class Collection{
       ...
       ....()
    }
-   ImgsMeta <-- Imgs
+   CollectionMeta <-- Collection
    
    %% == Preprocessing ==============================================
 
@@ -166,7 +172,7 @@ classDiagram
       capture_snapshot()
       ....()
    }
-   Imgs <-- Pipeline
+   Collection <-- Pipeline
 
    class Background{
       imgs

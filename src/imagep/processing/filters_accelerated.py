@@ -42,13 +42,13 @@ if __name__ == "__main__":
 # %%
 #!! TESTDATA ===========================================================
 if __name__ == "__main__":
-    from imagep.images.imgs import Imgs
+    from imagep.images.collection import Collection
     from imagep._plots.imageplots import imshow
 
     # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
 
-    Z = Imgs(path=path, verbose=True, x_µm=1.5 * 115.4)
+    Z = Collection(path=path, verbose=True, x_µm=1.5 * 115.4)
     Z.imgs = Z.imgs / Z.imgs.max()  # > quick normalization
     I = 6
     # %%

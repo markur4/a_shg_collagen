@@ -10,14 +10,16 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-import skimage as ski
+import skimage.io as sk_io
+
+# import skimage as ski
 
 
 # > Local
 from imagep._plots.imageplots import imshow
 import imagep._utils.utils as ut
 import imagep._rc as rc
-from imagep.images.mdarray import Mdarray
+from imagep.images.mdarray import mdarray
 from imagep.images.list_of_arrays import ListOfArrays
 
 
@@ -61,14 +63,15 @@ def arrays_from_folderlist(
     flatten = lambda x: [item for row in x for item in row]
     imgs = flatten(list(imgs_dict.values()))
 
-    ### Convert to Array or ListOfArrays
-    shapes: set = {img.shape for img in imgs}
-    if len(shapes) == 1:
-        # imgs = np.array(imgs)
-        # imgs = ListOfArrays(larry=imgs)
-        imgs = Mdarray(imgs)
-    else:
-        imgs = ListOfArrays(larry=imgs)
+    ### Convert to ListOfArrays
+    imgs = ListOfArrays(arrays=imgs)
+    # shapes: set = {img.shape for img in imgs}
+    # if len(shapes) == 1:
+    #     # imgs = np.array(imgs)
+    #     imgs = ListOfArrays(larry=imgs)
+    #     # imgs = Mdarray(imgs)
+    # else:
+    #     imgs = ListOfArrays(larry=imgs)
 
     #!! don't use imgdict in parallel to imgs, to prevent confusion,
     #!! construct a new dict from imgs
@@ -122,20 +125,22 @@ def arrays_from_folder(
     _imgs = np.array(_imgs)  # > list to array
 
     ### Get the keys to identify individual images
-    _imgnames = ["" for _ in _imgpaths]  # > Initialize
+    _imgnames = [path.stem for path in _imgpaths]  # > Initialize
     if not imgname_position is None:
-        # > Get the parents of the path
+        # > Use a shorter name, if the position is given
         _imgnames = _imgnames_from_imgpaths(_imgpaths, imgname_position)
 
     ### Add image names as metadata
     _imgs = [
-        Mdarray(
+        mdarray(
             array=img,
             name=imgname,
             folder=ut.shortenpath(folder),
         )
         for img, imgname in zip(_imgs, _imgnames)
     ]
+
+    print("arrays from folder", _imgnames[0], _imgs[0].name)
 
     return _imgnames, _imgs
 
@@ -216,7 +221,7 @@ def _txtfile_to_array(
     """Import from a txt file."""
 
     kws = dict(dtype=dtype, **importfunc_kws)
-    
+
     ### If skiprows is given, use it
     if not skiprows is None:
         return np.loadtxt(path, skiprows=skiprows, **kws)
@@ -229,7 +234,6 @@ def _txtfile_to_array(
                 continue
     ### If no skiprows work, raise an error
     raise ValueError(f"Could not import '{path}'.")
-    
 
 
 if __name__ == "__main__":
@@ -261,7 +265,7 @@ def _imgfile_to_array(
 ) -> np.ndarray:
     """Import from image formats"""
 
-    return ski.io.imread(path, as_gray=as_gray).astype(dtype)
+    return sk_io.imread(path, as_gray=as_gray).astype(dtype)
 
 
 if __name__ == "__main__":

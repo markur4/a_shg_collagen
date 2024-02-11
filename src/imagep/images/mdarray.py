@@ -10,14 +10,14 @@ import numpy as np
 # > Local
 import imagep._utils.utils as ut
 import imagep._rc as rc
-# from imagep.images.imgs_import import ImgsImport
 
+# from imagep.images.imgs_import import ImgsImport
 
 
 # %%
 # ======================================================================
-# == Class ArrayWithMetadata ===========================================
-class Mdarray(np.ndarray):
+# == Class mdarray ========= ===========================================
+class mdarray(np.ndarray):
     """A MedataData array. Extends np.array with image-properties:
     - Scale and unit [meter/pixel]
         - Calculates total width and height of the image
@@ -64,11 +64,11 @@ class Mdarray(np.ndarray):
             return None
 
         ### self references to the original np.array!
-        self.name = getattr(new_obj, "name", "")
-        self.folder = getattr(new_obj, "folder", "")
+        self.name = getattr(new_obj, "name", "unnamed")
+        self.folder = getattr(new_obj, "folder", "unknown folder")
         self.pixel_length = getattr(new_obj, "pixel_length", None)
         self.unit = getattr(new_obj, "unit", rc.UNIT_LENGTH)
-    
+
     #
     # == Information ===================================================
     def __repr__(self) -> str:
@@ -78,29 +78,29 @@ class Mdarray(np.ndarray):
         the name and the folder.
         """
         return self.info
-            
-        
-        
+
     @property
     def info(self) -> str:
-        form = ut.justify_str
+        just = ut.justify_str
+        form = lambda num: ut.format_num(num, exponent=rc._EXPONENT)
         u = self.unit
 
         info = [
-            type(self).__name__ + " object",
-            form("Name") + f"{self.name}",
-            form("Folder") + f"{self.folder}",
-            form("Array type") + f"{type(self)}",
-            form("Pixel type") + f"{self.dtype}",
-            form("Shape") + f"{self.shape} pixels",
-            form("Unit") + f"{self.unit}",
-            form("Pixel length")
+            str(type(self)) + " object",
+            just("Name") + f"{self.name}",
+            just("Folder") + f"{self.folder}",
+            # form("Array type") + f"{type(self)}",
+            just("Pixel type") + f"{self.dtype}",
+            just("Shape [pixel]") + f"{self.shape}",
+            just("Unit") + f"{self.unit}",
+            just(f"Pixel-length")
             + (
-                f"{self.pixel_length} {u}/pixel"
+                f"{form(self.pixel_length)} {u}/pixel"
                 if self.pixel_length is not None
                 else "No pixel length defined"
             ),
-            form("Width, Height") + f"{self.width_meter[0]} x {self.height_meter[0]} {u}",
+            just(f"W x H [{u}]")
+            + f"{form(self.width_meter[0])} x {form(self.height_meter[0])}",
         ]
         return "\n".join(info)
 
@@ -140,7 +140,7 @@ class Mdarray(np.ndarray):
     # !! == End Class ==================================================
 
 
-def _test_img(img: Mdarray):
+def _test_img(img: mdarray):
     instructions = [
         ">>> type(img)",
         type(img),
@@ -170,13 +170,14 @@ def _test_img(img: Mdarray):
 
 if __name__ == "__main__":
     import imagep.images.importtools as importtools
+
     P = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/"
     ### From txt
     # path = P + "/231215_adipose_tissue/2 healthy z-stack detailed/Image4_12.txt"
     ### From
     path = P + "/240201 Imunocyto/Exp. 3 (im Paper)/Dmp1/LTMC I D0 DAPI.tif"
     array = importtools.array_from_path(path=path)
-    img = Mdarray(array=array, pixel_length=2.3)
+    img = mdarray(array=array, pixel_length=2.3)
     _test_img(img)
 
     # %%

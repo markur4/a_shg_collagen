@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 # > local
 import imagep._rc as rc
 import imagep._utils.utils as ut
-from imagep.images.imgs import Imgs
+from imagep.images.collection import Collection
 from imagep.processing.filter_class import Filter
 
 # from imagep.processing.background import Background
@@ -24,7 +24,7 @@ import imagep._plots.imageplots as imageplots
 
 # %%
 # == Class Process =====================================================
-class Pipeline(Imgs):
+class Pipeline(Collection):
     """Base class for processing images
     - Access to transforms and filters
     - Track and display sample images before and during processing

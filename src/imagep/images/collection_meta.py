@@ -13,14 +13,15 @@ import numpy as np
 # > Local
 import imagep._utils.utils as ut
 import imagep._rc as rc
-from imagep.images.imgs_import import ImgsImport
+from imagep.images.collection_import import CollectionImport
+
 # import imagep.images.importtools as importtools
 
 
 # %%
 # ======================================================================
-# == Class ImgsWithMetadata ============================================
-class ImgsMeta(ImgsImport):
+# == Class CollectionMeta ============================================
+class CollectionMeta(CollectionImport):
     """Class for assigning more metadata to stacks of images"""
 
     def __init__(
@@ -28,7 +29,7 @@ class ImgsMeta(ImgsImport):
         ### ImgsImport kws:
         data: str | Path | np.ndarray | list[np.ndarray] | Self = None,
         verbose: bool = True,
-        ### Metadata
+        ### Metadata:
         pixel_length: float | list[float] = None,
         unit: str | list[str] = rc.UNIT_LENGTH,
         scalebar_length: int = None,  # > in (micro)meter
@@ -39,24 +40,17 @@ class ImgsMeta(ImgsImport):
         super().__init__(data, verbose, **fileimport_kws)
 
         ### Metadata
-        # > Metadata for (individual) images
+        # > Collect Metadata
         self._metadata_perfolder = dict(
             pixel_length=pixel_length,
             unit=unit,
         )
-        # > Message
-        if self.verbose:
-            print("=> Checking & Assigning metadata")
-        # > Check metadata and rearrange to folders
+        # > Check and rearrange passed metadata
         self.metadata = self._init_metadata()
         # > Add metadata to images according to folders
-        self._add_metadata_per_folders()
-        # > Message
-        if self.verbose:
-            print("  DONE Metadata assigned to images:")
-            pprint(self.metadata, indent=2, sort_dicts=False, )
+        self._add_further_metadata_per_folders()
 
-        # >  Metadata for the complete stack (not folders)
+        ### Metadata for the complete stack (not folders)
         self.scalebar_length = scalebar_length
 
     #
@@ -69,47 +63,64 @@ class ImgsMeta(ImgsImport):
         """
 
         ### shorten access
-        _MD = self._metadata_perfolder
+        _MD_RAW = self._metadata_perfolder
 
-        ### Remove None values
-        _MD = {k: v for k, v in _MD.items() if not v is None}
+        ### Remove None or undefined values
+        _MD_RAW = {k: v for k, v in _MD_RAW.items() if not v is None}
 
-        kws = dict(target_key="folders", target_n=len(self.folder))
-        for k, v in _MD.items():
-            _MD[k] = ut.check_samelength_or_number(key=k, val=v, **kws)
+        ### Check if metadata values are ...
+        # - a single value
+        # - or a list with the same length as the number of folders
+        kws = dict(target_key="folders", target_n=len(self.path_short))
+        for k, v in _MD_RAW.items():
+            _MD_RAW[k] = ut.check_samelength_or_number(key=k, val=v, **kws)
 
-        return _MD
+        return _MD_RAW
 
-    def _init_metadata(self, **metadata) -> dict:
+    def _init_metadata(self) -> dict:
         """Makes a dict with shortpaths as keys and metadata as values.
         each metadata is a dict with metadata keys as keys and values as
         values."""
 
-        ### Initialize outer dict: shortpath -> metadata
-        MD = {shortpath: {} for shortpath in self.path_short}
+        # > Message
+        if self.verbose:
+            print("=> Checking & assigning metadata to each folder ...")
 
         ### Process metadata defined by arguments
         # > Check metadata and expand to full length
-        metadata_raw = self._check_metadata()
-        # > Fill in metadata
-        for k, v in metadata_raw.items():
+        _MD_raw = self._check_metadata()
+
+        ### Fill in metadata into MD
+        # > Initialize outer dict: shortpath -> metadata
+        MD = {shortpath: {} for shortpath in self.path_short}
+        MD["unknown folder"] = {}  # > Capture images that aren't named
+        for k, v in _MD_raw.items():
             for i, val in enumerate(v):
                 MD[self.path_short[i]][k] = val
 
-        # ### Fill in image names found in every folder
-        for folder, names in self.imgnames.items():
-            MD[folder]["imgnames"] = names
+        ### Fill in image names found in every folder
+        for img in self.imgs:
+            # if img.folder == "unknown folder":
+            # raise ValueError(f"Unknown folder for image '{img.name}'")
+            MD[img.folder]["imgnames"] = [img.name for img in self.imgs]
+        # for folder, names in self.imgnames.items():
+        #     MD[folder]["imgnames"] = names
+
+        # > Message
+        if self.verbose:
+            print("   DONE. See Metadata:")
+            pprint(MD, sort_dicts=False, compact=True)
+            print()
 
         return MD
 
-    def _add_metadata_per_folders(self):
+    def _add_further_metadata_per_folders(self):
         """Adds metadata defined in constructor to images per folder"""
-
-        print(type(self.imgs), self.imgs.shape)
 
         for i, img in enumerate(self.imgs):
             # > Get metadata for folder
             if img.folder == "unknown folder":
+                # print(f"Unknown folder for image '{img.name}'. Skipping ...")
                 continue
             metadata = self.metadata[img.folder]
             for mdkey, mdval in metadata.items():
@@ -128,7 +139,7 @@ if __name__ == "__main__":
     # folders = parent + "Exp. 1/Dmp1/"
     # > contains e.g.: "D0 LTMC DAPI 40x.tif"
 
-    Z = ImgsMeta(
+    Z = CollectionMeta(
         data=folders,
         fname_pattern="*DAPI*.tif",
         # invert=False,
@@ -138,11 +149,11 @@ if __name__ == "__main__":
             2,
             2,
         ],  # > Extract a key from the filename
-        # pixel_length=[
-        #     0.1,
-        #     0.2,
-        #     0.3,
-        # ],
+        pixel_length=[
+            0.1,
+            0.2,
+            0.3,
+        ],
         # unit="µm",
         # [
         #     "µm",

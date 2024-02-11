@@ -1,4 +1,5 @@
 """All filters that don't need acceleration"""
+
 # %%
 import numpy as np
 
@@ -12,16 +13,16 @@ import imagep._utils.utils as ut
 # %%
 # !! Testdata ==========================================================
 if __name__ == "__main__":
-    from imagep.images.imgs import Imgs
+    from imagep.images.collection import Collection
     from imagep._plots.imageplots import imshow
 
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-    Z = Imgs(path=path, verbose=True, x_µm=1.5 * 115.4)
+    Z = Collection(path=path, verbose=True, x_µm=1.5 * 115.4)
     # > quick normalization
     Z.imgs = Z.imgs / Z.imgs.max()
 
     I = 6
-    Z.imgs[I + 1] = .2  # > Chenge next image to test multidimensional filters
+    Z.imgs[I + 1] = 0.2  # > Chenge next image to test multidimensional filters
     imshow(Z.imgs[[I, I + 1]])
 
 
@@ -61,6 +62,3 @@ def blur(
 if __name__ == "__main__":
     _imgs1 = blur(Z.imgs, sigma=1, kernel_3D=False, normalize=True)
     imshow(_imgs1[[I, I + 1]])
-
-
-
