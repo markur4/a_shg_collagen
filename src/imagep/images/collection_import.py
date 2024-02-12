@@ -10,9 +10,11 @@ import numpy as np
 
 # > Local
 import imagep._utils.utils as ut
-import imagep._rc as rc
+import imagep._configs.rc as rc
+import imagep._utils.types as T
 import imagep.images.importtools as importtools
 from imagep.images.mdarray import mdarray
+from imagep.images.list_of_arrays import list2Darrays
 
 if TYPE_CHECKING:
     import imagep as ip
@@ -20,7 +22,6 @@ if TYPE_CHECKING:
 
     # from imagep.processing.pipeline import Pipeline
     from imagep.processing.preprocess import PreProcess
-    from imagep.images.list_of_arrays import ListOfArrays
 
 
 # %%
@@ -36,9 +37,7 @@ class CollectionImport:
 
     def __init__(
         self,
-        data: (
-            str | Path | list[str | Path] | np.ndarray | list[np.ndarray] | Self
-        ) = None,
+        data: T.source_of_imgs = None,
         verbose: bool = True,
         ### KWS for importing from file
         **fileimport_kws,
@@ -52,7 +51,7 @@ class CollectionImport:
 
         ### Init attributes, they will be set by the import functions
         self.folder: str | Path | list[str | Path] = self.FOLDER_PLACEHOLDER
-        self.imgs: ip.mdarray | ListOfArrays = None
+        self.imgs: ip.mdarray | list2Darrays = None
         self.imgnames: dict[str, str] = self.IMGKEY_PLACEHOLDER
 
         ### Configure import from path
@@ -238,9 +237,9 @@ class CollectionImport:
         if verbose:
             print(
                 f"=> Transferring attributes from an instance"
-                + f" ({data.imgs.shape[0]} images "
-                + f" {data.imgs.shape[1]}x{data.imgs.shape[2]},"
-                + f" {data.imgs.dtype}; "
+                + f" ({data.imgs.shapes[0]} images "
+                + f" {data.imgs.shapes[1]}x{data.imgs.shapes[2]},"
+                + f" {data.imgs.dtypes}; "
                 + f" from: '{data.path_short}') ..."
             )
         ### Full atrribute transfer
@@ -267,31 +266,47 @@ class CollectionImport:
     def __iter__(self):
         return iter(self.imgs)
 
-    def __getitem__(
-        self, val: int | slice | tuple | list
-    ) -> Self | "Collection" | "PreProcess":
-        # > Create a copy of this instance
+    def __getitem__(self, val: T.indices) -> Self | "Collection" | "PreProcess":
+        """Slice the z-stack and return a copied instance of this class.
+        with a changes self.imgs.
+        Slicing happens PRESERVING the dimension information. That means
+        that the result is always a 3D array.
+        """
+        ### Create a copy of this instance
         _self = copy.deepcopy(self)
-        # > Assign the sliced imgs to the new instance
-        # indices = ut.indices_from_slice(slice=val, n_imgs=self.imgs.shape[0])
 
-        ### Slice while preserving dimension information
-        # > Z[0]
-        if isinstance(val, int):
-            _self.imgs = self.imgs[[val], ...]
-            indices = [val]
-        # > Z[1:3]
-        elif isinstance(val, slice):
-            _self.imgs = self.imgs[val, ...]
-            indices = range(*val.indices(self._shape_original[0]))
-        # > Z[1,2,5]
-        elif isinstance(val, (list, tuple)):
-            _self.imgs = self.imgs[list(val), ...]
-            indices = val
-        # > or Z[[1,2,5]] pick multiple images
-        # elif isinstance(val, list):
-        #     _self.imgs = self.imgs[val, ...]
-        #     indices = val
+        ### Slice
+        if isinstance(self.imgs, np.ndarray):  # If imgs is a numpy array
+            # > Z[0]
+            if isinstance(val, int):
+                _self.imgs = self.imgs[[val], ...]
+                indices = [val]
+            # > Z[1:3]
+            elif isinstance(val, slice):
+                _self.imgs = self.imgs[val, ...]
+                indices = range(*val.indices(self._shape_original[0]))
+            # > Z[1,2,5] or Z[[1,2,5]]
+            elif isinstance(val, (list, tuple)):
+                _self.imgs = self.imgs[list(val), ...]
+                indices = val
+        elif isinstance(self.imgs, list2Darrays):
+            # > Let the ListOfArrays handle the slicing
+            imgs_sliced: T.array | list2Darrays = self.imgs[val]
+            # > Re-initialize as ListOfArrays to preserve the type
+            _self.imgs = 0
+            # > Z[0] or Z[1,2,5] or Z[[1,2,5]]
+            if isinstance(val, (int, list, tuple)):
+                indices = [val]
+            # > Z[1:3]
+            elif isinstance(val, slice):
+                # _self.imgs = self.imgs[val]
+                indices = range(*val.indices(len(self.imgs)))
+            # > Z[1,2,5]
+            # elif isinstance(val, (list, tuple)):
+            #     _self.imgs = [self.imgs[v] for v in val]
+            #     indices = val
+        else:
+            raise ValueError(f"Unknown type of imgs: {type(self.imgs)}")
 
         ### Remember how this object was sliced
         _self._slice = str(val)

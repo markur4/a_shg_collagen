@@ -22,7 +22,7 @@ import skimage as ski
 
 
 # > Local
-import imagep._rc as rc
+import imagep._configs.rc as rc
 
 # from imagep.images.imgs import Imgs
 import imagep._utils.utils as ut
@@ -237,8 +237,8 @@ class PreProcess(Pipeline):
     def _info_brightness(imgs: np.ndarray) -> list:
         """Returns info about brightness for a Stack"""
         ### Formatting functions
-        just = lambda s: ut.justify_str(s, justify=ut._JUSTIFY)
-        form = lambda num: ut.format_num(num, exponent=rc._EXPONENT)
+        just = lambda s: ut.justify_str(s, justify=rc.FORMAT_JUSTIFY)
+        form = lambda num: ut.format_num(num, exponent=rc.FORMAT_EXPONENT)
 
         ### Ignore background (0)
         # > or it'll skew statistics when bg is subtracted
@@ -259,8 +259,8 @@ class PreProcess(Pipeline):
     def _info(self) -> str:
         """String representation of the object for __repr__"""
         ### Formatting functions
-        just = lambda s: ut.justify_str(s, justify=ut._JUSTIFY)
-        form = lambda num: ut.format_num(num, exponent=rc._EXPONENT)
+        just = lambda s: ut.justify_str(s, justify=rc.FORMAT_JUSTIFY)
+        form = lambda num: ut.format_num(num, exponent=rc.FORMAT_EXPONENT)
 
         imgs = self.imgs
 

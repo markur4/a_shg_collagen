@@ -16,11 +16,12 @@ import skimage.io as sk_io
 
 
 # > Local
-from imagep._plots.imageplots import imshow
+import imagep._utils.types as T
 import imagep._utils.utils as ut
-import imagep._rc as rc
+import imagep._configs.rc as rc
+from imagep._plots.imageplots import imshow
 from imagep.images.mdarray import mdarray
-from imagep.images.list_of_arrays import ListOfArrays
+from imagep.images.list_of_arrays import list2Darrays
 
 
 #
@@ -64,7 +65,7 @@ def arrays_from_folderlist(
     imgs = flatten(list(imgs_dict.values()))
 
     ### Convert to ListOfArrays
-    imgs = ListOfArrays(arrays=imgs)
+    imgs = list2Darrays(arrays=imgs)
     # shapes: set = {img.shape for img in imgs}
     # if len(shapes) == 1:
     #     # imgs = np.array(imgs)
@@ -116,7 +117,7 @@ def arrays_from_folder(
     )
 
     ### Pick the right function to import
-    import_func = _function_from_format(fname_extension)
+    import_func = _pick_func_from_extension(fname_extension)
 
     ### Import all files
     _imgs = [
@@ -140,19 +141,7 @@ def arrays_from_folder(
         for img, imgname in zip(_imgs, _imgnames)
     ]
 
-    print("arrays from folder", _imgnames[0], _imgs[0].name)
-
     return _imgnames, _imgs
-
-
-def _imgnames_from_imgpaths(
-    imgpaths: list[Path], imgname_position: int
-) -> list[str]:
-    """Get the keys to identify individual images"""
-
-    # imgname = _get_sortkey(imgname_position)(imgpaths[0])
-    return [_get_sortkey(imgname_position)(path) for path in imgpaths]
-
 
 def _order_imgpaths(
     imgpaths: list[Path],
@@ -172,8 +161,19 @@ def _order_imgpaths(
 
     return imgpaths
 
+#
+# == Extract Image names from Image paths ==============================
 
-def _get_sortkey(imgkey_position=0) -> Callable:
+def _imgnames_from_imgpaths(
+    imgpaths: list[Path],
+    imgname_position: int,
+) -> list[str]:
+    """Get the keys to identify individual images"""
+
+    return [_get_sortkey(imgname_position)(path) for path in imgpaths]
+
+
+def _get_sortkey(imgkey_position: int = 0) -> Callable:
     return lambda path: _split_fname(path)[imgkey_position]
 
 
@@ -183,6 +183,8 @@ def _split_fname(path: str | Path) -> str:
     return re.split(pattern, fname)
 
 
+
+
 # %%
 # == One path, One Image ===============================================
 def array_from_path(
@@ -190,7 +192,7 @@ def array_from_path(
     **importfunc_kws,
 ) -> np.ndarray:
     extension = _scan_extension(path)
-    func = _function_from_format(extension)
+    func = _pick_func_from_extension(extension)
     return func(path=path, **importfunc_kws)
 
 
@@ -199,20 +201,20 @@ def _scan_extension(path: str | Path) -> str:
     return path.suffix
 
 
-def _function_from_format(fname_extension: str) -> Callable:
+def _pick_func_from_extension(fname_extension: str) -> Callable:
     """Pick the right function to import the fname_extension"""
 
     if fname_extension == ".txt":
-        return _txtfile_to_array
+        return _array_from_txtfile
     if fname_extension in (".tif"):
-        return _imgfile_to_array
+        return _array_from_imgfile
     else:
         raise ValueError(f"fname_extension '{fname_extension}' not supported.")
 
 
 # %%
 # == Import from txt ===================================================
-def _txtfile_to_array(
+def _array_from_txtfile(
     path: str,
     skiprows: int = None,
     dtype: np.dtype = rc.DTYPE,
@@ -245,7 +247,7 @@ if __name__ == "__main__":
     # plt.show()
 
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_7.txt"
-    img = _txtfile_to_array(path, dtype=t)
+    img = _array_from_txtfile(path, dtype=t)
     print(img.min(), img.max())
     plt.imshow(img)
 
@@ -258,7 +260,7 @@ if __name__ == "__main__":
 
 # %%
 # == Import from Image formats =========================================
-def _imgfile_to_array(
+def _array_from_imgfile(
     path: str,
     dtype=rc.DTYPE,
     as_gray: bool = True,
@@ -270,7 +272,7 @@ def _imgfile_to_array(
 
 if __name__ == "__main__":
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/240201 Imunocyto/Exp. 1/Dmp1/D0 LTMC DAPI 40x.tif"
-    img = _imgfile_to_array(path, dtype=np.float32)
+    img = _array_from_imgfile(path, dtype=np.float32)
     print(img.min(), img.max())
     imshow(img)
     imshow(img, cmap="gray")

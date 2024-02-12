@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # > local
-import imagep._rc as rc
+import imagep._configs.rc as rc
 import imagep._utils.utils as ut
 from imagep.images.collection import Collection
 from imagep.processing.filter_class import Filter

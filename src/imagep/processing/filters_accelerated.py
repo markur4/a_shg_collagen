@@ -15,28 +15,16 @@ import scipy as sp
 import skimage as ski
 
 # > local imports
-import imagep._rc as rc
+# import imagep._configs.caches as caches
+from imagep._configs.caches import FILTERS
+import imagep._configs.rc as rc
 import imagep._utils.utils as ut
-from imagep._utils.subcache import SubCache
 
 
 # %%
-# == CACHE =============================================================
-# > Location
-location = os.path.join(os.path.expanduser("~"), ".cache")
-
-### Subcache
-CACHE_FILTERS = SubCache(
-    location=location,
-    subcache_dir="imagep_filters",
-    verbose=True,
-    compress=9,
-    bytes_limit="3G",  # > 3GB of cache, keeps only the most recent files
-)
-# %%
-### Check cache
+# == CHECK CACHE =======================================================
 if __name__ == "__main__":
-    pprint(CACHE_FILTERS.kwargs)
+    pprint(FILTERS.get_cached_inputs())
 
 
 # %%
@@ -126,7 +114,7 @@ def denoise(
     """Implements caching"""
     kws = dict(parallel=parallel, n_cores=n_cores)
     if cached:
-        f = CACHE_FILTERS.subcache(_denoise, ignore=["parallel", "n_cores"])
+        f = FILTERS.subcache(_denoise, ignore=["parallel", "n_cores"])
         return f(imgs=imgs, **kws)
     else:
         return _denoise(imgs=imgs, **kws)
@@ -262,7 +250,7 @@ def entropy(
         n_cores=n_cores,
     )
     if cached:
-        f = CACHE_FILTERS.subcache(_entropy, ignore=["parallel", "n_cores"])
+        f = FILTERS.subcache(_entropy, ignore=["parallel", "n_cores"])
         return f(imgs=imgs, **kws)
     else:
         return _entropy(imgs=imgs, **kws)
@@ -355,7 +343,7 @@ def median(
         **filter_kws,
     )
     if cached:
-        f = CACHE_FILTERS.subcache(_median, ignore=[])
+        f = FILTERS.subcache(_median, ignore=[])
         return f(imgs=imgs, **kws)
     else:
         return _median(imgs=imgs, **kws)

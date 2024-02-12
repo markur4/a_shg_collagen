@@ -64,11 +64,20 @@ class SubCache(Memory):
                 parent == assert_parent
             ), f"When Initializing joblib.Memory, we expected cache to be in {assert_parent}, but we ended up in {parent_full}"
 
+    def __iter__(self):
+        """Iterate over the list of cache directories"""
+        for item in self.store_backend.get_items():
+            path_to_item = os.path.relpath(
+                item.path,
+                start=self.store_backend.location,
+            )
+            yield os.path.split(path_to_item)
+
     def list_dirs(
         self, detailed: bool = False, max_depth: int = 3
     ) -> List[str]:
         """
-        Returns a list of cache directories.
+        Reads the the cached files and displays the directories
 
         :param detailed: if True, returns all cache directories with
             full paths. Default is False.
@@ -105,19 +114,55 @@ class SubCache(Memory):
                     location_subdirs.append(dir_path)
         return location_subdirs
 
-    def __iter__(self):
-        """Iterate over the list of cache directories"""
-        for item in self.store_backend.get_items():
-            path_to_item = os.path.relpath(
-                item.path,
-                start=self.store_backend.location,
-            )
-            yield os.path.split(path_to_item)
+    def get_cached_inputs(self) -> dict[str, dict[str, object]]:
+        """Reads the cached files and returns a dictionary with function
+        as keys and their inputs as values"""
 
-    @property
-    def entries(self) -> dict:
-        """Return the list of inputs and outputs from `mem` (joblib.Memory
-        cache)."""
+        inputs = dict()
+
+        for path_to_item in self:
+            ### Get the name of the function
+            func = os.path.split(path_to_item[0])[-1]
+
+            ### Get input arguments
+            args: dict = self.store_backend.get_metadata(path_to_item).get(
+                "input_args"
+            )
+
+            ### Shorten the inputs if they are too long
+            for arg, value in args.items():
+                m = "(" if isinstance(value, str) else f"({type(value)};  "
+                try:
+                    if len(value) > 50:
+                        args[arg] = m + f"{value[:25]} ...; length: {len(value)})"
+                except TypeError: #> if len() is not applicable
+                    if hasattr(value, "shape"):
+                        args[arg] = m + f"{value[:25]} ...; shape: {value.shape})"
+                        
+            ### Store the inputs
+            inputs[func] = args
+        return inputs
+
+    # def check_entry(self, func: Callable, mem_kwargs: dict) -> bool:
+    #     """Check if these arguments are cached"""
+
+    #     ### Get the name of the function
+    #     func_name = func.__name__
+
+    #     if not func_name in self.kwargs:
+    #         return False
+    #     else:
+    #         ### try to load the result with the given kwargs
+    #         try:
+    #             self.cache.load_item((func_name, mem_kwargs))
+    #             return True
+    #         except KeyError:
+    #             return False
+
+    def get_cached_outputs(self) -> dict[str, tuple[dict, object]]:
+        """Reads the cached files and returns a dictionary with function
+        as keys and as values a tuple of the inputs and outputs of that
+        function"""
 
         entries = dict()
 
@@ -139,60 +184,22 @@ class SubCache(Memory):
             entries[func] = (args, result)
         return entries
 
-    @property
-    def kwargs(self) -> dict:
-        """Return the list of inputs and outputs from `mem` (joblib.Memory
-        cache)."""
-
-        kwargs = dict()
-
-        for path_to_item in self:
-            ### Get the name of the function
-            func = os.path.split(path_to_item[0])[-1]
-
-            ### Get input arguments
-            args = self.store_backend.get_metadata(path_to_item).get(
-                "input_args"
-            )
-
-            kwargs[func] = args
-        return kwargs
-
-    # def check_entry(self, func: Callable, mem_kwargs: dict) -> bool:
-    #     """Check if these arguments are cached"""
-
-    #     ### Get the name of the function
-    #     func_name = func.__name__
-
-    #     if not func_name in self.kwargs:
-    #         return False
-    #     else:
-    #         ### try to load the result with the given kwargs
-    #         try:
-    #             self.cache.load_item((func_name, mem_kwargs))
-    #             return True
-    #         except KeyError:
-    #             return False
-
     def list_kwargs(self):
         """Return list of all stored kwargs"""
 
         kwargs = []
-        for kwarg, obj in self.entries():
+        for kwarg, obj in self.get_cached_outputs():
             kwargs.append(kwarg)
         return kwargs
 
-    def is_cached(self, mem_kwargs: dict) -> bool:
-        """Check if these arguments are cached"""
-
-    def subcache(self, f: Callable, **mem_kwargs) -> Callable:
+    def subcache(self, f: Callable, **memory_kwargs) -> Callable:
         """Cache it in a persistent manner, since Ipython passes a new
         location to joblib each time the Memory object is initialized
         """
         f.__module__ = self.subcache_dir
         f.__qualname__ = f.__name__
 
-        return self.cache(f, **mem_kwargs)
+        return self.cache(f, **memory_kwargs)
 
 
 # ======================================================================
@@ -226,7 +233,7 @@ if __name__ == "__main__":
     # %%
     MEM.list_dirs(detailed=True)
     # %%
-    MEM.entries()
+    MEM.get_cached_outputs()
 
     # %%
     # == Cache HERE =====================================================
@@ -236,7 +243,7 @@ if __name__ == "__main__":
     # %%
     MEM2.list_dirs(detailed=True)
     # %%
-    MEM2.entries()
+    MEM2.get_cached_outputs()
 
     # %%
     sleep(1.5)  # > First time slow, next time fast

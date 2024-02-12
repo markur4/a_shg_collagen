@@ -21,10 +21,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # > Local
-import imagep._rc as rc
+import imagep._configs.rc as rc
+
 # import imagep.images.importtools as importtools
-# from imagep.images.imgs_import import ImgsImport
+# from imagep.images.imgs_import import CollectionImport
 import imagep._utils.utils as ut
+import imagep._utils.types as T
 from imagep.images.mdarray import mdarray
 from imagep.images.collection_meta import CollectionMeta
 import imagep._plots.scalebar as scaleb
@@ -46,17 +48,10 @@ class Collection(CollectionMeta):
 
     def __init__(
         self,
-        ### ImgsImport kws:
-        data: (
-            str
-            | Path
-            | np.ndarray
-            | mdarray
-            | list[np.ndarray | mdarray]
-            | Self
-        ) = None,
+        ### CollectionImport kws:
+        data: T.source_of_imgs = None,
         verbose: bool = True,
-        ### ImgsMeta kws:
+        ### CollectionMeta kws:
         pixel_length: float | list[float] = None,
         unit: str = "µm",
         scalebar_length: int = 10,  # > in (micro)meter
@@ -70,8 +65,9 @@ class Collection(CollectionMeta):
         ### kws for importfunction, like skiprows
         **importfunc_kws,
     ):
-        """Basic Image-stack functionalities.
+        """Interface for image-stack functionalities.
         - Block super()__init__ if to avoid re-loading images
+        - Show content of collection (`imshow()`)
 
 
         :param data: pathlike string or object
@@ -121,18 +117,22 @@ class Collection(CollectionMeta):
         fileimport_kws: dict,
         **importfunc_kws,
     ):
-        """Import images from another Imgs instance. This will transfer
-        all attributes from the Imgs instance. Methods are transferred
+        """Import images from another Collection instance. This will transfer
+        all attributes from the Collection instance. Methods are transferred
         by inheritance, because we want the option to import images at
         every stage of the processing pipeline."""
 
-        ### Transfer all attributes, if instance is passed
-        if isinstance(import_kws["data"], type(self)):
+        ### Get user input on source data
+        data = import_kws["data"]
+
+        ### If data is an instance of Collection, just transfer its attributes
+        if isinstance(data, type(self)):
+            # todo: User modify metadata when re-importing from instance
             super().from_instance(
                 **import_kws,
-                # **meta_kws,
+                # **meta_kws, # !! Assume user wants same metadata
             )
-        # > If not, call the parent __init__ method
+        ### If data is not a Collection, run full inheritance
         else:
             super().__init__(
                 **import_kws,
@@ -257,6 +257,10 @@ class Collection(CollectionMeta):
         if not saveto is None:
             ut.saveplot(fname=saveto, verbose=self.verbose)
 
+        ### SHOW
+        plt.show()
+        # !!
+
     def mip(self, scalebar=True, **mip_kws) -> np.ndarray | None:
         ### Make copy in case of burning in scalebar
         _imgs = self.imgs.copy()
@@ -287,6 +291,8 @@ if __name__ == "__main__":
         verbose=True,
         pixel_length=pixel_length,
         imgname_position=1,
+        sort=True,
+        invertorder=True,
     )
     I = 6
     # %%
@@ -295,6 +301,10 @@ if __name__ == "__main__":
     Z.mip()
 
     # %%
+    Z.mip(axis=1)
+
+    # %%
+    Z.imshow()
 
 
 # %%
@@ -305,6 +315,8 @@ def _test_import_from_types(Z, I=6):
         pixel_length=[1.5 * 115.4 * 1024],
         fname_extension="txt",
         imgname_position=1,
+        sort=True,
+        invertorder=True,
     )
 
     print("IMPORT FROM PATH:")

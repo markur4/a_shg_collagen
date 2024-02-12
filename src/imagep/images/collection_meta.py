@@ -12,7 +12,7 @@ import numpy as np
 
 # > Local
 import imagep._utils.utils as ut
-import imagep._rc as rc
+import imagep._configs.rc as rc
 from imagep.images.collection_import import CollectionImport
 
 # import imagep.images.importtools as importtools

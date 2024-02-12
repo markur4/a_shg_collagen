@@ -9,7 +9,7 @@ import skimage as ski
 import matplotlib.pyplot as plt
 
 # > Local
-import imagep._rc as rc
+import imagep._configs.rc as rc
 import imagep._utils.utils as ut
 
 # from imagep.processing.pipeline import Pipeline
@@ -69,7 +69,7 @@ class Background:
         """Returns information about the background printable by
         _info"""
 
-        form = lambda x: ut.format_num(x, exponent=rc._EXPONENT)
+        form = lambda x: ut.format_num(x, exponent=rc.FORMAT_EXPONENT)
 
         if self.subtracted:
             ### Thresholds

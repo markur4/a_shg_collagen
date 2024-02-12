@@ -11,7 +11,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # > Local
-import imagep._rc as rc
+import imagep._configs.rc as rc
 import imagep._utils.utils as ut
 from imagep._plots.imageplots import imshow
 

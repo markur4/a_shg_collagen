@@ -116,11 +116,9 @@ def shortenpath(path: Path | str) -> str:
 
 
 # %%
-### Set runtime configuration for Justifying text
-_JUSTIFY = 23
 
 
-def justify_str(string: str, justify=20):
+def justify_str(string: str, justify=23):
     return str(string + ": ").ljust(justify).rjust(justify + 2)
 
 

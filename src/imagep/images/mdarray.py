@@ -9,7 +9,7 @@ import numpy as np
 
 # > Local
 import imagep._utils.utils as ut
-import imagep._rc as rc
+import imagep._configs.rc as rc
 
 # from imagep.images.imgs_import import ImgsImport
 
@@ -82,7 +82,7 @@ class mdarray(np.ndarray):
     @property
     def info(self) -> str:
         just = ut.justify_str
-        form = lambda num: ut.format_num(num, exponent=rc._EXPONENT)
+        form = lambda num: ut.format_num(num, exponent=rc.FORMAT_EXPONENT)
         u = self.unit
 
         info = [

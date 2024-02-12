@@ -1,6 +1,6 @@
 #
 # == Execute runtime configuration =====================================
-from . import _rc
+from ._configs import rc
 
 # == Flatten Module Access =============================================
 # > The following imports are for direct access to the modules
