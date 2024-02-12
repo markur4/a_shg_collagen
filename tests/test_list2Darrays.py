@@ -1,9 +1,11 @@
 """Tests for the list2Darrays class"""
+
 import numpy as np
 
 # > Locals
-import imagep._utils.types as T 
+import imagep._utils.types as T
 from imagep.images.list_of_arrays import list2Darrays
+
 
 # %%
 def _test_list2Darrays_input():
@@ -308,19 +310,22 @@ if __name__ == "__main__":
 
 
 # %%
-def _test_list2Darrays_methods(loa):
+def _test_list2Darrays_methods(
+    loa: list2Darrays, homo_shape=True, homo_type=True
+):
 
     # > Test loa.dtypes
     print("> loa.dtype.pop() == np.float16; ", loa.dtypes)
-    assert loa.dtypes.pop() == np.float16
+    assert loa.dtype == np.float64
     print("  loa.dtype:", loa.dtypes, "\n")
 
     # > Test loa.shape
 
     # > Test loa.astype()
     print("> loa.astype()")
-    loa = loa.astype(np.int32)
-    assert loa.dtypes.pop() == np.int32
+    _loa = loa.astype(np.int32)
+    assert _loa.dtype == np.int32
+    assert loa.dtype == np.float64
     print("  loa.dtype:", loa.dtypes, "\n")
 
     # > Test copy
@@ -328,35 +333,51 @@ def _test_list2Darrays_methods(loa):
     loa2 = loa.copy()
     assert loa2.shapes == loa.shapes
     assert loa2.dtypes == loa.dtypes
-    print("  copied")
+    print("  copied", "\n")
 
     # > Test asarray
-    print("> loa.asarray")
-    arr = loa.asarray
-    assert arr.shape == loa.shape
-    assert arr.dtype == np.int32
+    print("> loa.asarray(dtype=np.int32)")
+    try:
+        arr = loa.asarray(dtype=np.int32)
+        assert arr.shape == loa.shape
+        assert arr.dtype == np.int32
+        assert loa.dtype == np.float64
+    except ValueError as e:
+        if not homo_shape:
+            print("  Correct Error when trying to make an inhomogenous array")
+            print(" ", e)
+
+    print("\n DONE \n\n")
 
 
 if __name__ == "__main__":
 
     loa_homo = list2Darrays(
         arrays=[np.ones((10, 10)), np.ones((10, 10)), np.ones((10, 10))],
-        dtype=np.float16,
+        dtype=np.float64,
     )
-    loa_1type = list2Darrays(
+    loa_hetero_type = list2Darrays(
         arrays=[np.ones((10, 10)), np.ones((20, 20)), np.ones((30, 30))],
-        dtype=np.float16,
+        dtype=np.float64,
     )
-    loa_dtypes = list2Darrays(
+    loa_hetero_total = list2Darrays(
         arrays=[
             np.ones((10, 10), dtype=np.uint8),
-            np.ones((20, 20), dtype=np.float32),
+            np.ones((20, 20), dtype=np.float64),
             np.ones((30, 30), dtype=np.float16),
         ],
     )
+    homo_shapes = [True, False, False]
+    homo_dtypes = [True, True, False]
 
-    for loa in [loa_homo, loa_1type, loa_dtypes]:
-        _test_list2Darrays_methods(loa)
+    args = zip(
+        [loa_homo, loa_hetero_type, loa_hetero_total],
+        homo_shapes,
+        homo_dtypes,
+    )
+
+    for loa, h_shape, h_dtype in args:
+        _test_list2Darrays_methods(loa, h_shape, h_dtype)
 
 ### Test as part of Collection
 # %%

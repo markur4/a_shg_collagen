@@ -92,11 +92,16 @@ class list2Darrays:
     def shape(self):
         """Pops a shape from a random picture from the arrays
         and warns the user if there are multiple ones"""
-        ### Retrieve sets
-        y_set, x_set = self.shapes[1], self.shapes[2]
+
         ### Warn if more than one shape
-        if len(y_set) > 0 or len(x_set) > 0:
-            warnings.warn("Retrieving a random shape")
+        if len(self.shapes[1]) > 1 or len(self.shapes[2]) > 1:
+            warnings.warn(
+                f"List contains {self.shapes[1]} different shapes,"
+                " retrieving the shape of the first image",
+                stacklevel=99,
+            )
+        shapes = [img.shape for img in self.arrays]
+        return (len(self.arrays), *shapes[0])
 
     def __len__(self):
         return len(self.arrays)
@@ -188,28 +193,24 @@ class list2Darrays:
         """Retrieves dtype from one of its elements."""
         return {img.dtype for img in self.arrays}
 
-    @property
-    def dtype(self) -> Type:
-        """Pops a random element from the dtypes and warns the user if
-        there are multiple ones"""
-        if len(self.dtypes) > 1:
-            self._logger.warning(
-                f"Retrieving a random dtype from {len(self.dtypes)}"
-                " different dtypes."
-                " To remove this warning, homogenize the arrays"
-                " using .astype()",
-                stacklevel=99,
-            )
-        return self.dtypes.pop()
-
     def astype(self, dtype: np.dtype):
         return list2Darrays(self.arrays, dtype=dtype)
 
     @property
-    def dtype_maxbits(self):
+    def dtype(self) -> Type:
         """Retrieves the datatype with biggest bit depth"""
+
         get_bytes = lambda x: np.dtype(x).itemsize  # > x = np.float64
-        return max(self.dtypes, key=get_bytes)
+        max_dtype = max(self.dtypes, key=get_bytes)
+        if len(self.dtypes) > 1:
+            self._logger.warning(
+                f"List contains {len(self.dtypes)} different dtypes,"
+                f" retrieving the dtype with largest bitdepth: {max_dtype}."
+                " To remove this warning, homogenize the arrays"
+                " using .astype()",
+                stacklevel=99,
+            )
+        return max_dtype
 
     #
     # == Copy & Conversions ============================================
@@ -218,8 +219,7 @@ class list2Darrays:
         """Returns a copy of the object"""
         return list2Darrays([img.copy() for img in self.arrays])
 
-    @property
-    def asarray(self):
+    def asarray(self, dtype=None):
         """Returns a 3D numpy array. This has these consequences:
         - Metadata gets lost
         - Inhomogenous dtypes are converted into the largest dtype
@@ -228,8 +228,9 @@ class list2Darrays:
             raise ValueError(
                 f"Can't convert list of inhomogenous arrays into an array [(z,y,x) = {self.shapes}]"
             )
+        dtype = self.dtype if dtype is None else dtype
 
-        return np.array(self.arrays, dtype=self.dtype_maxbits)
+        return np.array(self.arrays, dtype=dtype)
 
     #
     # == Statistics ====================================================
@@ -243,3 +244,23 @@ class list2Darrays:
     #
     # !! == End  Class =================================================
 
+
+# %%
+### Test as part of Collection
+if __name__ == "__main__":
+    import imagep as ip
+
+    folder = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    Z = ip.Collection(
+        data=folder,
+        fname_extension="txt",
+        verbose=True,
+        pixel_length=(1.5 * 115.4) / 1024,
+        imgname_position=1,
+    )
+    I = 6
+
+    # %%
+    loar = list2Darrays(arrays=list(Z.imgs))
+    loar.shapes
+    # Z.imgs.tolist()
