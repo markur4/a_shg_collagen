@@ -231,7 +231,7 @@ class Collection(CollectionMeta):
             if i >= len(self.imgs):
                 break
             # > get correct index if sliced
-            _i = self._slice_indices[i] if self._slice else i
+            _i = self._slice_indices[i] if self._sliced else i
             # > retrieve image
             img: mdarray = _imgs[i]
             # > ax title
@@ -247,8 +247,10 @@ class Collection(CollectionMeta):
 
         ### Fig title
         _fig_tit = f"{self.path_short}\n - {T} Total images"
-        if self._slice:
-            _fig_tit += f"; Sliced to {len(_imgs)} image(s) (i=[{self._slice}])"
+        if self._sliced:
+            _fig_tit += (
+                f"; Sliced to {len(_imgs)} image(s) (i=[{self._sliced}])"
+            )
         imageplots.figtitle_to_plot(_fig_tit, fig=fig, axes=axes)
 
         plt.tight_layout()
@@ -296,7 +298,11 @@ if __name__ == "__main__":
     )
     I = 6
     # %%
-    Z.imgs[0]
+    print(type(Z.imgs))
+    print(Z.imgs.shape)
+    print(Z.imgs[0])
+    print(type(Z.imgs[0]))
+
     # %%
     Z.mip()
 
@@ -304,7 +310,7 @@ if __name__ == "__main__":
     Z.mip(axis=1)
 
     # %%
-    Z.imshow()
+    Z[0:20:3].imshow()
 
 
 # %%
@@ -334,10 +340,13 @@ def _test_import_from_types(Z, I=6):
 
     print("IMPORT FROM SELF:")
     Z4 = Collection(data=Z, **kws)
+    Z4[I].imshow()
+    pprint(Z4.metadata, compact=True)
 
     print("IMPORT FROM SELF (as *arg):")
     Z5 = Collection(Z, **kws)
     Z5[I].imshow()
+    pprint(Z5.metadata, compact=True)
 
 
 if __name__ == "__main__":
@@ -368,4 +377,4 @@ def _test_imshow_method(Z):
 
 if __name__ == "__main__":
     pass
-    # _test_imshow_method(Z)
+    _test_imshow_method(Z)

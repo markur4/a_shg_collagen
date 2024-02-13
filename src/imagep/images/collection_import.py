@@ -14,7 +14,7 @@ import imagep._configs.rc as rc
 import imagep._utils.types as T
 import imagep.images.importtools as importtools
 from imagep.images.mdarray import mdarray
-from imagep.images.list_of_arrays import list2Darrays
+from imagep.images.list2Darrays import list2Darrays
 
 if TYPE_CHECKING:
     import imagep as ip
@@ -64,7 +64,7 @@ class CollectionImport:
 
         ### Slicing
         # > Remember if this object has been sliced
-        self._slice: bool | str = False
+        self._sliced: bool | str = False
         self._shape_original: tuple[int | set] = self.imgs.shape
         self._slice_indices: list[int] = list(range(self._shape_original[0]))
 
@@ -108,14 +108,12 @@ class CollectionImport:
 
     def _check_data_type(
         self,
-        data: (
-            str | Path | list[str | Path] | np.ndarray | list[np.ndarray] | Self
-        ),
+        data: T.source_of_imgs,
     ) -> None:
         """Check if data is a valid image source"""
-        types = (str, Path, list, np.ndarray)
+        types = (str, Path, list, T.array, list2Darrays)
         m = (
-            " Either (list of) path, (list of) array or an instance of Imgs"
+            " Either (list of) path, (list of) array or self"
             + " must be given."
         )
         if data is None:
@@ -291,25 +289,23 @@ class CollectionImport:
                 indices = val
         elif isinstance(self.imgs, list2Darrays):
             # > Let the ListOfArrays handle the slicing
-            imgs_sliced: T.array | list2Darrays = self.imgs[val]
             # > Re-initialize as ListOfArrays to preserve the type
-            _self.imgs = 0
+            imgs: T.array | list2Darrays = self.imgs[val]
+            _self.imgs = list2Darrays(arrays=imgs)
             # > Z[0] or Z[1,2,5] or Z[[1,2,5]]
-            if isinstance(val, (int, list, tuple)):
+            if isinstance(val, int):
                 indices = [val]
+            elif isinstance(val, (list, tuple)):
+                indices = val
             # > Z[1:3]
             elif isinstance(val, slice):
-                # _self.imgs = self.imgs[val]
                 indices = range(*val.indices(len(self.imgs)))
             # > Z[1,2,5]
-            # elif isinstance(val, (list, tuple)):
-            #     _self.imgs = [self.imgs[v] for v in val]
-            #     indices = val
         else:
             raise ValueError(f"Unknown type of imgs: {type(self.imgs)}")
 
         ### Remember how this object was sliced
-        _self._slice = str(val)
+        _self._sliced = str(val)
         _self._slice_indices = indices
 
         return _self

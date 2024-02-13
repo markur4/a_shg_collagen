@@ -12,7 +12,7 @@ import matplotlib as mpl
 import numpy as np
 
 # > local imports
-import imagep._configs.logging as log
+import imagep._configs.loggers as log
 import imagep._utils.utils as ut
 
 
@@ -20,7 +20,7 @@ import imagep._utils.utils as ut
 # default every time it's imported. Store it in a dictionary
 
 # == Configure logger ==================================================
-log.configure_logger()
+# log.configure()
 
 #
 # == Img Properties ====================================================

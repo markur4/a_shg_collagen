@@ -4,7 +4,7 @@ import numpy as np
 
 # > Locals
 import imagep._utils.types as T
-from imagep.images.list_of_arrays import list2Darrays
+from imagep.images.list2Darrays import list2Darrays
 
 
 # %%
@@ -345,7 +345,12 @@ def _test_list2Darrays_methods(
     except ValueError as e:
         if not homo_shape:
             print("  Correct Error when trying to make an inhomogenous array")
-            print(" ", e)
+            print(" ", e, "\n")
+
+    # > Test min max
+    print("> loa.min, loa.max")
+    loa.min(), loa.max()
+    print()
 
     print("\n DONE \n\n")
 
@@ -376,8 +381,18 @@ if __name__ == "__main__":
         homo_dtypes,
     )
 
+    ### EXECUTE
     for loa, h_shape, h_dtype in args:
         _test_list2Darrays_methods(loa, h_shape, h_dtype)
+
+        # %%
+        print(loa_hetero_total.shapes)
+        print(loa_hetero_total.shapes[2])
+        print(loa_hetero_total.shape)
+        # %%
+        print(loa_hetero_total.dtypes)
+        print(loa_hetero_total.dtype)
+
 
 ### Test as part of Collection
 # %%
@@ -396,5 +411,9 @@ if __name__ == "__main__":
 
     # %%
     loar = list2Darrays(arrays=list(Z.imgs))
-    loar.shapes
+    print(loar.shapes)
+    print(loar.shapes[2])
+    print(loar.shape)
+
+    # %%
     # Z.imgs.tolist()

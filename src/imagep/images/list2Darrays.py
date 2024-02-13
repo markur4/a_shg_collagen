@@ -7,17 +7,21 @@ the outermost dimension of the image stacks with a dynamic list.
 from typing import Self, Type
 import copy
 
-import logging
+# from collections import defaultdict
 
 import numpy as np
 
-import warnings
+# import logging
+
+# import warnings
 
 # > Local
+import imagep._configs.loggers as loggers
 import imagep._utils.types as T
 from imagep.images.mdarray import mdarray
 
 
+# %%
 #
 # ======================================================================
 # == Class List Of 2D arrays ===========================================
@@ -37,13 +41,11 @@ class list2Darrays:
         ### Set to list of 2D arrays if not already
         self.arrays: list[T.array] = self._outerdim_to_list(arrays)
 
-        self._logger = logging.getLogger(__name__)
-
     #
     # == Shape =========================================================
 
     @staticmethod
-    def _outerdim_to_list(input: T.array | list[T.array]) -> list[T.array]:
+    def _outerdim_to_list(input: T.array | list[T.array] | Self) -> list[T.array]:
         """Converts input into a list of 2D arrays
         - If a single 2D array is passed, it's wrapped in a list
         - If a list of 2D arrays is passed, it's returned as is
@@ -52,8 +54,9 @@ class list2Darrays:
         - if a 1D or 4D array o is passed, a ValueError is raised
         - if a list of 1D or 3D arrays is passed, a ValueError is raised
         """
-
-        if isinstance(input, list):
+        if isinstance(input, list2Darrays):
+            return input.arrays
+        elif isinstance(input, list):
             if isinstance(input[0], T.array):
                 if input[0].ndim == 2:
                     return input
@@ -81,6 +84,10 @@ class list2Darrays:
             )
 
     @property
+    def homogenous(self):
+        return len(self.shapes[1]) == 1 or len(self.shapes[2]) == 1
+
+    @property
     def shapes(self):
         """Returns (z, {y}, {x}), with x and y sets of all widths and
         heights occurring in the data"""
@@ -93,14 +100,18 @@ class list2Darrays:
         """Pops a shape from a random picture from the arrays
         and warns the user if there are multiple ones"""
 
-        ### Warn if more than one shape
-        if len(self.shapes[1]) > 1 or len(self.shapes[2]) > 1:
-            warnings.warn(
-                f"List contains {self.shapes[1]} different shapes,"
+        if not self.homogenous:  # and self._warnagain["shape"]:
+            # self._logger.warning(
+            loggers.DEBUG_LOGGER.warning(
+                # ALL_LOGGER.warning(
+                f"List contains {len(self.shapes[2])} different shapes,"
                 " retrieving the shape of the first image",
-                stacklevel=99,
+                # stacklevel=99,
             )
+            # self._warnagain["shape"] = False
+
         shapes = [img.shape for img in self.arrays]
+
         return (len(self.arrays), *shapes[0])
 
     def __len__(self):
@@ -202,14 +213,19 @@ class list2Darrays:
 
         get_bytes = lambda x: np.dtype(x).itemsize  # > x = np.float64
         max_dtype = max(self.dtypes, key=get_bytes)
-        if len(self.dtypes) > 1:
-            self._logger.warning(
+
+        if len(self.dtypes) > 1:  # and self._warnagain["dtype"]:
+            # self._logger.warning(
+            loggers.DEBUG_LOGGER.warning(
+                # ALL_LOGGER.warning(
                 f"List contains {len(self.dtypes)} different dtypes,"
                 f" retrieving the dtype with largest bitdepth: {max_dtype}."
-                " To remove this warning, homogenize the arrays"
-                " using .astype()",
-                stacklevel=99,
+                " (To remove this warning, homogenize the arrays"
+                " using .astype())",
+                # stacklevel=99,
             )
+            # self._warnagain["dtype"] = False
+
         return max_dtype
 
     #
@@ -224,7 +240,7 @@ class list2Darrays:
         - Metadata gets lost
         - Inhomogenous dtypes are converted into the largest dtype
         """
-        if len(self.shapes[1]) != 1 and len(self.shapes[2]) != 1:
+        if not self.homogenous:
             raise ValueError(
                 f"Can't convert list of inhomogenous arrays into an array [(z,y,x) = {self.shapes}]"
             )
@@ -236,10 +252,17 @@ class list2Darrays:
     # == Statistics ====================================================
 
     def max(self, **kws):
-        return self.asarray.max(**kws)
+        if self.homogenous:
+            return self.asarray().max(**kws)
+        else:
+            return max([img.max(**kws) for img in self.arrays])
+
 
     def min(self, **kws):
-        return self.asarray.min(**kws)
+        if self.homogenous:
+            return self.asarray().min(**kws)
+        else:
+            return min([img.min(**kws) for img in self.arrays])
 
     #
     # !! == End  Class =================================================
@@ -261,6 +284,17 @@ if __name__ == "__main__":
     I = 6
 
     # %%
-    loar = list2Darrays(arrays=list(Z.imgs))
-    loar.shapes
+    loa = list2Darrays(arrays=list(Z.imgs))
+    loa.shapes
     # Z.imgs.tolist()
+
+    # %%
+    loa_hetero = list2Darrays(
+        arrays=[
+            np.ones((10, 10), dtype=np.uint8),
+            np.ones((20, 20), dtype=np.float64),
+            np.ones((30, 30), dtype=np.float16),
+        ],
+    )
+    print(loa_hetero.dtype)
+    print(loa_hetero.shape)

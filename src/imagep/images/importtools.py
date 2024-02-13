@@ -21,7 +21,7 @@ import imagep._utils.utils as ut
 import imagep._configs.rc as rc
 from imagep._plots.imageplots import imshow
 from imagep.images.mdarray import mdarray
-from imagep.images.list_of_arrays import list2Darrays
+from imagep.images.list2Darrays import list2Darrays
 
 
 #
@@ -154,7 +154,7 @@ def _order_imgpaths(
     # > sort txts by number
     if sort:
         imgpaths = sorted(imgpaths, key=_get_sortkey(imgname_position))
-
+        
     ### Invert if the first image is the bottom one
     if invertorder:
         imgpaths = imgpaths[::-1]
@@ -180,8 +180,10 @@ def _get_sortkey(imgkey_position: int = 0) -> Callable:
 def _split_fname(path: str | Path) -> str:
     fname = Path(path).stem
     pattern = "|".join([" ", "_"])  # > Split at these characters
-    return re.split(pattern, fname)
-
+    split = re.split(pattern, fname)
+    # > Convert to int if possible to sort by number
+    split = [int(s) if s.isdigit() else s for s in split]
+    return split
 
 
 
@@ -212,6 +214,9 @@ def _pick_func_from_extension(fname_extension: str) -> Callable:
         raise ValueError(f"fname_extension '{fname_extension}' not supported.")
 
 
+
+
+
 # %%
 # == Import from txt ===================================================
 def _array_from_txtfile(
@@ -239,6 +244,7 @@ def _array_from_txtfile(
 
 
 if __name__ == "__main__":
+    import skimage as ski
     t = np.float32
     # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_6.txt"
     # img = from_txt(path, type=t)
@@ -249,13 +255,13 @@ if __name__ == "__main__":
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_7.txt"
     img = _array_from_txtfile(path, dtype=t)
     print(img.min(), img.max())
-    plt.imshow(img)
+    # plt.imshow(img)
 
     # %%
     ### Find smallest difference
     img_diff = ski.filters.sobel(img)
     print(img_diff.min(), img_diff.max())
-    plt.imshow(img_diff)
+    # plt.imshow(img_diff)
 
 
 # %%
@@ -274,5 +280,20 @@ if __name__ == "__main__":
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/240201 Imunocyto/Exp. 1/Dmp1/D0 LTMC DAPI 40x.tif"
     img = _array_from_imgfile(path, dtype=np.float32)
     print(img.min(), img.max())
-    imshow(img)
-    imshow(img, cmap="gray")
+    # imshow(img)
+    # imshow(img, cmap="gray")
+
+
+# %%
+# !! ==  tests =========================================================
+
+if __name__ == "__main__":
+    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough"
+    imgkeys, imgs = arrays_from_folder(
+        folder=Path(path),
+        fname_extension=".txt",
+        sort=True,
+        imgname_position=1,
+    )
+    print(imgkeys)
+    print(imgs[0].shape)

@@ -51,27 +51,27 @@ from imagep.processing.background import Background
 
 
 # %%
-### Config for preprocessing
-class PreProcessKWS(TypedDict):
-    denoise: bool
-    normalize: bool
-    subtract_bg: bool
-    subtract_bg_kws: dict
-    remove_empty_slices: bool
+# ### Config for preprocessing
+# class PreProcessKWS(TypedDict):
+#     denoise: bool
+#     normalize: bool
+#     subtract_bg: bool
+#     subtract_bg_kws: dict
+#     remove_empty_slices: bool
 
 
-if __name__ == "__main__":
-    config = PreProcessKWS(
-        denoise=True,
-        normalize=True,
-        subtract_bg=True,
-        subtract_bg_kws=dict(
-            method="triangle",
-            sigma=1.5,
-        ),
-        remove_empty_slices=True,
-    )
-    print(config.denoise)
+# if __name__ == "__main__":
+#     config = PreProcessKWS(
+#         denoise=True,
+#         normalize=True,
+#         subtract_bg=True,
+#         subtract_bg_kws=dict(
+#             method="triangle",
+#             sigma=1.5,
+#         ),
+#         remove_empty_slices=True,
+#     )
+#     print(config.denoise)
 
 
 # %%
@@ -367,7 +367,7 @@ if __name__ == "__main__":
     # > z_dist = n_imgs * stepsize = 10 * 0.250 µm
     kws = dict(
         # z_dist=10 * 0.250,
-        x_µm=(1.5 * 115.4),
+        pixel_length=(1.5 * 115.4)/1024,
     )
     # > Detailed
     # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
@@ -379,20 +379,28 @@ if __name__ == "__main__":
     I = 17
     Z = PreProcess(
         data=path,
+        fname_extension=".txt",
+        imgname_position=1,
         denoise=True,
         subtract_bg=True,
         subtract_bg_kws=dict(
             method="triangle",
             sigma=1.5,
-            bg_per_img=True,
+            per_img=True,
         ),
-        scalebar_microns=50,
+        scalebar_length=50,
         snapshot_index=I,
         **kws,
     )
+    # %%
     print(Z.imgs.shape)
     print(Z._shape_original)
-
+    print(type(Z.imgs))
+    print(type(Z.imgs[0]))
+    # print(Z.info)
+    
+    # %%
+    Z[I].imshow()
     # plt.imshow(zstack.stack[0])
 
     # %%
