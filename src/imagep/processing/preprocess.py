@@ -34,22 +34,6 @@ from imagep.processing.pipeline import Pipeline
 from imagep.processing.background import Background
 
 
-# # %%
-# # == Cache ===========================================================
-
-# ### Location
-# location = os.path.join(os.path.expanduser("~"), ".cache")
-
-# ### Subcache
-# CACHE_PREPROCESS = SubCache(
-#     location=location,
-#     subcache_dir="preprocess",
-#     verbose=True,
-#     compress=9,
-#     bytes_limit="3G",  # > 3GB of cache, keeps only the most recent files
-# )
-
-
 # %%
 # ### Config for preprocessing
 # class PreProcessKWS(TypedDict):
@@ -367,7 +351,7 @@ if __name__ == "__main__":
     # > z_dist = n_imgs * stepsize = 10 * 0.250 µm
     kws = dict(
         # z_dist=10 * 0.250,
-        pixel_length=(1.5 * 115.4)/1024,
+        pixel_length=(1.5 * 115.4) / 1024,
     )
     # > Detailed
     # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
@@ -398,7 +382,7 @@ if __name__ == "__main__":
     print(type(Z.imgs))
     print(type(Z.imgs[0]))
     # print(Z.info)
-    
+
     # %%
     Z[I].imshow()
     # plt.imshow(zstack.stack[0])

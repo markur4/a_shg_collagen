@@ -52,15 +52,17 @@ LOGGING_CONFIG = dict(
         "short": {
             "()": logging.Formatter,
             "format": (
-                "%(levelname)-9s %(module)s %(funcName)s (l:%(lineno)d):"
-                "\n   %(message)s"
+                "%(levelname)s"
+                " [%(module)s|%(funcName)s]"
+                # " (l:%(lineno)d):"
+                ": %(message)s"
             ),
         },
         "long": {
             "()": logging.Formatter,
             "format": (
                 "[ %(name)-13s: %(levelname)-8s %(asctime)44s ]"
-                "\n[ %(module)-32s | %(funcName)-24s | l:%(lineno)4d ]"
+                "\n[ %(module)-27s | %(funcName)-29s | l:%(lineno)4d ]"
                 + "\n%(message)s\n"
             ),
             "datefmt": "%Y-%m-%d %H:%M:%S %Z",
@@ -69,7 +71,7 @@ LOGGING_CONFIG = dict(
             "()": logging.Formatter,
             "format": (
                 "[ %(asctime)-68s ]"
-                + "\n[ %(module)-32s | %(funcName)-33s ]"
+                + "\n[ %(module)-27s | %(funcName)-29s ]"
                 + wrap_lines("\n%(message)s\n")
             ),
             "datefmt": "%Y-%m-%d %H:%M:%S %Z",
@@ -86,8 +88,8 @@ LOGGING_CONFIG = dict(
         },
         "stderr": {
             "class": "logging.StreamHandler",
-            # "level": "ERROR",
-            "level": "WARNING",  # > Warnings and errors are displayed
+            "level": "ERROR",
+            # "level": "WARNING",  # !! Causes duplicate messages
             "formatter": "short",
             "stream": "ext://sys.stderr",
         },
@@ -126,7 +128,7 @@ LOGGING_CONFIG = dict(
         "debuglogger": {
             "level": "DEBUG",
             "handlers": [
-                # "stdout", # !! Causes duplicate messages in Jupyter
+                "stdout", 
                 "stderr",
                 "debugfile",
             ],

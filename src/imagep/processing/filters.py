@@ -8,6 +8,8 @@ import skimage as ski
 
 # > Local
 import imagep._utils.utils as ut
+from imagep.images.mdarray import mdarray
+from imagep.images.list2Darrays import list2Darrays
 
 
 # %%
@@ -17,10 +19,26 @@ if __name__ == "__main__":
     from imagep._plots.imageplots import imshow
 
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-    Z = Collection(path=path, verbose=True, x_µm=1.5 * 115.4)
+    Z = Collection(
+        data=path,
+        verbose=True,
+        fname_extension="txt",
+        imgname_position=1,
+        pixel_length=(1.5 * 115.4) / 1024,
+    )
+    #> Check type
+    print(type(Z.imgs))
+    print(type(Z.imgs[0]))
     # > quick normalization
-    Z.imgs = Z.imgs / Z.imgs.max()
-
+    # Z.imgs = Z.imgs / Z.imgs.max()
+    Z.imgs = Z.imgs / Z.imgs
+    
+    #> Check type
+    print(type(Z.imgs))
+    print(type(Z.imgs[0]))    
+    
+    # %%
+    
     I = 6
     Z.imgs[I + 1] = 0.2  # > Chenge next image to test multidimensional filters
     imshow(Z.imgs[[I, I + 1]])
@@ -49,7 +67,9 @@ def blur(
         _imgs = ski.filters.gaussian(imgs, **kws)
     ### Apply 2D filter, no cross-talk in z-axis
     else:
+        print(type(imgs[0]))
         _imgs = [ski.filters.gaussian(img, **kws) for img in imgs]
+        print(type(_imgs[0]))
         _imgs = np.array(_imgs, dtype=imgs.dtype)
 
     ### The max value is not 1 anymore

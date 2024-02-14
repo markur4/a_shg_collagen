@@ -4,7 +4,10 @@ the outermost dimension of the image stacks with a dynamic list.
 """
 
 # %%
-from typing import Self, Type
+
+import re
+
+from typing import Self, Type, Callable
 import copy
 
 # from collections import defaultdict
@@ -16,6 +19,8 @@ import numpy as np
 # import warnings
 
 # > Local
+import imagep._utils.utils as ut
+import imagep._configs.rc as rc
 import imagep._configs.loggers as loggers
 import imagep._utils.types as T
 from imagep.images.mdarray import mdarray
@@ -42,10 +47,132 @@ class list2Darrays:
         self.arrays: list[T.array] = self._outerdim_to_list(arrays)
 
     #
-    # == Shape =========================================================
+    # == Representation ================================================
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __str__(self) -> str:
+        form = lambda x: ut.format_num(x, rc.FORMAT_EXPONENT)
+
+        def justify_digits(row: str):
+            ### Remove apostrophes '
+            row = str(row).replace("'", "")
+
+            ### Replace "0." with "." from floats
+            row = row.replace("0.", ".")
+            row = row.replace("-0", "-")
+            row = row.replace(",", "")
+
+            ### Justify digits
+            # > Default: e.g. 0-255 (uint8), default
+            rj = 3
+            # > Increase for floats
+            if "." in row:
+                rj = 4
+            # > Increase for small numbers with exponents
+            if re.search(r"\d+e-\d", row):
+                rj = 6
+            # > execute
+            row = row.split(" ")
+            row = [x.rjust(rj) for x in row]
+            row = " ".join(row)
+            return row
+
+        def makerow(row):
+            # > format row
+            row = [form(x) for x in row]
+            maxwidth = 6
+            maxwidth_h = int(round(maxwidth / 2))
+            if len(row) > maxwidth:
+                row1 = str(row[:maxwidth_h])
+                row2 = str(row[-maxwidth_h:])
+                row1 = row1.replace("]", "").replace("[", "")
+                row2 = row2.replace("]", "").replace("[", "")
+                row1 = justify_digits(row1)
+                row2 = justify_digits(row2)
+
+                # > Assemble
+                row = f"[ {row1} ... {row2} ]"
+            else:
+                row = str(row).replace("]", "").replace("[", "")
+                row = justify_digits(row)
+                # > Assemble
+                row = f"[ {row} ]"
+
+            ### If floats, adjust every number to the same length
+            return row
+
+        def finalize_row(img: str, y: int, lj: int):
+            row = f"{T} {makerow(img[y])}".ljust(lj) + f" y={y}"
+            return row
+        
+        ### MAIN
+        def makerows_small():
+            """Returns a list of rows for small images"""
+            rows = [
+                finalize_row(img, y, lj) for y in range(1, TOTALROWS - 1)
+            ]
+            return [head, row1] + rows + [row4]
+        
+        def makerows_big():
+            """Returns a list of rows for BIG images"""
+            # > Thresholds for how many first and last rows to display
+            maxrows1 = int(round(MAXROWS / 2))
+            maxrows2 = TOTALROWS - maxrows1
+            # > First intermediate rows
+            rows2 = [finalize_row(img, y, lj) for y in range(1, maxrows1)]
+            # > Last intermediate rows
+            rows3 = [
+                finalize_row(img, y, lj)
+                for y in range(maxrows2, TOTALROWS - 1)
+            ]
+            # > Dots
+            dot_start1 = len(rows2[0].split("...")[0])
+            dot_start2 = len(rows3[0].split("...")[0])
+            dot_extend_length = abs(dot_start1 - dot_start2)
+            dots = "..." + "." * dot_extend_length
+            dots = dots.rjust(dot_start1 + dot_extend_length + 3)
+
+            return [head, row1] + rows2 + [dots] + rows3 + [row4]
+
+        ### OBJECT HEADER
+        S = f"<class list2Darrays>"
+
+        ### Define tab of every Row
+        T = " " * 4
+
+        ### ARRAY CONTENT
+        for i, img in enumerate(self.arrays):
+            ### Get maxheight
+            TOTALROWS = img.shape[0]
+
+            ### Make head, first, last
+            head = f" #{i}: {img.shape[0]}x{img.shape[1]} (y,x) {img.dtype}:"
+            row1 = f"{T}[{makerow(img[0])}"
+            row4 = f"{T} {makerow(img[-1])}]"
+            # > Add y=0 and y=last
+            lj = max(len(row1), len(row4))
+            head = head.ljust(lj) + f" [y]"
+            row1 = row1.ljust(lj) + f" y=0"
+            row4 = row4.ljust(lj) + f" y={TOTALROWS-1}"
+
+            ### Make inbetween rows
+            MAXROWS = 6  # !! Even Numbers!
+            if TOTALROWS < MAXROWS:
+                rows = makerows_small()
+            else:
+                rows = makerows_big()
+            S += "\n" + "\n".join(rows) + "\n"
+            
+        return S
+
+    #
+    # == Shape Conversion ==============================================
 
     @staticmethod
-    def _outerdim_to_list(input: T.array | list[T.array] | Self) -> list[T.array]:
+    def _outerdim_to_list(
+        input: T.array | list[T.array] | Self,
+    ) -> list[T.array]:
         """Converts input into a list of 2D arrays
         - If a single 2D array is passed, it's wrapped in a list
         - If a list of 2D arrays is passed, it's returned as is
@@ -58,8 +185,13 @@ class list2Darrays:
             return input.arrays
         elif isinstance(input, list):
             if isinstance(input[0], T.array):
+                # > [np.array 2D, np.array 2D, ...]
                 if input[0].ndim == 2:
                     return input
+                # > [np.array 3D]
+                elif input[0].ndim == 3 and len(input) == 1:
+                    return list(input[0])
+                # > [np.array 3D, np.array 3D, ...]
                 else:
                     raise ValueError(
                         f"List must contain 2D arrays, not {input[0].ndim}D arrays"
@@ -69,8 +201,10 @@ class list2Darrays:
                     f"List must contain arrays, not {type(input[0])}"
                 )
         elif isinstance(input, T.array):
+            # > np.array 2D
             if input.ndim == 2:
                 return [input]
+            # > np.array 3D
             elif input.ndim == 3:
                 return list(input)
             else:
@@ -82,6 +216,16 @@ class list2Darrays:
             raise ValueError(
                 f"Must pass a 2D or 3D array or a list of 2D arrays, not '{type(input)}'"
             )
+
+    #
+    # == Shape Properties ==============================================
+
+    def __len__(self):
+        return len(self.arrays)
+
+    @property
+    def ndim(self) -> int:
+        return 3
 
     @property
     def homogenous(self):
@@ -101,21 +245,62 @@ class list2Darrays:
         and warns the user if there are multiple ones"""
 
         if not self.homogenous:  # and self._warnagain["shape"]:
-            # self._logger.warning(
             loggers.DEBUG_LOGGER.warning(
-                # ALL_LOGGER.warning(
                 f"List contains {len(self.shapes[2])} different shapes,"
-                " retrieving the shape of the first image",
-                # stacklevel=99,
+                " retrieving the shape of the first image. Try using"
+                " .shapes to display unique shapes.",
             )
-            # self._warnagain["shape"] = False
 
         shapes = [img.shape for img in self.arrays]
 
         return (len(self.arrays), *shapes[0])
 
-    def __len__(self):
-        return len(self.arrays)
+    #
+    # == dtype =========================================================
+
+    def _warn_dtype_inhomogenous(self, start_msg: str = ""):
+
+        ### Message
+        M = (
+            f"List contains {len(self.dtypes)} different dtypes."
+            f" We use the dtype with largest bitdepth: {self.dtype_maxbits}."
+            " (To remove this warning, homogenize the arrays"
+            " using .astype())"
+        )
+        M = f"{start_msg} " + M if start_msg else M
+
+        ### Log and show warning
+        loggers.DEBUG_LOGGER.warning(
+            M,
+            #  stacklevel=99
+        )
+
+    @property
+    def dtypes(self) -> set[Type]:
+        """Retrieves dtype from one of its elements."""
+        return {img.dtype for img in self.arrays}
+
+    def astype(self, dtype: np.dtype):
+        return list2Darrays(self.arrays, dtype=dtype)
+
+    @property
+    def dtype(self) -> Type:
+        """Retrieves the datatype with biggest bit depth"""
+        if not self.homo_types:
+            self._warn_dtype_inhomogenous("Calling dtype.")
+        return self.dtype_maxbits
+
+    @property
+    def dtype_maxbits(self):
+        get_bytes = lambda x: np.dtype(x).itemsize  # > x = np.float64
+        return max(self.dtypes, key=get_bytes)
+
+    @property
+    def homo_types(self) -> bool:
+        if len(self.dtypes) == 1:
+            return True
+        else:
+            return False
 
     #
     # == Set and Get items =============================================
@@ -197,38 +382,6 @@ class list2Darrays:
             raise ValueError(f"Invalid indexer '{val}'")
 
     #
-    # == dtype =========================================================
-
-    @property
-    def dtypes(self) -> set[Type]:
-        """Retrieves dtype from one of its elements."""
-        return {img.dtype for img in self.arrays}
-
-    def astype(self, dtype: np.dtype):
-        return list2Darrays(self.arrays, dtype=dtype)
-
-    @property
-    def dtype(self) -> Type:
-        """Retrieves the datatype with biggest bit depth"""
-
-        get_bytes = lambda x: np.dtype(x).itemsize  # > x = np.float64
-        max_dtype = max(self.dtypes, key=get_bytes)
-
-        if len(self.dtypes) > 1:  # and self._warnagain["dtype"]:
-            # self._logger.warning(
-            loggers.DEBUG_LOGGER.warning(
-                # ALL_LOGGER.warning(
-                f"List contains {len(self.dtypes)} different dtypes,"
-                f" retrieving the dtype with largest bitdepth: {max_dtype}."
-                " (To remove this warning, homogenize the arrays"
-                " using .astype())",
-                # stacklevel=99,
-            )
-            # self._warnagain["dtype"] = False
-
-        return max_dtype
-
-    #
     # == Copy & Conversions ============================================
 
     def copy(self) -> Self:
@@ -240,6 +393,9 @@ class list2Darrays:
         - Metadata gets lost
         - Inhomogenous dtypes are converted into the largest dtype
         """
+        if not self.homo_types:
+            self._warn_dtype_inhomogenous(start_msg="Using .asarray().")
+
         if not self.homogenous:
             raise ValueError(
                 f"Can't convert list of inhomogenous arrays into an array [(z,y,x) = {self.shapes}]"
@@ -257,12 +413,100 @@ class list2Darrays:
         else:
             return max([img.max(**kws) for img in self.arrays])
 
-
     def min(self, **kws):
         if self.homogenous:
             return self.asarray().min(**kws)
         else:
             return min([img.min(**kws) for img in self.arrays])
+
+    #
+    # == Math Operations ===============================================
+
+    def _math_operation(
+        self,
+        other: int | float | np.dtype | T.array | Self,
+        operation: Callable,
+    ) -> Self:
+
+        ### Check Type
+        isscalar: bool = np.isscalar(other) or isinstance(other, (int, float))
+        if not (isscalar or isinstance(other, (T.array, list2Darrays))):
+            raise TypeError(
+                f"Math operations are possible only with a scalar or a (list of) array(s), not {type(other)}"
+            )
+        # > self + 2
+        elif isscalar:
+            return list2Darrays([operation(img, other) for img in self.arrays])
+        # > or self + np.array (1D or 2D)
+        # > or self + list2Darrays (1D or 2D)
+        elif other.ndim in (1, 2):
+            return list2Darrays([operation(img, other) for img in self.arrays])
+        # > self + np.array (3D)
+        elif other.ndim == 3 and len(other) == len(self.arrays):
+            return list2Darrays(
+                [operation(img, other[i]) for i, img in enumerate(self.arrays)]
+            )
+        else:
+            raise ValueError(
+                f"Can't perform math operations between list2Darray with"
+                f" shapes {self.shapes} with an array of shape {other.shape}"
+            )
+
+    def __add__(self, other):
+        operation = lambda x1, x2: x1 + x2
+        return self._math_operation(other, operation)
+
+    def __sub__(self, other):
+        return list2Darrays([img - other for img in self.arrays])
+
+    def __mul__(self, other):
+        return list2Darrays([img * other for img in self.arrays])
+
+    def __truediv__(self, other: int | float | T.array | Self) -> Self:
+        operation = lambda x1, x2: x1 / x2
+        return self._math_operation(other, operation)
+
+        # if not isinstance(other, (int, float, T.array, list2Darrays)):
+        #     raise ValueError(
+        #         f"Math operations are possible only with a scalar or a (list of) array(s), not {type(other)}"
+        #     )
+        # elif isinstance(other, (int, float)):
+        #     return list2Darrays([img / other for img in self.arrays])
+        # elif other.ndim in (0, 1, 2):
+        #     return list2Darrays([img / other for img in self.arrays])
+        # elif other.ndim == 3 and len(other) == len(self.arrays):
+        #     return list2Darrays(
+        #         [img / other[i] for i, img in enumerate(self.arrays)]
+        #     )
+        # else:
+        #     raise ValueError(
+        #         f"Can't perform math operations between list2Darray with"
+        #         f" shapes {self.shapes} with an array of shape {other.shape}"
+        #     )
+
+    def __floordiv__(self, other):
+        return list2Darrays([img // other for img in self.arrays])
+
+    def __mod__(self, other):
+        return list2Darrays([img % other for img in self.arrays])
+
+    def __pow__(self, other):
+        return list2Darrays([img**other for img in self.arrays])
+
+    def __lshift__(self, other):
+        return list2Darrays([img << other for img in self.arrays])
+
+    def __rshift__(self, other):
+        return list2Darrays([img >> other for img in self.arrays])
+
+    def __and__(self, other):
+        return list2Darrays([img & other for img in self.arrays])
+
+    def __xor__(self, other):
+        return list2Darrays([img ^ other for img in self.arrays])
+
+    def __or__(self, other):
+        return list2Darrays([img | other for img in self.arrays])
 
     #
     # !! == End  Class =================================================
@@ -284,17 +528,35 @@ if __name__ == "__main__":
     I = 6
 
     # %%
-    loa = list2Darrays(arrays=list(Z.imgs))
-    loa.shapes
+    larry = list2Darrays(arrays=list(Z.imgs))
+    larry.shapes
     # Z.imgs.tolist()
 
     # %%
-    loa_hetero = list2Darrays(
+    larry_hetero = list2Darrays(
         arrays=[
+            np.ones((2, 2), dtype=np.uint8),
+            np.ones((2, 2), dtype=np.float16) * 2.5,
+            np.ones((4, 4), dtype=np.float32) * 3.5,
+            np.ones((5, 5), dtype=np.uint8),
             np.ones((10, 10), dtype=np.uint8),
+            np.ones((15, 15), dtype=np.uint8) * 255,
             np.ones((20, 20), dtype=np.float64),
             np.ones((30, 30), dtype=np.float16),
+            np.ones((1024, 1024), dtype=np.float32),
         ],
     )
-    print(loa_hetero.dtype)
-    print(loa_hetero.shape)
+    for z, img in enumerate(larry_hetero):
+        for y in range(img.shape[0]):
+            for x in range(img.shape[1]):
+                img[y, x] = img[y, x] / (x + 1) / (y + 1) * (z + 1)
+
+    print(larry_hetero.dtype)
+    print(larry_hetero.shape)
+
+    # %%
+    ### Test __repr__
+    larry_hetero
+    # %%
+    ###
+    print(larry_hetero)
