@@ -2,6 +2,7 @@
 
 # %%
 from typing import Generator, Callable, TypedDict
+import re
 
 import os
 from pathlib import Path
@@ -11,6 +12,8 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
+# !! no Local imports
+# from imagep._utils.types import mdarray
 # from imagep._rc import _EXPONENT
 
 
@@ -118,15 +121,16 @@ def shortenpath(path: Path | str) -> str:
 # %%
 
 
-def justify_str(string: str, justify=23):
-    return str(string + ": ").ljust(justify).rjust(justify + 2)
+def justify_str(string: str, justify: int = 23, justify_r: int = None):
+    justify_r = justify + 2 if justify_r is None else justify_r
+    return str(string + ": ").ljust(justify).rjust(justify_r)
 
 
 def _test_adjust_margin():
     print(justify_str("long string") + "just=default")
     print(justify_str("very long string") + "just=default")
     print()
-    print(justify_str("module level", justify=_JUSTIFY) + "just=Module Default")
+    print(justify_str("module level", justify=2) + "just=Module Default")
     print()
     s = "stri"
     print()
@@ -216,6 +220,7 @@ def _test_format_num():
 
 if __name__ == "__main__":
     _test_format_num()
+
 
 # %%
 

@@ -24,6 +24,7 @@ import imagep._configs.rc as rc
 import imagep._configs.loggers as loggers
 import imagep._utils.types as T
 from imagep.images.mdarray import mdarray
+from imagep.images.array_to_str import array3D_to_str
 
 
 # %%
@@ -49,122 +50,19 @@ class list2Darrays:
     #
     # == Representation ================================================
     def __repr__(self) -> str:
-        return self.__str__()
+        return self._array_str(maximages=4)
 
     def __str__(self) -> str:
-        form = lambda x: ut.format_num(x, rc.FORMAT_EXPONENT)
+        return self._array_str()
 
-        def justify_digits(row: str):
-            ### Remove apostrophes '
-            row = str(row).replace("'", "")
+    def _array_str(self, maximages: int = None) -> str:
+        """Returns a string representation of the object"""
 
-            ### Replace "0." with "." from floats
-            row = row.replace("0.", ".")
-            row = row.replace("-0", "-")
-            row = row.replace(",", "")
+        rows = array3D_to_str(self.arrays, maximages=maximages).split("\n")
 
-            ### Justify digits
-            # > Default: e.g. 0-255 (uint8), default
-            rj = 3
-            # > Increase for floats
-            if "." in row:
-                rj = 4
-            # > Increase for small numbers with exponents
-            if re.search(r"\d+e-\d", row):
-                rj = 6
-            # > execute
-            row = row.split(" ")
-            row = [x.rjust(rj) for x in row]
-            row = " ".join(row)
-            return row
+        rows[0] = f"<class list2Darrays> with {len(self.arrays)} images:"
 
-        def makerow(row):
-            # > format row
-            row = [form(x) for x in row]
-            maxwidth = 6
-            maxwidth_h = int(round(maxwidth / 2))
-            if len(row) > maxwidth:
-                row1 = str(row[:maxwidth_h])
-                row2 = str(row[-maxwidth_h:])
-                row1 = row1.replace("]", "").replace("[", "")
-                row2 = row2.replace("]", "").replace("[", "")
-                row1 = justify_digits(row1)
-                row2 = justify_digits(row2)
-
-                # > Assemble
-                row = f"[ {row1} ... {row2} ]"
-            else:
-                row = str(row).replace("]", "").replace("[", "")
-                row = justify_digits(row)
-                # > Assemble
-                row = f"[ {row} ]"
-
-            ### If floats, adjust every number to the same length
-            return row
-
-        def finalize_row(img: str, y: int, lj: int):
-            row = f"{T} {makerow(img[y])}".ljust(lj) + f" y={y}"
-            return row
-        
-        ### MAIN
-        def makerows_small():
-            """Returns a list of rows for small images"""
-            rows = [
-                finalize_row(img, y, lj) for y in range(1, TOTALROWS - 1)
-            ]
-            return [head, row1] + rows + [row4]
-        
-        def makerows_big():
-            """Returns a list of rows for BIG images"""
-            # > Thresholds for how many first and last rows to display
-            maxrows1 = int(round(MAXROWS / 2))
-            maxrows2 = TOTALROWS - maxrows1
-            # > First intermediate rows
-            rows2 = [finalize_row(img, y, lj) for y in range(1, maxrows1)]
-            # > Last intermediate rows
-            rows3 = [
-                finalize_row(img, y, lj)
-                for y in range(maxrows2, TOTALROWS - 1)
-            ]
-            # > Dots
-            dot_start1 = len(rows2[0].split("...")[0])
-            dot_start2 = len(rows3[0].split("...")[0])
-            dot_extend_length = abs(dot_start1 - dot_start2)
-            dots = "..." + "." * dot_extend_length
-            dots = dots.rjust(dot_start1 + dot_extend_length + 3)
-
-            return [head, row1] + rows2 + [dots] + rows3 + [row4]
-
-        ### OBJECT HEADER
-        S = f"<class list2Darrays>"
-
-        ### Define tab of every Row
-        T = " " * 4
-
-        ### ARRAY CONTENT
-        for i, img in enumerate(self.arrays):
-            ### Get maxheight
-            TOTALROWS = img.shape[0]
-
-            ### Make head, first, last
-            head = f" #{i}: {img.shape[0]}x{img.shape[1]} (y,x) {img.dtype}:"
-            row1 = f"{T}[{makerow(img[0])}"
-            row4 = f"{T} {makerow(img[-1])}]"
-            # > Add y=0 and y=last
-            lj = max(len(row1), len(row4))
-            head = head.ljust(lj) + f" [y]"
-            row1 = row1.ljust(lj) + f" y=0"
-            row4 = row4.ljust(lj) + f" y={TOTALROWS-1}"
-
-            ### Make inbetween rows
-            MAXROWS = 6  # !! Even Numbers!
-            if TOTALROWS < MAXROWS:
-                rows = makerows_small()
-            else:
-                rows = makerows_big()
-            S += "\n" + "\n".join(rows) + "\n"
-            
-        return S
+        return "\n".join(rows)
 
     #
     # == Shape Conversion ==============================================
@@ -390,7 +288,7 @@ class list2Darrays:
 
     def asarray(self, dtype=None):
         """Returns a 3D numpy array. This has these consequences:
-        - Metadata gets lost
+        - !!! Metadata gets lost
         - Inhomogenous dtypes are converted into the largest dtype
         """
         if not self.homo_types:
@@ -402,7 +300,12 @@ class list2Darrays:
             )
         dtype = self.dtype if dtype is None else dtype
 
+        # if as_numpy:
+        # !! returning as mdarray does NOT preserve metadata, too!
         return np.array(self.arrays, dtype=dtype)
+        # else:
+        #     # !! Return as a 3D mdarray
+        #     return mdarray(self.arrays, dtype=dtype)
 
     #
     # == Statistics ====================================================
@@ -457,56 +360,50 @@ class list2Darrays:
         return self._math_operation(other, operation)
 
     def __sub__(self, other):
-        return list2Darrays([img - other for img in self.arrays])
+        operation = lambda x1, x2: x1 - x2
+        return self._math_operation(other, operation)
 
     def __mul__(self, other):
-        return list2Darrays([img * other for img in self.arrays])
+        operation = lambda x1, x2: x1 * x2
+        return self._math_operation(other, operation)
 
-    def __truediv__(self, other: int | float | T.array | Self) -> Self:
+    def __truediv__(self, other):
+        # if other == 0:
+        #     raise ZeroDivisionError("Can't divide by zero")
         operation = lambda x1, x2: x1 / x2
         return self._math_operation(other, operation)
 
-        # if not isinstance(other, (int, float, T.array, list2Darrays)):
-        #     raise ValueError(
-        #         f"Math operations are possible only with a scalar or a (list of) array(s), not {type(other)}"
-        #     )
-        # elif isinstance(other, (int, float)):
-        #     return list2Darrays([img / other for img in self.arrays])
-        # elif other.ndim in (0, 1, 2):
-        #     return list2Darrays([img / other for img in self.arrays])
-        # elif other.ndim == 3 and len(other) == len(self.arrays):
-        #     return list2Darrays(
-        #         [img / other[i] for i, img in enumerate(self.arrays)]
-        #     )
-        # else:
-        #     raise ValueError(
-        #         f"Can't perform math operations between list2Darray with"
-        #         f" shapes {self.shapes} with an array of shape {other.shape}"
-        #     )
-
     def __floordiv__(self, other):
-        return list2Darrays([img // other for img in self.arrays])
+        operation = lambda x1, x2: x1 // x2
+        return self._math_operation(other, operation)
 
     def __mod__(self, other):
-        return list2Darrays([img % other for img in self.arrays])
+        operation = lambda x1, x2: x1 % x2
+        return self._math_operation(other, operation)
 
     def __pow__(self, other):
-        return list2Darrays([img**other for img in self.arrays])
+        operation = lambda x1, x2: x1**x2
+        return self._math_operation(other, operation)
 
-    def __lshift__(self, other):
-        return list2Darrays([img << other for img in self.arrays])
+    # def __lshift__(self, other):
+    #     operation = lambda x1, x2: x1 << x2
+    #     return self._math_operation(other, operation)
 
-    def __rshift__(self, other):
-        return list2Darrays([img >> other for img in self.arrays])
+    # def __rshift__(self, other):
+    #     operation = lambda x1, x2: x1 >> x2
+    #     return self._math_operation(other, operation)
 
-    def __and__(self, other):
-        return list2Darrays([img & other for img in self.arrays])
+    # def __and__(self, other):
+    #     operation = lambda x1, x2: x1 & x2
+    #     return self._math_operation(other, operation)
 
-    def __xor__(self, other):
-        return list2Darrays([img ^ other for img in self.arrays])
+    # def __xor__(self, other):
+    #     operation = lambda x1, x2: x1 ^ x2
+    #     return self._math_operation(other, operation)
 
-    def __or__(self, other):
-        return list2Darrays([img | other for img in self.arrays])
+    # def __or__(self, other):
+    #     operation = lambda x1, x2: x1 | x2
+    #     return self._math_operation(other, operation)
 
     #
     # !! == End  Class =================================================
@@ -546,17 +443,36 @@ if __name__ == "__main__":
             np.ones((1024, 1024), dtype=np.float32),
         ],
     )
+    ### Make numbers heterogenous
     for z, img in enumerate(larry_hetero):
         for y in range(img.shape[0]):
             for x in range(img.shape[1]):
                 img[y, x] = img[y, x] / (x + 1) / (y + 1) * (z + 1)
 
+    # %%
+    ### Test __repr__  for numpy array
+    larry_hetero
+
+    # %%
+    ### Add metadata
+    for z, img in enumerate(larry_hetero):
+        larry_hetero[z] = mdarray(
+            img,
+            # pixel_length=20,
+            name=f"testImage {z}",
+        )
+
+    # %%
     print(larry_hetero.dtype)
     print(larry_hetero.shape)
 
     # %%
-    ### Test __repr__
+    ### Test __repr__  for mdarray
     larry_hetero
     # %%
-    ###
+    ### Test print()
     print(larry_hetero)
+
+    # %%
+    ### Get full info
+    larry_hetero._array_str()

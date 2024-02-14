@@ -3,13 +3,14 @@ image information"""
 
 # %%
 ### imports
+import re
 from pathlib import Path
-
 import numpy as np
 
 # > Local
 import imagep._utils.utils as ut
 import imagep._configs.rc as rc
+from imagep.images.array_to_str import array2D_to_str, array3D_to_str
 
 # from imagep.images.imgs_import import ImgsImport
 
@@ -25,6 +26,9 @@ class mdarray(np.ndarray):
     - Folder where the image is stored, preferrably a short path
       containing experimental parameters
     - etc.
+
+    Take care:
+    - Only compatible with shapes (x, y) and (z, x, y)
     """
 
     def __new__(
@@ -34,13 +38,14 @@ class mdarray(np.ndarray):
         folder: str | Path = "unknown folder",
         pixel_length: float = None,
         unit: str = rc.UNIT_LENGTH,
+        **np_kws,
     ):
         """Using __new__ is preferred over __init__ because numpy
         arrays are immutable objects, meaning their attributes cannot be
         modified after creation. It allows you to customize the creation
         of the object before it's initialized.
         """
-        obj = np.asarray(array).view(cls)
+        obj = np.asarray(array, **np_kws).view(cls)
         obj.name = name
         obj.folder = folder
         obj.pixel_length = pixel_length
@@ -72,12 +77,26 @@ class mdarray(np.ndarray):
     #
     # == Information ===================================================
     def __repr__(self) -> str:
-        """Since I don't like that np.ndarray prints out a huge array
-        every time I call it, override that with a more concise version.
-        Retrive only first and last single rows of the array, the dtype,
-        the name and the folder.
-        """
-        return self.info
+        return self._array_str(maximages=3)
+
+    def __str__(self) -> str:
+        return self._array_str()
+
+    def _array_str(self, maximages:int = None) -> str:
+        """Returns a string representation of the array."""
+        if self.ndim == 2:
+            return array2D_to_str(self)
+        elif self.ndim == 3:
+            return array3D_to_str(self, maximages=maximages)
+
+
+    @property
+    def info_short(self) -> str:
+        just = lambda x: ut.justify_str(x, justify=8)
+        info = [
+            just("Name") + f"'{self.name}' from '{self.folder}'",
+        ]
+        return "\n".join(info)
 
     @property
     def info(self) -> str:
@@ -162,6 +181,15 @@ def _test_img(img: mdarray):
         "",
         "img.info",
         img.info,
+        "",
+        "img.info_short",
+        img.info_short,
+        "",
+        "img.metadata",
+        img.metadata,
+        "",
+        "img._array_str()",
+        img._array_str(),
     ]
 
     for ins in instructions:
@@ -181,5 +209,59 @@ if __name__ == "__main__":
     _test_img(img)
 
     # %%
-    ### Test if array is returned when referencing the image
+    ### Test __repr__
     img
+
+    # %%
+    ### Test print()
+    print(img)
+
+    # %%
+    ### Test string (unreadable)
+    img._array_str()
+
+    # %%
+    ### Test string representation
+    arrays = [
+        np.ones((2, 2), dtype=np.uint8),
+        np.ones((2, 2), dtype=np.float16) * 2.5,
+        np.ones((4, 4), dtype=np.float32) * 3.5,
+        np.ones((5, 5), dtype=np.uint8),
+        np.ones((10, 10), dtype=np.uint8),
+        np.ones((15, 15), dtype=np.uint8) * 255,
+        np.ones((20, 20), dtype=np.float64),
+        np.ones((30, 30), dtype=np.float16),
+        np.ones((1024, 1024), dtype=np.float32),
+    ]
+
+    ### Make numbers heterogenous
+    for z, img in enumerate(arrays):
+        for y in range(img.shape[0]):
+            for x in range(img.shape[1]):
+                img[y, x] = img[y, x] / (x + 1) / (y + 1) * (z + 1)
+
+    ### Add metadata
+    for z, img in enumerate(arrays):
+        arrays[z] = mdarray(img, pixel_length=20, name=f"testImage {z}")
+
+    ### Print strings
+    for img in arrays:
+        print(img)
+    # %%
+    ### Convert to 3D array
+    arrays_homo = [
+        np.ones((5,5), dtype = np.uint8),
+        np.ones((5,5), dtype= np.float16),
+    ]
+    ### Add metadata
+    a3D = mdarray(arrays_homo)
+
+    for z, img in enumerate(a3D):
+        a3D[z].name = f"testImage {z}"
+        a3D[z].pixel_length = 20
+
+    # !!
+    print(a3D.dtype)
+    print(a3D.shape)
+    print(a3D.name)
+    print(a3D[0].name)

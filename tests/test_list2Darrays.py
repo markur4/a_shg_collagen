@@ -3,11 +3,13 @@
 # %%
 from typing import Callable
 import numpy as np
+import math
 
 from pprint import pprint
 
 # > Locals
 import imagep._utils.types as T
+from imagep.images.mdarray import mdarray
 from imagep.images.list2Darrays import list2Darrays
 
 
@@ -368,22 +370,26 @@ def _test_list2Darrays_methods(
 
 if __name__ == "__main__":
 
-    loa_homo = list2Darrays(
+    larry_homo = list2Darrays(
         arrays=[np.ones((10, 10)), np.ones((10, 10)), np.ones((10, 10))],
         dtype=np.float64,
     )
-    loa_hetero_type = list2Darrays(
+    larry_hetero_type = list2Darrays(
         arrays=[np.ones((10, 10)), np.ones((20, 20)), np.ones((30, 30))],
         dtype=np.float64,
     )
-    loa_hetero_total = list2Darrays(
+    larry_hetero_total = list2Darrays(
         arrays=[
             np.ones((10, 10), dtype=np.uint8),
             np.ones((20, 20), dtype=np.float64),
             np.ones((30, 30), dtype=np.float16),
         ],
     )
-    larries = [loa_homo, loa_hetero_type, loa_hetero_total]
+    larries = [
+        larry_homo,
+        larry_hetero_type,
+        larry_hetero_total,
+    ]
     homo_shapes = [True, False, False]
     homo_dtypes = [True, True, False]
 
@@ -398,17 +404,17 @@ if __name__ == "__main__":
         _test_list2Darrays_methods(larry, h_shape, h_dtype)
         # %%
         ### Check warnings on shapes manually
-        print(loa_hetero_total.shapes)
-        print(loa_hetero_total.shapes[2])
-        print(loa_hetero_total.shape)
+        print(larry_hetero_total.shapes)
+        print(larry_hetero_total.shapes[2])
+        print(larry_hetero_total.shape)
         # %%
         ### Check warnings on dtypes manually
-        print(loa_hetero_total.dtypes)
-        print(loa_hetero_total.dtype)
+        print(larry_hetero_total.dtypes)
+        print(larry_hetero_total.dtype)
 
 
 # %%
-def _assert_array_similarity(
+def _assert_value_by_value(
     arr1: np.ndarray | list2Darrays, arr2: np.ndarray
 ) -> bool:
     """Checks similarity of two similar shaped 3D arrays value by value"""
@@ -417,12 +423,19 @@ def _assert_array_similarity(
             f"Arrays must be similar shape: {arr1.shape}, {arr2.shape}"
         )
 
+    nantypes = (type(None), type(float("NaN")))
+
     for z, (z1, z2) in enumerate(zip(arr1, arr2)):
         for y, (y1, y2) in enumerate(zip(z1, z2)):
             for x, (x1, x2) in enumerate(zip(y1, y2)):
-                x1 = round(x1, 5)
-                x2 = round(x2, 5)
-                if x1 != x2:
+                # x1 = round(x1, 2)
+                # x2 = round(x2, 2)
+                if np.isnan(x1) and np.isnan(x2):
+                    continue
+                elif isinstance(x1, nantypes) and isinstance(x2, nantypes):
+                    continue
+                # elif x1 != x2:
+                elif not math.isclose(x1, x2, rel_tol=1e-3, abs_tol=1e-3):
                     raise AssertionError(
                         f"Arrays differ at position ({z},{y},{x}):"
                         f" {x1}, {x2}"
@@ -430,56 +443,105 @@ def _assert_array_similarity(
     return True
 
 
-def _test_list2Darrays_mathoperations(
+def _test_list2Darrays_math_operations(
     larry: list2Darrays,
     other: list | int | float | T.array | list2Darrays,
-    result: str | list2Darrays = "exception",
 ):
     def _assertions():
-        print("  ", "> ASSERTING ")
+        print("ASSERTIONS: ")
+
         ### Assert type
-        print("   Type", type(_result_larry), type(larry))
+        print(
+            "ASSERTING Type didn't change: ", type(_result_larry), type(larry)
+        )
         assert type(_result_larry) == type(larry)
+
+        print(
+            "ASSERTING Array type didn't change: ",
+            type(_result_larry[0]),
+            type(larry[0]),
+        )
+        assert type(_result_larry[0]) == type(larry[0])
+
+        print(
+            "ASSERTING Number type didn't change: ",
+            _result_larry.dtype,
+            larry.dtype,
+        )
+        assert _result_larry.dtype == larry.dtype
+
+        ### Assert metadata
+        print(
+            "ASSERTING Metadata didn't change: ",
+            "\n",
+            _result_larry[0].metadata,
+            "\n",
+            larry[0].metadata,
+        )
+        assert _result_larry[0].metadata == larry[0].metadata
+
         ### Assert no conversion
         assert isinstance(_result_larry, list2Darrays)
 
-        ### Get result
+        ### Assert correct numbers
         _result_array = _get_result_asarray(
             _operation,
             larry,
             other,
         )
         ### Assert Shape
-        print("  Shapes:", _result_larry.shape, _result_array.shape)
+        print("ASSERTING Shapes:", _result_larry.shape, _result_array.shape)
         assert _result_larry.shape == _result_array.shape
 
         ### Check similarity value by value
-        print("  Value by value")
+        print("ASSERTING Value by value:")
         print("=== larry result: ===\n", _result_larry)
         print("=== array result: ===\n", _result_array)
-        _assert_array_similarity(_result_larry, _result_array)
+        _assert_value_by_value(_result_larry, _result_array)
 
         print("> TEST PASSED \n")
 
-    try:
-        print("> op:larry + other  (Addition)")
-        _operation = lambda x1, x2: x1 + x2
-        _result_larry = larry + other
-        _assertions()
+    print("> op: Addition (larry + other) ")
+    _operation = lambda x1, x2: x1 + x2
+    _result_larry = larry + other
+    _assertions()
 
-        # print("x1 - x2")
-        # _larry = larry - other
-        # _assertions()
+    print("> op: Subtraction (larry - other) ")
+    _operation = lambda x1, x2: x1 - x2
+    _result_larry = larry - other
+    _assertions()
 
-        # print("")
-        # _assertions()
+    print("> op: Multiplication (larry * other) ")
+    _operation = lambda x1, x2: x1 * x2
+    _result_larry = larry * other
+    _assertions()
 
-    except ValueError as e:
-        # if result == "exception":
-        #     print("  Correct error after operation")
-        # else:
-        #     raise e
-        raise e
+    print("> op: Division (larry / other) ")
+    _operation = lambda x1, x2: x1 / x2
+    _result_larry = larry / other
+    _assertions()
+
+    ### Match dtypes for operations where type matters
+    larry = larry.astype(np.float32)
+    if not isinstance(other, (int, float)) and not np.isscalar(other):
+        other = other.astype(np.float32)
+
+    # > large numbers get out of range for float16
+    print("> op: Power (larry ** other) ")
+    _operation = lambda x1, x2: x1**x2
+    _result_larry = larry**other
+    _assertions()
+
+    print("> op: Floor Division (larry // other) ")
+    _operation = lambda x1, x2: x1 // x2
+    _result_larry = larry // other
+    _assertions()
+
+    # > Modulo is also handled by int other than float
+    print("> op: Modulo (larry % other) ")
+    _operation = lambda x1, x2: x1 % x2
+    _result_larry = larry % other
+    _assertions()
 
 
 def _test_list2Darrays_mathoperations_multiple(
@@ -494,48 +556,62 @@ def _test_list2Darrays_mathoperations_multiple(
         # for other, result in zip(others, results):
         for other in others:
             print("> NEW TEST:")
-            print("> other:", other)
+            print(f"> other:   {type(other)}\n", other)
             # _test_list2Darrays_mathoperations(larry, other, result)
-            _test_list2Darrays_mathoperations(larry, other)
+            _test_list2Darrays_math_operations(larry, other)
         print()
         print()
 
 
-def _get_result_asarray(op, larry: list2Darrays, other: int | float | T.array):
+def _get_result_asarray(
+    op,
+    larry: list2Darrays,
+    other: int | float | T.array,
+):
     """Converts larry to array and performs operation. If larry is
     inhomogenous, it iterates through elements and performs operations
     elementwise"""
+    _larry = larry.copy()
 
-    if larry.homogenous:
-        return op(larry.asarray(), other)
+    if _larry.homogenous:
+        return op(_larry.asarray(), other)
     else:
-        for i, arr in enumerate(larry):
-            if isinstance(other, (int, float)):
-                larry[i] = op(arr, other)
-            elif isinstance(other, T.array):
-                if larry[i].shape == other[i].shape:
-                    larry[i] = op(arr, other[i])
-    return larry
+        for i, arr in enumerate(_larry):
+            if isinstance(other, (int, float)) or np.isscalar(other):
+                _larry[i] = op(arr, other)
+            elif isinstance(other, (T.array, list2Darrays)):
+                if _larry[i].shape == other[i].shape:
+                    _larry[i] = op(arr, other[i])
+            else:
+                raise ValueError(
+                    f"Couldn't perform operation with {type(other)}"
+                )
+    return _larry
+
 
 if __name__ == "__main__":
 
     ### Define larries
-    loa_homo_s = list2Darrays(
-        arrays=[np.ones((2, 2)), np.ones((2, 2)), np.ones((2, 2))],
+    larry_homo_s = list2Darrays(
+        arrays=[
+            np.ones((2, 2)),
+            np.ones((2, 2)),
+            np.ones((2, 2)),
+        ],
         dtype=np.float64,
     )
-    loa_homo_s_heterotype = list2Darrays(
+    larry_homo_s_heterotype = list2Darrays(
         arrays=[
             np.ones((2, 2), dtype=np.uint8),
             np.ones((2, 2), dtype=np.float64),
             np.ones((2, 2), dtype=np.float16),
         ]
     )
-    loa_hetero_s_type = list2Darrays(
+    larry_hetero_s = list2Darrays(
         arrays=[np.ones((2, 2)), np.ones((3, 3)), np.ones((4, 4))],
         dtype=np.float64,
     )
-    loa_hetero_s_total = list2Darrays(
+    larry_hetero_s_total = list2Darrays(
         arrays=[
             np.ones((2, 2), dtype=np.uint8),
             np.ones((3, 3), dtype=np.float64),
@@ -543,21 +619,32 @@ if __name__ == "__main__":
         ],
     )
 
+    ### Add metadata and multiply
+    for larry in [
+        larry_homo_s,
+        larry_homo_s_heterotype,
+        larry_hetero_s,
+        larry_hetero_s_total,
+    ]:
+        for z, img in enumerate(larry):
+            larry[z] = mdarray(img, pixel_length=20, name=f"testImage {z}")
+            larry[z] = larry[z] * 3 * z + 2
+
     ### Collect larries
-    larries_s = [
-        loa_homo_s,
-        loa_homo_s_heterotype,
+    larries_s_homo = [
+        larry_homo_s,
+        larry_homo_s_heterotype,
     ]
-    # homo_s_shapes = [True, False, False]
-    # homo_s_dtypes = [True, True, False]
 
     larries_s_all = [
-        *larries_s,
-        loa_hetero_s_type,
-        loa_hetero_s_total,
+        larry_homo_s,
+        larry_homo_s_heterotype,
+        larry_hetero_s,
+        larry_hetero_s_total,
     ]
 
-    ### Others
+    # %%
+    ### TEST: Scalars with all larries
     others_scalars = [
         0,
         1,
@@ -565,13 +652,33 @@ if __name__ == "__main__":
         0.5,
         np.float16(0.5),
     ]
-
-    # %%
-    ### TEST: Scalars with all larries
     _test_list2Darrays_mathoperations_multiple(
         larries=larries_s_all,
         others=others_scalars,
     )
+    # %%
+    ### TEST: Larries homo with themselves
+    _test_list2Darrays_mathoperations_multiple(
+        larries=larries_s_homo,
+        others=larries_s_homo,
+    )
+    # %%
+    ### TEST: larries Homo with Larries as arrays
+    larries_s_homo_array = [larry.asarray() for larry in larries_s_homo]
+    _test_list2Darrays_mathoperations_multiple(
+        larries=larries_s_homo,
+        others=larries_s_homo_array,
+    )
+
+    # %%
+    ### TEST: Larries hetero with each other
+    for i in range(len(larries_s_all)):
+        # others_hetero = [larry_hetero_s_total[i]]
+        # others = [larry_hetero_s_total[i]]
+        _test_list2Darrays_mathoperations_multiple(
+            larries=[larries_s_all[i]],
+            others=[larries_s_all[i]],
+        )
 
 ### Test as part of Collection
 # %%

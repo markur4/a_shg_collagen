@@ -172,6 +172,6 @@ if __name__ == "__main__":
     print(Z.imgs[0].folder)
 
     # %%
-    print(Z.imgs[0].info)
-    print(Z.imgs[3].info)
-    print(Z.imgs[4].info)
+    print(Z.imgs[0]._array_str)
+    print(Z.imgs[3]._array_str)
+    print(Z.imgs[4]._array_str)
