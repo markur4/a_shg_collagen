@@ -423,18 +423,12 @@ def _assert_value_by_value(
             f"Arrays must be similar shape: {arr1.shape}, {arr2.shape}"
         )
 
-    nantypes = (type(None), type(float("NaN")))
 
     for z, (z1, z2) in enumerate(zip(arr1, arr2)):
         for y, (y1, y2) in enumerate(zip(z1, z2)):
             for x, (x1, x2) in enumerate(zip(y1, y2)):
-                # x1 = round(x1, 2)
-                # x2 = round(x2, 2)
                 if np.isnan(x1) and np.isnan(x2):
                     continue
-                elif isinstance(x1, nantypes) and isinstance(x2, nantypes):
-                    continue
-                # elif x1 != x2:
                 elif not math.isclose(x1, x2, rel_tol=1e-3, abs_tol=1e-3):
                     raise AssertionError(
                         f"Arrays differ at position ({z},{y},{x}):"
