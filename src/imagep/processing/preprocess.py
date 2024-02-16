@@ -263,9 +263,9 @@ class PreProcess(Pipeline):
         ]
         id["Size"] = [
             "=== Size [µm] ===",
-            just("pixel size xy") + f"{form(self.pixel_length)}",
+            # just("pixel size xy") + f"{form(self.pixel_length)}",
             just("width, height (x,y)")
-            + f"{form(self.x_µm)}, {form(self.y_µm)}",
+            # + f"{form(self.x_µm)}, {form(self.y_µm)}",
         ]
         id["Brightness"] = [
             "=== Brightness ===",

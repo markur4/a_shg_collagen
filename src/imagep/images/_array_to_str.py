@@ -10,64 +10,128 @@ import numpy as np
 # import imagep._utils.types as T
 import imagep._utils.utils as ut
 
+# %%
+### Define tab of every Row
+T = " " * 4
+
+### Format numbers
+form = lambda x: ut.format_num(x, exponent=2)
+
+
+# %%
+
+
+def shorten_type(typ: type) -> str:
+    # > make a short version of the type
+    return str(typ).split(".")[-1].replace("'>", "")
+
+
+def shorten_digits(row: str) -> str:
+    ### Remove apostrophes '
+    row = str(row).replace("'", "")
+
+    ### Replace "0." with "." from floats
+    row = row.replace("0.", ".")
+    row = row.replace("-0", "-")
+    row = row.replace(",", "")
+
+    ### Justify digits
+    # > Default: e.g. 0-255 (uint8), default
+    rj = 3
+    # > Increase for floats
+    if "." in row:
+        rj = 4
+    if "False" in row or "True" in row:
+        rj = 5
+    # > Increase for small numbers with exponents
+    if re.search(r"\d+e-\d", row):
+        rj = 6
+    # > execute
+    row = row.split(" ")
+    row = [x.ljust(rj) for x in row]
+    row = " ".join(row)
+    return row
+
+
+def get_metadata_list(array: np.ndarray) -> list[str]:
+    info = array.info_short.split("\n")
+    tab = " " * (len(T) // 2)
+    return [f"{tab}{x}" for x in info]
+
+
+def makerow(row) -> str:
+    # > format row
+    row = [form(x) for x in row]
+    maxwidth = 6
+    maxwidth_h = int(round(maxwidth / 2))
+    if len(row) > maxwidth:
+        row1 = str(row[:maxwidth_h])
+        row2 = str(row[-maxwidth_h:])
+        row1 = row1.replace("]", "").replace("[", "")
+        row2 = row2.replace("]", "").replace("[", "")
+        row1 = shorten_digits(row1)
+        row2 = shorten_digits(row2)
+
+        # > Assemble
+        row = f"[ {row1} ... {row2} ]"
+    else:
+        row = str(row).replace("]", "").replace("[", "")
+        row = shorten_digits(row)
+        # > Assemble
+        row = f"[ {row} ]"
+
+        ### If floats, adjust every number to the same length
+    return row
+
+
+def finalize_row(array: str, y: int, lj: int) -> str:
+    row = f"{T} {makerow(array[y])}".ljust(lj) + f" y={y}"
+    return row
+
+
+# %%
+def array1D_to_str(array: np.ndarray):
+    """Returns a string representation of the array"""
+    ### Make head row
+    typ = shorten_type(type(array))
+    head = f" 1D {typ} length {array.shape[0]} (z) {array.dtype}:"
+    ### Make first and last row
+    row1 = f"{T}{makerow(array)}"
+    ### Add metadata
+    if hasattr(array, "info_short"):
+        md = get_metadata_list(array)
+        ### Insert after head and before array
+        S = "\n".join([head] + md + [row1])
+    else:
+        S = "\n".join([head, row1])
+    return S
+
+
+if __name__ == "__main__":
+    arrays = [
+        np.ones(2, dtype=np.uint8),
+        np.ones(2, dtype=np.float16) * 2.5,
+        np.ones(4, dtype=np.float32) * 3.5,
+        np.ones(5, dtype=np.uint8),
+        np.ones(10, dtype=np.uint8),
+        np.ones(15, dtype=np.uint8) * 255,
+        np.ones(20, dtype=np.float64),
+        np.ones(30, dtype=np.float16),
+        np.ones(1024, dtype=np.float32),
+    ]
+    # ### Make numbers heterogenous
+    for z, img in enumerate(arrays):
+        for y in range(img.shape[0]):
+            img[y] = img[y] / (y + 1) * (z + 1)
+
+    for a in arrays:
+        # print(a)
+        print(array1D_to_str(a))
+
 
 # %%
 def array2D_to_str(array: np.ndarray):
     """Returns a string representation of the array"""
-
-    form = lambda x: ut.format_num(x, exponent=2)
-
-    def shorten_digits(row: str):
-        ### Remove apostrophes '
-        row = str(row).replace("'", "")
-
-        ### Replace "0." with "." from floats
-        row = row.replace("0.", ".")
-        row = row.replace("-0", "-")
-        row = row.replace(",", "")
-
-        ### Justify digits
-        # > Default: e.g. 0-255 (uint8), default
-        rj = 3
-        # > Increase for floats
-        if "." in row:
-            rj = 4
-        # > Increase for small numbers with exponents
-        if re.search(r"\d+e-\d", row):
-            rj = 6
-        # > execute
-        row = row.split(" ")
-        row = [x.rjust(rj) for x in row]
-        row = " ".join(row)
-        return row
-
-    def makerow(row):
-        # > format row
-        row = [form(x) for x in row]
-        maxwidth = 6
-        maxwidth_h = int(round(maxwidth / 2))
-        if len(row) > maxwidth:
-            row1 = str(row[:maxwidth_h])
-            row2 = str(row[-maxwidth_h:])
-            row1 = row1.replace("]", "").replace("[", "")
-            row2 = row2.replace("]", "").replace("[", "")
-            row1 = shorten_digits(row1)
-            row2 = shorten_digits(row2)
-
-            # > Assemble
-            row = f"[ {row1} ... {row2} ]"
-        else:
-            row = str(row).replace("]", "").replace("[", "")
-            row = shorten_digits(row)
-            # > Assemble
-            row = f"[ {row} ]"
-
-        ### If floats, adjust every number to the same length
-        return row
-
-    def finalize_row(array: str, y: int, lj: int):
-        row = f"{T} {makerow(array[y])}".ljust(lj) + f" y={y}"
-        return row
 
     ### MAIN
     def makerows_small():
@@ -97,16 +161,10 @@ def array2D_to_str(array: np.ndarray):
 
     TOTALROWS = array.shape[0]
 
-    ### Define tab of every Row
-    T = " " * 4
-
     ### Make head row
-    # > make a short version of the type
-    typ = type(array)
-    typ = str(typ).split(".")[-1].replace("'>", "")
-
+    typ = shorten_type(type(array))
     head = f" {typ} {array.shape[0]}x{array.shape[1]} (y,x) {array.dtype}:"
-    
+
     ### Make first and last row
     row1 = f"{T}[{makerow(array[0])}"
     row4 = f"{T} {makerow(array[-1])}]"
@@ -125,12 +183,10 @@ def array2D_to_str(array: np.ndarray):
 
     ### Add metadata
     if hasattr(array, "info_short"):
-        info = array.info_short.split("\n")
-        info = [f"{T} {x}" for x in info]
-
+        md = get_metadata_list(array)
         ### Insert after head and before array
-        rows = rows[:1] + info + rows[1:]
-        
+        rows = rows[:1] + md + rows[1:]
+
     S = "\n" + "\n".join(rows)
     return S
 
@@ -195,8 +251,6 @@ def array3D_to_str(arrays: np.ndarray, maximages: int = None) -> str:
 
 if __name__ == "__main__":
     print(array3D_to_str(arrays))
-    #%%
+    # %%
     ### Test maximages
     print(array3D_to_str(arrays, maximages=3))
-
-    

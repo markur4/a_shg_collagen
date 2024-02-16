@@ -10,8 +10,7 @@ import numpy as np
 # > Local
 import imagep._utils.utils as ut
 import imagep._configs.rc as rc
-from imagep.images.array_to_str import array2D_to_str, array3D_to_str
-
+import imagep.images._array_to_str as a2s
 # from imagep.images.imgs_import import ImgsImport
 
 
@@ -84,15 +83,19 @@ class mdarray(np.ndarray):
 
     def _array_str(self, maximages:int = None) -> str:
         """Returns a string representation of the array."""
-        if self.ndim == 2:
-            return array2D_to_str(self)
+        if self.ndim == 1:
+            return a2s.array1D_to_str(self)
+        elif self.ndim == 2:
+            return a2s.array2D_to_str(self)
         elif self.ndim == 3:
-            return array3D_to_str(self, maximages=maximages)
+            # !! 3D array will homogenize images
+            # > This is only here so less stuff breaks
+            return a2s.array3D_to_str(self, maximages=maximages)
 
 
     @property
     def info_short(self) -> str:
-        just = lambda x: ut.justify_str(x, justify=8)
+        just = lambda x: ut.justify_str(x, justify=6)
         info = [
             just("Name") + f"'{self.name}' from '{self.folder}'",
         ]

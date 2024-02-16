@@ -11,9 +11,12 @@ from pprint import pprint
 import imagep._utils.types as T
 from imagep.images.mdarray import mdarray
 from imagep.images.list2Darrays import list2Darrays
+import imagep._example_data.larries as ed_larries
 
 
 # %%
+# ======================================================================
+# == Definition ========================================================
 def _test_list2Darrays_input():
     """Tests the list2Darrays class"""
     import numpy as np
@@ -83,6 +86,8 @@ if __name__ == "__main__":
 
 
 # %%
+# ======================================================================
+# == __get_item__ ======================================================
 def _test_list2Darrays_slicing():
     larry = list2Darrays(
         arrays=[
@@ -138,6 +143,8 @@ if __name__ == "__main__":
 
 
 # %%
+# ======================================================================
+# == __set_item__ ======================================================
 def _test_list2Darrays_setting():
     larry = list2Darrays(
         arrays=[
@@ -168,7 +175,12 @@ def _test_list2Darrays_setting():
             assert _larry.shapes == target_shape
             assert isinstance(_larry[0], T.array)
         except ValueError as e:
-            shape = item.shape if hasattr(item, "shape") else item[0].shape
+            if isinstance(item, list):
+                shape = item[0].shape
+            elif hasattr(item, "shape"):
+                shape = item.shape
+            elif isinstance(item, (int, float)) or np.isscalar(item):
+                shape = "scalar"
             shape_str = (
                 f"shape {shape}"
                 if hasattr(item, "shape")
@@ -263,6 +275,10 @@ def _test_list2Darrays_setting():
         must_raise=True,
     )
 
+    ### replace with integer
+    print("> larry[int:int:int] = 1")
+    _larry = _test(slice(0, 5, 2), 1, (6, {20, 50}, {25, 55}), list2Darrays)
+
     print("> larry[int, int, int] = np.array 2D", "CORRECT")
     _larry = _test(
         (0, 6, 3),
@@ -323,6 +339,8 @@ if __name__ == "__main__":
 
 
 # %%
+# ======================================================================
+# == Methods ===========================================================
 def _test_list2Darrays_methods(
     larry: list2Darrays, homo_shape=True, homo_type=True
 ):
@@ -369,51 +387,23 @@ def _test_list2Darrays_methods(
 
 
 if __name__ == "__main__":
-
-    larry_homo = list2Darrays(
-        arrays=[np.ones((10, 10)), np.ones((10, 10)), np.ones((10, 10))],
-        dtype=np.float64,
-    )
-    larry_hetero_type = list2Darrays(
-        arrays=[np.ones((10, 10)), np.ones((20, 20)), np.ones((30, 30))],
-        dtype=np.float64,
-    )
-    larry_hetero_total = list2Darrays(
-        arrays=[
-            np.ones((10, 10), dtype=np.uint8),
-            np.ones((20, 20), dtype=np.float64),
-            np.ones((30, 30), dtype=np.float16),
-        ],
-    )
-    larries = [
-        larry_homo,
-        larry_hetero_type,
-        larry_hetero_total,
-    ]
-    homo_shapes = [True, False, False]
-    homo_dtypes = [True, True, False]
-
-    args = zip(
-        larries,
-        homo_shapes,
-        homo_dtypes,
-    )
-
-    ### EXECUTE
-    for larry, h_shape, h_dtype in args:
+    for larry, h_shape, h_dtype in ed_larries.args:
         _test_list2Darrays_methods(larry, h_shape, h_dtype)
-        # %%
-        ### Check warnings on shapes manually
-        print(larry_hetero_total.shapes)
-        print(larry_hetero_total.shapes[2])
-        print(larry_hetero_total.shape)
-        # %%
-        ### Check warnings on dtypes manually
-        print(larry_hetero_total.dtypes)
-        print(larry_hetero_total.dtype)
+    # %%
+    ### Check warnings on shapes manually
+    _larry_het = ed_larries.larry_hetero_total
+    print(_larry_het.shapes)
+    print(_larry_het.shapes[2])
+    print(_larry_het.shape)
+    # %%
+    ### Check warnings on dtypes manually
+    print(_larry_het.dtypes)
+    print(_larry_het.dtype)
 
 
 # %%
+# ======================================================================
+# == OPERATIONS ========================================================
 def _assert_value_by_value(
     arr1: np.ndarray | list2Darrays, arr2: np.ndarray
 ) -> bool:
@@ -422,7 +412,6 @@ def _assert_value_by_value(
         raise ValueError(
             f"Arrays must be similar shape: {arr1.shape}, {arr2.shape}"
         )
-
 
     for z, (z1, z2) in enumerate(zip(arr1, arr2)):
         for y, (y1, y2) in enumerate(zip(z1, z2)):
@@ -451,18 +440,19 @@ def _test_list2Darrays_math_operations(
         assert type(_result_larry) == type(larry)
 
         print(
-            "ASSERTING Array type didn't change: ",
+            "ASSERTING Array type changed? ",
             type(_result_larry[0]),
             type(larry[0]),
         )
         assert type(_result_larry[0]) == type(larry[0])
 
-        print(
-            "ASSERTING Number type didn't change: ",
-            _result_larry.dtype,
-            larry.dtype,
-        )
-        assert _result_larry.dtype == larry.dtype
+        if not _result_larry.dtype == bool:
+            print(
+                "ASSERTING Number type didn't change: ",
+                _result_larry.dtype,
+                larry.dtype,
+            )
+            assert _result_larry.dtype == larry.dtype
 
         ### Assert metadata
         print(
@@ -478,20 +468,20 @@ def _test_list2Darrays_math_operations(
         assert isinstance(_result_larry, list2Darrays)
 
         ### Assert correct numbers
-        _result_array = _get_result_asarray(
+        _result_ARRAY = _get_result_asarray(
             _operation,
             larry,
             other,
         )
         ### Assert Shape
-        print("ASSERTING Shapes:", _result_larry.shape, _result_array.shape)
-        assert _result_larry.shape == _result_array.shape
+        print("ASSERTING Shapes:", _result_larry.shape, _result_ARRAY.shape)
+        assert _result_larry.shape == _result_ARRAY.shape
 
         ### Check similarity value by value
         print("ASSERTING Value by value:")
         print("=== larry result: ===\n", _result_larry)
-        print("=== array result: ===\n", _result_array)
-        _assert_value_by_value(_result_larry, _result_array)
+        print("=== array result: ===\n", _result_ARRAY)
+        _assert_value_by_value(_result_larry, _result_ARRAY)
 
         print("> TEST PASSED \n")
 
@@ -513,6 +503,37 @@ def _test_list2Darrays_math_operations(
     print("> op: Division (larry / other) ")
     _operation = lambda x1, x2: x1 / x2
     _result_larry = larry / other
+    _assertions()
+
+    ### Comparisons
+    print("> op: Greater (larry > other) ")
+    _operation = lambda x1, x2: x1 > x2
+    _result_larry = larry > other
+    _assertions()
+
+    print("> op: Greater Equal (larry >= other) ")
+    _operation = lambda x1, x2: x1 >= x2
+    _result_larry = larry >= other
+    _assertions()
+
+    print("> op: Less (larry < other) ")
+    _operation = lambda x1, x2: x1 < x2
+    _result_larry = larry < other
+    _assertions()
+
+    print("> op: Less Equal (larry <= other) ")
+    _operation = lambda x1, x2: x1 <= x2
+    _result_larry = larry <= other
+    _assertions()
+
+    print("> op: Equal (larry == other) ")
+    _operation = lambda x1, x2: x1 == x2
+    _result_larry = larry == other
+    _assertions()
+
+    print("> op: Not Equal (larry != other) ")
+    _operation = lambda x1, x2: x1 != x2
+    _result_larry = larry != other
     _assertions()
 
     ### Match dtypes for operations where type matters
@@ -541,17 +562,14 @@ def _test_list2Darrays_math_operations(
 def _test_list2Darrays_mathoperations_multiple(
     larries: list[list2Darrays],
     others: list[int | float | T.array | list2Darrays],
-    # results: list[list2Darrays],
 ):
     for larry in larries:
         print("=> ======= TEST SET: =========")
         print("=> larry:", larry)
         print()
-        # for other, result in zip(others, results):
         for other in others:
             print("> NEW TEST:")
             print(f"> other:   {type(other)}\n", other)
-            # _test_list2Darrays_mathoperations(larry, other, result)
             _test_list2Darrays_math_operations(larry, other)
         print()
         print()
@@ -584,60 +602,6 @@ def _get_result_asarray(
 
 
 if __name__ == "__main__":
-
-    ### Define larries
-    larry_homo_s = list2Darrays(
-        arrays=[
-            np.ones((2, 2)),
-            np.ones((2, 2)),
-            np.ones((2, 2)),
-        ],
-        dtype=np.float64,
-    )
-    larry_homo_s_heterotype = list2Darrays(
-        arrays=[
-            np.ones((2, 2), dtype=np.uint8),
-            np.ones((2, 2), dtype=np.float64),
-            np.ones((2, 2), dtype=np.float16),
-        ]
-    )
-    larry_hetero_s = list2Darrays(
-        arrays=[np.ones((2, 2)), np.ones((3, 3)), np.ones((4, 4))],
-        dtype=np.float64,
-    )
-    larry_hetero_s_total = list2Darrays(
-        arrays=[
-            np.ones((2, 2), dtype=np.uint8),
-            np.ones((3, 3), dtype=np.float64),
-            np.ones((4, 4), dtype=np.float16),
-        ],
-    )
-
-    ### Add metadata and multiply
-    for larry in [
-        larry_homo_s,
-        larry_homo_s_heterotype,
-        larry_hetero_s,
-        larry_hetero_s_total,
-    ]:
-        for z, img in enumerate(larry):
-            larry[z] = mdarray(img, pixel_length=20, name=f"testImage {z}")
-            larry[z] = larry[z] * 3 * z + 2
-
-    ### Collect larries
-    larries_s_homo = [
-        larry_homo_s,
-        larry_homo_s_heterotype,
-    ]
-
-    larries_s_all = [
-        larry_homo_s,
-        larry_homo_s_heterotype,
-        larry_hetero_s,
-        larry_hetero_s_total,
-    ]
-
-    # %%
     ### TEST: Scalars with all larries
     others_scalars = [
         0,
@@ -647,32 +611,127 @@ if __name__ == "__main__":
         np.float16(0.5),
     ]
     _test_list2Darrays_mathoperations_multiple(
-        larries=larries_s_all,
+        larries=ed_larries.larries_s_all,
         others=others_scalars,
     )
     # %%
     ### TEST: Larries homo with themselves
     _test_list2Darrays_mathoperations_multiple(
-        larries=larries_s_homo,
-        others=larries_s_homo,
+        larries=ed_larries.larries_s_homo,
+        others=ed_larries.larries_s_homo,
     )
     # %%
     ### TEST: larries Homo with Larries as arrays
-    larries_s_homo_array = [larry.asarray() for larry in larries_s_homo]
+    larries_s_homo_array = [
+        larry.asarray() for larry in ed_larries.larries_s_homo
+    ]
     _test_list2Darrays_mathoperations_multiple(
-        larries=larries_s_homo,
+        larries=ed_larries.larries_s_homo,
         others=larries_s_homo_array,
     )
 
     # %%
     ### TEST: Larries hetero with each other
-    for i in range(len(larries_s_all)):
+    for i in range(len(ed_larries.larries_s_all)):
         # others_hetero = [larry_hetero_s_total[i]]
         # others = [larry_hetero_s_total[i]]
         _test_list2Darrays_mathoperations_multiple(
-            larries=[larries_s_all[i]],
-            others=[larries_s_all[i]],
+            larries=[ed_larries.larries_s_all[i]],
+            others=[ed_larries.larries_s_all[i]],
         )
+
+
+# %%
+# ======================================================================
+# == Boolean Indexing ==================================================
+
+
+def _test_list2Darrays_bool_indexing():
+    """Tests selection with arrays of booleans"""
+    # == numpy indexing ===
+    arr = ed_larries.larry_homo_s.asarray()
+    # print(arr.shape, arr.dtype, type(arr))
+    print("> Original Array")
+    print(arr)
+    print()
+    # > Bool selection preserves shape
+    arr > 9
+    # > implementation preserves z-dimension, but we lose y-dimension
+    val = arr > 9
+    [_arra[val[i]] for i, _arra in enumerate(arr)]
+    # ? Bool indexing returns 1D Array
+    arr[arr > 9]
+    # > Replacing values by bool index preserves shape
+    arr[arr > 9] = 123
+    print("> numpy arr after boolean indexing:")
+    print(arr)
+    print()
+
+    # == Reproduce with list2Darrays ==
+    larry = ed_larries.larry_homo_s.copy()
+    # print(larry.shape, larry.dtype, type(arr))
+    print("> Original larry:")
+    print(larry)
+    print()
+    # > Bool selection preserves shape
+    larry > 9
+    # !! implementation preserves z-dimension, but we lose y-dimension
+    val = arr > 9
+    [_arra[val[i]] for i, _arra in enumerate(larry)]
+    # !! Bool indexing returns a LIST of 1D arrays
+    larry[larry > 9]
+    # > Replacing  values by bool-indexing preserves shape
+    larry[larry > 9] = 123
+    
+    print("> larry after boolean indexing:")
+    print(larry)
+    print()
+    assert _assert_value_by_value(larry, arr)
+
+
+if __name__ == "__main__":
+    _test_list2Darrays_bool_indexing()
+    
+    # %%
+    # == Get familiar with numpy indexing ===
+    arr = ed_larries.larry_homo_s.asarray()
+    print(arr.shape, arr.dtype, type(arr))
+    print(arr)
+    # %%
+    # > Bool selection preserves shape
+    arr > 9
+    # %%
+    # > implementation preserves z-dimension, but we lose y-dimension
+    val = arr > 9
+    [_arra[val[i]] for i, _arra in enumerate(arr)]
+    # %%
+    # ? Bool indexing returns 1D Array
+    arr[arr > 9]
+    # %%
+    # > Replacing values by bool index preserves shape
+    arr[arr > 9] = 123
+    arr
+
+    # %%
+    # == Now implement that with list2Darrays ==
+    larry = ed_larries.larry_homo_s.copy()
+    print(larry.shape, larry.dtype, type(arr))
+    print(larry)
+    # %%
+    # > Bool selection preserves shape
+    larry > 9
+    # %%
+    # !! implementation preserves z-dimension, but we lose y-dimension
+    val = arr > 9
+    [_arra[val[i]] for i, _arra in enumerate(larry)]
+    # %%
+    # !! Bool indexing returns a LIST of 1D arrays
+    larry[larry > 9]
+    # %%
+    # > Replacing  values by bool-indexing preserves shape
+    larry[larry > 9] = 123
+    larry
+
 
 ### Test as part of Collection
 # %%

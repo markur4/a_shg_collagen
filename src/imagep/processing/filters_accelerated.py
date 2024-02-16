@@ -19,6 +19,7 @@ import skimage as ski
 from imagep._configs.caches import FILTERS
 import imagep._configs.rc as rc
 import imagep._utils.utils as ut
+from imagep.images.list2Darrays import list2Darrays
 
 
 # %%
@@ -71,7 +72,8 @@ def _collect_denoise_filter_kws(imgs: np.ndarray) -> list[dict]:
 def _denoise_sequential(imgs: np.ndarray) -> np.ndarray:
     kws_list = _collect_denoise_filter_kws(imgs)
     _imgs = [ski.restoration.denoise_nl_means(**kws) for kws in kws_list]
-    return np.array(_imgs, dtype=imgs.dtype)
+    # return np.array(_imgs, dtype=imgs.dtype)
+    return list2Darrays(_imgs, dtype=imgs.dtype)
 
 
 # == Denoise Parallel ==
@@ -90,7 +92,8 @@ def _denoise_parallel(imgs: np.ndarray, n_cores: int = 2) -> np.ndarray:
     with ThreadPoolExecutor(max_workers=n_cores) as executor:
         _imgs_iter = executor.map(_denoise_parallel_base, kws_list)
 
-    _imgs = np.asarray(list(_imgs_iter), dtype=imgs.dtype)
+    # _imgs = np.asarray(list(_imgs_iter), dtype=imgs.dtype)
+    _imgs = list2Darrays(_imgs_iter, dtype=imgs.dtype)
     return _imgs
 
 
@@ -313,13 +316,18 @@ def _median(
     ### Collect kws
     kws = dict(
         footprint=kernel,
-        axes=axes,
+        # axes=axes,
         **filter_kws,
     )
 
     ### Execute
-    _imgs = sp.ndimage.median_filter(imgs, **kws)
-    _imgs = np.array(_imgs, dtype=imgs.dtype)
+    if kernel_3D:
+        _imgs = ski.filters.rank.median(imgs, axes = axes, **kws)
+    else:
+        _imgs = [ski.filters.rank.median(img, **kws) for img in imgs]
+
+    # _imgs = np.array(_imgs, dtype=imgs.dtype) 
+    _imgs = list2Darrays(_imgs, dtype=imgs.dtype)
 
     if normalize:
         _imgs = _imgs / _imgs.max()

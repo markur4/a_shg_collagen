@@ -15,6 +15,7 @@ import imagep._utils.utils as ut
 # from imagep.processing.pipeline import Pipeline
 # from imagep.processing.preprocess import PreProcess
 import imagep.processing.filters as filters
+from imagep.images.list2Darrays import list2Darrays
 
 
 # %%
@@ -196,7 +197,7 @@ def _subtract_threshold(
     imgs: np.ndarray,
     method: str,
     sigma: float,
-    per_img=False,
+    per_img=True,
 ) -> tuple[np.ndarray, list[float]]:
     """Subtracts a threshold (calculated by method) from the images"""
     kernel_3D = False if per_img else True
@@ -222,7 +223,8 @@ def _subtract_threshold(
         _imgs = [subtract(img, value=t) for img, t in zip(imgs, threshold)]
 
     ### Convert to array
-    _imgs = np.array(_imgs, dtype=imgs.dtype)
+    # _imgs = np.array(_imgs, dtype=imgs.dtype)
+    _imgs = list2Darrays(_imgs, dtype=imgs.dtype)
     return _imgs, threshold
 
     # !! == End Class ==================================================

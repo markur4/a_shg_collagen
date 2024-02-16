@@ -24,7 +24,7 @@ import imagep._configs.rc as rc
 import imagep._configs.loggers as loggers
 import imagep._utils.types as T
 from imagep.images.mdarray import mdarray
-from imagep.images.array_to_str import array3D_to_str
+from imagep.images._array_to_str import array3D_to_str
 
 
 # %%
@@ -72,6 +72,7 @@ class list2Darrays:
         input: T.array | list[T.array] | Self,
     ) -> list[T.array]:
         """Converts input into a list of 2D arrays
+        - if a scalar is passed, it's wrapped in a list
         - If a single 2D array is passed, it's wrapped in a list
         - If a list of 2D arrays is passed, it's returned as is
         - If a 3D array is passed, it's converted into a list of 2D
@@ -79,14 +80,15 @@ class list2Darrays:
         - if a 1D or 4D array o is passed, a ValueError is raised
         - if a list of 1D or 3D arrays is passed, a ValueError is raised
         """
+        # > input = list2Darrays
         if isinstance(input, list2Darrays):
             return input.arrays
         elif isinstance(input, list):
             if isinstance(input[0], T.array):
-                # > [np.array 2D, np.array 2D, ...]
+                # > input = [np.array 2D, np.array 2D, ...]
                 if input[0].ndim == 2:
                     return input
-                # > [np.array 3D]
+                # > input = [np.array 3D]
                 elif input[0].ndim == 3 and len(input) == 1:
                     return list(input[0])
                 # > [np.array 3D, np.array 3D, ...]
@@ -99,10 +101,10 @@ class list2Darrays:
                     f"List must contain arrays, not {type(input[0])}"
                 )
         elif isinstance(input, T.array):
-            # > np.array 2D
+            # > input = np.array 2D
             if input.ndim == 2:
                 return [input]
-            # > np.array 3D
+            # > input = np.array 3D
             elif input.ndim == 3:
                 return list(input)
             else:
@@ -222,14 +224,38 @@ class list2Darrays:
         # > self[1,2,3] or self[[1,2,3]]
         elif isinstance(val, (tuple, list)):
             return list2Darrays([self.arrays[v] for v in val])
+        # > self[ [True, False, ...] ]
+        elif isinstance(val, (T.array, list2Darrays)):
+            # > Like numpy, this does not preserve shape
+            return [array[val[i]] for i, array in enumerate(self.arrays)]
         else:
             raise ValueError(f"Invalid indexer '{val}'")
 
     def __setitem__(
         self, val: int | slice | tuple | list, item: T.array | list[T.array]
     ):
+        # > self[boolean_index] = int
+        if isinstance(val, (T.array, list2Darrays)) and np.isscalar(item):
+            for i, array in enumerate(self.arrays):
+                array[val[i]] = item
+                
+            return #!! Return early
 
-        ### Set to list of 2D arrays if not already
+        ### > Convert scalar item to list of arrays
+        if isinstance(item, (int, float)) or np.isscalar(item):
+            # > self[int:int:int] = int
+            if isinstance(val, slice):
+                indices = range(*val.indices(len(self.arrays)))
+                item = [np.full_like(self.arrays[i], item) for i in indices]
+            # > self[int, int, int] = int
+            elif isinstance(val, (tuple, list)):
+                item = [np.full_like(self.arrays[i], item) for i in val]
+            # > self[int] = int
+            else:
+                item = [np.full_like(self.arrays[val], item)]
+
+        ### item is now an array
+        # > Set to list of 2D arrays if not already
         item: list[T.array] = self._outerdim_to_list(item)
 
         # > self[int] = [np.array]
@@ -238,46 +264,64 @@ class list2Darrays:
         # > self[int] = [np.array, np.array]
         elif isinstance(val, int) and len(item) > 1:
             raise ValueError(f"Can't set {len(item)} arrays to a single index")
-        # > self[1:10:2] = [np.array]
+        # > self[1:10:2] = [np.array] !! Shapes must be compatible
         elif isinstance(val, slice):
-            indices = range(*val.indices(len(self.arrays)))
-            insertlength = len(indices)
-            if len(item) == 1:  # > self[1:10:2] = [np.array]
-                # > Multiple entries are being overwritten by a single array
-                item = item * insertlength
-            elif len(item) != insertlength:  # > self[1:10:2] = [np.array, ...]
-                raise ValueError(
-                    f"Can't set {len(item)} items to a slice of length {insertlength}, their lengths must match."
-                )
-            ### insert with regards to stepsize
-            self.arrays = list2Darrays(
-                [
-                    (
-                        self.arrays[i]
-                        if i not in indices
-                        else item[indices.index(i)]
-                    )
-                    for i in range(len(self.arrays))
-                ]
-            )
-        # > self[1,2,3] = [np.array]
+            self._set_sequence_into_sliceindex(val, item)
+        # > self[1,2,3] = [np.array]  or self[[1,2,3]] = [np.array]
         elif isinstance(val, (tuple, list)):
-            insertlength = len(val)
-            if len(item) == 1:  # > self[1,2,3] = [np.array]
-                # > Multiple entries are being overwritten by a single array
-                item = item * insertlength
-            elif len(item) != insertlength:  # > self[1,2,3] = [np.array, ...]
-                raise ValueError(
-                    f"Can't set {len(item)} items to a slice of length {insertlength}, their lengths must match."
-                )
-            self.arrays = list2Darrays(
-                [
-                    self.arrays[i] if i not in val else item[val.index(i)]
-                    for i in range(len(self.arrays))
-                ]
-            )
+            self._set_sequence_into_listindex(val, item)
         else:
             raise ValueError(f"Invalid indexer '{val}'")
+
+    def _set_sequence_into_sliceindex(
+        self,
+        val: slice,
+        item: T.array | list[T.array],
+    ):
+        """Sets a sequence of arrays into a slice of self (that's
+        compatible with the shape of that slice).
+        e.g. self[1:10:2] = [np.array]
+        """
+        indices = range(*val.indices(len(self.arrays)))
+        insertlength = len(indices)
+        if len(item) == 1:  # > self[1:10:2] = [np.array]
+            # > Multiple entries are being overwritten by a single array
+            item = item * insertlength
+        elif len(item) != insertlength:  # > self[1:10:2] = [np.array, ...]
+            raise ValueError(
+                f"Can't set {len(item)} items to a slice of length {insertlength}, their lengths must match."
+            )
+        ### Insert into slice (with regards to stepsize)
+        self.arrays = list2Darrays(
+            [
+                (self.arrays[i] if i not in indices else item[indices.index(i)])
+                for i in range(len(self.arrays))
+            ]
+        )
+
+    def _set_sequence_into_listindex(
+        self,
+        val: list | tuple,
+        item: T.array | list[T.array],
+    ):
+        """Sets a sequence of arrays into a list-slice of self (that's
+        compatible with the shape of that slice).
+        e.g. self[1,2,3] = [np.array]
+        """
+        insertlength = len(val)
+        if len(item) == 1:  # > self[1,2,3] = [np.array]
+            # > Multiple entries are being overwritten by a single array
+            item = item * insertlength
+        elif len(item) != insertlength:  # > self[1,2,3] = [np.array, ...]
+            raise ValueError(
+                f"Can't set {len(item)} items to a slice of length {insertlength}, their lengths must match."
+            )
+        self.arrays = list2Darrays(
+            [
+                self.arrays[i] if i not in val else item[val.index(i)]
+                for i in range(len(self.arrays))
+            ]
+        )
 
     #
     # == Copy & Conversions ============================================
@@ -322,10 +366,12 @@ class list2Darrays:
         else:
             return min([img.min(**kws) for img in self.arrays])
 
-    #
-    # == Math Operations ===============================================
+    # ==================================================================
+    # == OPERATIONS ====================================================
 
-    def _math_operation(
+    #
+    # === Main ===
+    def _operation(
         self,
         other: int | float | np.dtype | T.array | Self,
         operation: Callable,
@@ -355,35 +401,38 @@ class list2Darrays:
                 f" shapes {self.shapes} with an array of shape {other.shape}"
             )
 
+    #
+    # === +, -, *, / ===
     def __add__(self, other):
         operation = lambda x1, x2: x1 + x2
-        return self._math_operation(other, operation)
+        return self._operation(other, operation)
 
     def __sub__(self, other):
         operation = lambda x1, x2: x1 - x2
-        return self._math_operation(other, operation)
+        return self._operation(other, operation)
 
     def __mul__(self, other):
         operation = lambda x1, x2: x1 * x2
-        return self._math_operation(other, operation)
+        return self._operation(other, operation)
 
     def __truediv__(self, other):
         # if other == 0:
         #     raise ZeroDivisionError("Can't divide by zero")
         operation = lambda x1, x2: x1 / x2
-        return self._math_operation(other, operation)
+        return self._operation(other, operation)
 
+    # === //, %, ** ===
     def __floordiv__(self, other):
         operation = lambda x1, x2: x1 // x2
-        return self._math_operation(other, operation)
+        return self._operation(other, operation)
 
     def __mod__(self, other):
         operation = lambda x1, x2: x1 % x2
-        return self._math_operation(other, operation)
+        return self._operation(other, operation)
 
     def __pow__(self, other):
         operation = lambda x1, x2: x1**x2
-        return self._math_operation(other, operation)
+        return self._operation(other, operation)
 
     # def __lshift__(self, other):
     #     operation = lambda x1, x2: x1 << x2
@@ -404,6 +453,32 @@ class list2Darrays:
     # def __or__(self, other):
     #     operation = lambda x1, x2: x1 | x2
     #     return self._math_operation(other, operation)
+
+    #
+    # === ==, !=, <, <=, >, >= ===
+    def __eq__(self, other):
+        operation = lambda x1, x2: x1 == x2
+        return self._operation(other, operation)
+
+    def __ne__(self, other):
+        operation = lambda x1, x2: x1 != x2
+        return self._operation(other, operation)
+
+    def __lt__(self, other):
+        operation = lambda x1, x2: x1 < x2
+        return self._operation(other, operation)
+
+    def __le__(self, other):
+        operation = lambda x1, x2: x1 <= x2
+        return self._operation(other, operation)
+
+    def __gt__(self, other):
+        operation = lambda x1, x2: x1 > x2
+        return self._operation(other, operation)
+
+    def __ge__(self, other):
+        operation = lambda x1, x2: x1 >= x2
+        return self._operation(other, operation)
 
     #
     # !! == End  Class =================================================

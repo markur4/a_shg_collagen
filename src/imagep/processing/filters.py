@@ -67,10 +67,11 @@ def blur(
         _imgs = ski.filters.gaussian(imgs, **kws)
     ### Apply 2D filter, no cross-talk in z-axis
     else:
-        print(type(imgs[0]))
+        # print(type(imgs[0]))
         _imgs = [ski.filters.gaussian(img, **kws) for img in imgs]
-        print(type(_imgs[0]))
-        _imgs = np.array(_imgs, dtype=imgs.dtype)
+        # print(type(_imgs[0]))
+        # _imgs = np.array(_imgs, dtype=imgs.dtype)
+        _imgs = list2Darrays(_imgs, dtype=imgs.dtype)
 
     ### The max value is not 1 anymore
     if normalize:

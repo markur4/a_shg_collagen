@@ -14,8 +14,29 @@ import numpy as np
 import imagep._utils.utils as ut
 import imagep._configs.rc as rc
 from imagep.images.collection_import import CollectionImport
+from imagep.images.list2Darrays import list2Darrays
+from imagep.images.mdarray import mdarray
 
 # import imagep.images.importtools as importtools
+
+
+# %%
+# == Extract and apply metadata =======================================
+def extract_metadata(larry: list2Darrays) -> list[dict]:
+    """Extracts metadata from images and returns a list of
+    dictionaries with key and value pairs"""
+    metadata = [img.metadata for img in larry]
+    return metadata
+
+
+def apply_metadata(
+    larry: list2Darrays,
+    metadata: list[dict],
+) -> None:
+    """Applies metadata to images"""
+    for img, md in zip(larry, metadata):
+        for k, v in md.items():
+            setattr(img, k, v)
 
 
 # %%
@@ -125,6 +146,18 @@ class CollectionMeta(CollectionImport):
             metadata = self.metadata[img.folder]
             for mdkey, mdval in metadata.items():
                 setattr(self.imgs[i], mdkey, mdval)
+
+    #
+    # == Extract metadata ==============================================
+
+    def extract_metadata(self) -> list[dict]:
+        """Extracts metadata from images and returns a list of
+        dictionaries with key and value pairs"""
+        return extract_metadata(self.imgs)
+
+    def apply_metadata(self, metadata: list[dict]) -> None:
+        """Applies metadata to images"""
+        return apply_metadata(self.imgs, metadata)
 
     # !! == End Class ==================================================
 

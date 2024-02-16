@@ -158,6 +158,14 @@ def format_num(
         bigger/smaller than this, defaults to 2
     :type exp: int, optional
     """
+    ### Return True / False if encountered
+    if number == True or number == False:
+        return str(number)
+    
+    # if isinstance(number, bool):
+    #     return str(number)
+    
+    
     ### If number is nested in a list, get it
     if isinstance(number, (list, tuple)):
         if len(number) == 1:
@@ -165,9 +173,13 @@ def format_num(
         else:
             raise ValueError(f"Number is a list of length {len(number)}")
 
+
     ### Return 0 if number is 0
     if number == 0:
         return "0"
+    ### Return 1 if number is exactly 1 and not a float
+    if number == 1 and not isinstance(number, float):
+        return "1"
 
     ### Get exponent
     e = np.floor(np.log10(number))

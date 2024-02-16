@@ -31,8 +31,8 @@ if __name__ == "__main__":
     parent = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/240201 Imunocyto/"
     paths = [
         parent + "Exp. 1/Dmp1/",
-        # parent + "Exp. 2/Dmp1/",
-        # parent + "Exp. 3 (im Paper)/Dmp1"
+        parent + "Exp. 2/Dmp1/",
+        parent + "Exp. 3 (im Paper)/Dmp1"
     ]
     # > contains e.g.: "D0 LTMC DAPI 40x.tif"
 
@@ -44,12 +44,12 @@ if __name__ == "__main__":
         fname_pattern="*DAPI*.tif",
         # invert=False,
         sort=False,
-        imgkey_positions=[0, 2, 2],  # > Extract a key from the filename
+        imgname_position=[0, 2, 2],  # > Extract a key from the filename
     )
     print(Z.imgs.shape, Z.imgs.dtype)
     _img = Z.imgs[0]
     print(_img.shape, _img.dtype)
-    Z.imshow(saveto="Original_all")
+    # Z.imshow(saveto="Original_all") #:: uncomment
 
     # %%
     # ### Too much noise, run median filter
@@ -67,7 +67,7 @@ if __name__ == "__main__":
         subtract_bg_kws=dict(
             method="triangle",
             sigma=0.7,
-            per_img=False,
+            per_img=True,
         ),
         remove_empty_slices=False,
         snapshot_index=I,
