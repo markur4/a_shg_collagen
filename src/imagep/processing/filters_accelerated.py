@@ -19,7 +19,10 @@ import skimage as ski
 from imagep._configs.caches import FILTERS
 import imagep._configs.rc as rc
 import imagep._utils.utils as ut
-from imagep.images.list2Darrays import list2Darrays
+import imagep._utils.types as T
+from imagep.images.l2Darrays import l2Darrays
+from imagep.images.mdarray import mdarray
+import imagep.images.collection_meta as meta
 
 
 # %%
@@ -69,19 +72,22 @@ def _collect_denoise_filter_kws(imgs: np.ndarray) -> list[dict]:
 
 
 # == Denoise Sequential ==
+
+#!! Always decorate the main filter, or the numpy output is cached!
+# @meta.preserve_metadata() 
 def _denoise_sequential(imgs: np.ndarray) -> np.ndarray:
     kws_list = _collect_denoise_filter_kws(imgs)
     _imgs = [ski.restoration.denoise_nl_means(**kws) for kws in kws_list]
     # return np.array(_imgs, dtype=imgs.dtype)
-    return list2Darrays(_imgs, dtype=imgs.dtype)
+    return l2Darrays(_imgs, dtype=imgs.dtype)
 
 
 # == Denoise Parallel ==
 def _denoise_parallel_base(kwargs):
     return ski.restoration.denoise_nl_means(**kwargs)
 
+def _denoise_parallel(imgs: T.array, n_cores: int = 2) -> np.ndarray:
 
-def _denoise_parallel(imgs: np.ndarray, n_cores: int = 2) -> np.ndarray:
     ### List comprehensions are faster
     sigmas = [np.mean(ski.restoration.estimate_sigma(img)) for img in imgs]
 
@@ -93,7 +99,7 @@ def _denoise_parallel(imgs: np.ndarray, n_cores: int = 2) -> np.ndarray:
         _imgs_iter = executor.map(_denoise_parallel_base, kws_list)
 
     # _imgs = np.asarray(list(_imgs_iter), dtype=imgs.dtype)
-    _imgs = list2Darrays(_imgs_iter, dtype=imgs.dtype)
+    _imgs = l2Darrays(_imgs_iter, dtype=imgs.dtype)
     return _imgs
 
 
@@ -107,7 +113,7 @@ def _denoise(
     else:
         return _denoise_sequential(imgs=imgs)
 
-
+@meta.preserve_metadata()
 def denoise(
     imgs: np.ndarray,
     cached: bool = True,
@@ -181,7 +187,7 @@ def _entropy_sequential(
 
     kws_list = _collect_entropy_filter_kws(imgs, kernel_radius=kernel_radius)
     _imgs = [ski.filters.rank.entropy(**kws) for kws in kws_list]
-    _imgs = np.array(_imgs, dtype=imgs.dtype)
+    _imgs = l2Darrays(_imgs, dtype=imgs.dtype)
 
     if normalize:
         _imgs = _imgs / _imgs.max()
@@ -192,7 +198,6 @@ def _entropy_sequential(
 # == Entropy Parallel ==
 def _entropy_parallel_base(kwargs):
     return ski.filters.rank.entropy(**kwargs)
-
 
 def _entropy_parallel(
     imgs,
@@ -209,7 +214,8 @@ def _entropy_parallel(
     with ThreadPoolExecutor(max_workers=n_cores) as executor:
         _imgs_iter = executor.map(_entropy_parallel_base, kws_list)
 
-    _imgs = np.asarray(list(_imgs_iter), dtype=imgs.dtype)
+    # _imgs = np.asarray(list(_imgs_iter), dtype=imgs.dtype)
+    _imgs = l2Darrays(list(_imgs_iter), dtype=imgs.dtype)
 
     if normalize:
         _imgs = _imgs / _imgs.max()
@@ -236,7 +242,7 @@ def _entropy(
     else:
         return _entropy_sequential(**kws)
 
-
+@meta.preserve_metadata()
 def entropy(
     imgs: np.ndarray,
     kernel_radius: int = 3,
@@ -295,7 +301,8 @@ if __name__ == "__main__":
 # !! == End Class ==================================================
 # !! Median ============================================================
 
-
+#!! Always decorate the main filter, or the numpy output is cached!
+# @meta.preserve_metadata() 
 def _median(
     imgs: np.ndarray,
     kernel_radius: int = 2,
@@ -322,19 +329,19 @@ def _median(
 
     ### Execute
     if kernel_3D:
-        _imgs = ski.filters.rank.median(imgs, axes = axes, **kws)
+        _imgs = ski.filters.rank.median(imgs, axes=axes, **kws)
     else:
         _imgs = [ski.filters.rank.median(img, **kws) for img in imgs]
 
-    # _imgs = np.array(_imgs, dtype=imgs.dtype) 
-    _imgs = list2Darrays(_imgs, dtype=imgs.dtype)
+    # _imgs = np.array(_imgs, dtype=imgs.dtype)
+    _imgs = l2Darrays(_imgs, dtype=imgs.dtype)
 
     if normalize:
         _imgs = _imgs / _imgs.max()
 
     return _imgs
 
-
+@meta.preserve_metadata()
 def median(
     imgs: np.ndarray,
     kernel_radius: int = 2,

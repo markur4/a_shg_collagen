@@ -13,23 +13,55 @@ pip install git+https://github.com/markur4/ImageP
 #### Differences to ImageJ/Fiji:
 - **100% Python**
 - **Automation:** Focus on batch processing
+- **FAST:** Time costly filters are parallelized and cached to prevent
+  re-computation.
+- **Flexible:** No 
 - **Straightforward:** 
   - No Plugins, only
   - Active curation of the state-of-the-art tools: *There's 1 way to do things*
 - **Comprehensive:** Every processing intermediate is saved and shown so that everyone can understand what's going on
 - **Scientific:** Every step is documented and reviewable in the
   `history` attribute
-- **Efficient:** Costly computed operations are cached and/or
-  parallelized
 
 #### I wrote this because:
 - ImageJ/Fiji was always crashing
 - I don't need graphical interfaces (but could be added)
-- I like batch processing
+- I like batch processing of LOTS of images
 
 
 
 ## Features
+
+### Quality-Of-Life
+
+#### `l2Darrays`: Image Stacks of Different Sizes/Types
+The main data-bucket for storing images is the new class `l2Darrays` (list
+of arrays). It's a python `list` storing several images in the form of
+(2D) `numpy.ndarrays`. Basically, we replace the outermost dimension of
+a 3D static array with a dynamic list. This allows storage of images of
+different sizes and types. Our goal is that `l2Darrays` behaves equivalent
+to `np.ndarray` (without caveats).
+<!-- (with minimal caveats optimized for superior image processing capabilities).  -->
+
+Most of `numpy` methods are implemented for
+`l2Darrays` and work as expected (`.min()`/`.max()`, math operations,
+comparisons, etc.). Don't worry, we keep the dynamic lists as efficient
+as possible by always looping with [list-comprehensions](https://stackoverflow.com/questions/30245397/why-is-a-list-comprehension-so-much-faster-than-appending-to-a-list). 
+
+#### Fast: Parallelization and Caching
+We use filters that are time-costly. Since our main datatype is a list
+of images, parallelization is implemented image-wise, while every image
+profits from `numpy`'s vectorization. Furthermore, the results are cached
+to the hard-drive, meaning that the same filter is not applied twice to
+the same image. This means that changing parameters and re-running the
+pipeline is a lot faster.
+
+#### `mdarray`: Metadata per image
+Remember when I said that `l2Darrays` store `numpy` arrays? Well, they do,
+but we also implement a subclass `mdarray` (meta-data array) that
+extends on `numpy` array by simply adding a few attributes like `name`,
+`pixel_length`, `unit`, etc. This allows to store experimental metadata
+per image, ensuring that every image is properly documented.
 
 ### Generalized Pipelines
 I think that too much choice is confusing. ***There should be one *best*
@@ -58,8 +90,10 @@ data format to store images. That way you can always exit the pipeline
 at every step and continue with other tools.
 
 #### 1. Image Import
-Import images by automatically detecting the file format. Standard
-   precision is set to `np.float32`
+Import vast collections of images from a list of folders, providing
+filename extension (`.png`, `.tiff`, `.txt`, etc.) and/or filename
+patterns (`2024_*image*.png`) per folder. Default precision is set to
+`np.float32`
 
 #### 2. The PreProcessing-Pipeline
 Some things just make everything better. For example, since noise makes
@@ -69,9 +103,10 @@ from the `Preprocessing` class pipeline and starts with those. The goal
 is to equalize images to improve *every* kind further analysis. The
 `preprocess` package currently employs these optional processing steps
 (in this order):
-1. Denoise (non-local means)
-2. Subtract Background
-3. Normalize pixel values (0-1)
+1. Median filtering (If LOTS of noise...)
+2. Denoise (non-local means)
+3. Subtract Background
+4. Normalize pixel values (0-1)
 
 #### 3. Segmentation
 This is necessary for complex analysis pipelines. 

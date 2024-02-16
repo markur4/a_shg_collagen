@@ -11,6 +11,7 @@ import numpy as np
 import imagep._utils.utils as ut
 import imagep._configs.rc as rc
 import imagep.images._array_to_str as a2s
+
 # from imagep.images.imgs_import import ImgsImport
 
 
@@ -81,7 +82,7 @@ class mdarray(np.ndarray):
     def __str__(self) -> str:
         return self._array_str()
 
-    def _array_str(self, maximages:int = None) -> str:
+    def _array_str(self, maximages: int = None) -> str:
         """Returns a string representation of the array."""
         if self.ndim == 1:
             return a2s.array1D_to_str(self)
@@ -90,8 +91,9 @@ class mdarray(np.ndarray):
         elif self.ndim == 3:
             # !! 3D array will homogenize images
             # > This is only here so less stuff breaks
-            return a2s.array3D_to_str(self, maximages=maximages)
-
+            return a2s.arrays_to_str(self, maximages=maximages)
+        else:
+            raise ValueError(f"Array with {self.ndim} dimensions not supported")
 
     @property
     def info_short(self) -> str:
@@ -253,8 +255,8 @@ if __name__ == "__main__":
     # %%
     ### Convert to 3D array
     arrays_homo = [
-        np.ones((5,5), dtype = np.uint8),
-        np.ones((5,5), dtype= np.float16),
+        np.ones((5, 5), dtype=np.uint8),
+        np.ones((5, 5), dtype=np.float16),
     ]
     ### Add metadata
     a3D = mdarray(arrays_homo)

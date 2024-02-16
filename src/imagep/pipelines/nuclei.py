@@ -58,6 +58,7 @@ if __name__ == "__main__":
     # Z.imshow()
 
     # %%
+    ### Preprocess
     I = 2
     Zpp = ip.PreProcess(
         data=Z,
@@ -71,11 +72,16 @@ if __name__ == "__main__":
         ),
         remove_empty_slices=False,
         snapshot_index=I,
+        # pixel_length=0.1,
     )
     print(Zpp.info)
     print("per_img: ", Zpp.background.per_img)
     print("threshold: ", Zpp.background.threshold)
+    # %%
+    Zpp.imgs[0].metadata
+    
     # Zpp.imshow()
+    #%%
     Zpp.plot_snapshots(saveto="Preprocessed_D7_snapshots")
     # %%
     # > Show all preprocessed images

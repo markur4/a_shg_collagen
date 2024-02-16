@@ -15,7 +15,8 @@ import imagep._utils.utils as ut
 # from imagep.processing.pipeline import Pipeline
 # from imagep.processing.preprocess import PreProcess
 import imagep.processing.filters as filters
-from imagep.images.list2Darrays import list2Darrays
+from imagep.images.l2Darrays import l2Darrays
+import imagep.images.collection_meta as meta
 
 
 # %%
@@ -91,13 +92,14 @@ class Background:
 
     #
     # == Subtract MAIN functions =======================================
-
+    
+    # @meta.preserve_metadata() # !! No nested
     def subtract_threshold(
         self,
         method: str = None,
         sigma: float = None,
         per_img: bool = None,
-    ):
+    )-> np.ndarray:
         """Subtracts a threshold from the images"""
 
         ### Collect KWS
@@ -192,7 +194,7 @@ def subtract(img: np.ndarray, value: float) -> np.ndarray:
 
     return img_bg
 
-
+# @meta.preserve_metadata() #!! no nested metadata
 def _subtract_threshold(
     imgs: np.ndarray,
     method: str,
@@ -222,9 +224,9 @@ def _subtract_threshold(
         ### Subtract
         _imgs = [subtract(img, value=t) for img, t in zip(imgs, threshold)]
 
-    ### Convert to array
+    ### Convert to l2Darray
     # _imgs = np.array(_imgs, dtype=imgs.dtype)
-    _imgs = list2Darrays(_imgs, dtype=imgs.dtype)
+    _imgs = l2Darrays(_imgs, dtype=imgs.dtype)
     return _imgs, threshold
 
     # !! == End Class ==================================================
@@ -241,7 +243,7 @@ if __name__ == "__main__":
     # > z_dist = n_imgs * stepsize = 10 * 0.250 µm
     kws = dict(
         # z_dist=10 * 0.250,
-        x_µm=(1.5 * 115.4),
+        pixel_length=(1.5 * 115.4)/1024,
     )
     # > Detailed
     # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
@@ -256,21 +258,26 @@ if __name__ == "__main__":
     I = 4
     Z = PreProcess(
         data=path,
+        fname_extension="txt",
         denoise=True,
         subtract_bg=True,
         subtract_bg_kws=dict(
             method="triangle",
             sigma=1.5,
-            bg_per_img=True,
+            per_img=True,
         ),
         remove_empty_slices=True,
-        scalebar_microns=50,
+        scalebar_length=50,
         snapshot_index=I,
         **kws,
     )
     print(Z.imgs.shape)
     print(Z._shape_original)
-
+    
+    #%%
+    
+    Z.imgs
+    
     # plt.imshow(zstack.stack[0])
 
     # %%

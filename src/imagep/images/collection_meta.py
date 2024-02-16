@@ -14,15 +14,16 @@ import numpy as np
 import imagep._utils.utils as ut
 import imagep._configs.rc as rc
 from imagep.images.collection_import import CollectionImport
-from imagep.images.list2Darrays import list2Darrays
+from imagep.images.l2Darrays import l2Darrays
 from imagep.images.mdarray import mdarray
+import imagep._example_data.larries as edl
 
 # import imagep.images.importtools as importtools
 
 
 # %%
 # == Extract and apply metadata =======================================
-def extract_metadata(larry: list2Darrays) -> list[dict]:
+def extract_metadata(larry: l2Darrays) -> list[dict]:
     """Extracts metadata from images and returns a list of
     dictionaries with key and value pairs"""
     metadata = [img.metadata for img in larry]
@@ -30,13 +31,72 @@ def extract_metadata(larry: list2Darrays) -> list[dict]:
 
 
 def apply_metadata(
-    larry: list2Darrays,
+    larry: l2Darrays,
     metadata: list[dict],
-) -> None:
+) -> l2Darrays:
     """Applies metadata to images"""
     for img, md in zip(larry, metadata):
         for k, v in md.items():
             setattr(img, k, v)
+    return larry
+
+already_called = False
+
+def preserve_metadata():
+    """A decorator that wraps functions using images as first argument.
+    It checks if the images have metadata, and if so, it extracts them
+    before the funciton executes and then re-applies them after the
+    function has executed.
+    """
+    def decorator(func):
+        global already_called
+        if already_called:
+            # todo: This might not be necessary
+            raise ValueError("Decorator already called, no nested decorators allowed.")
+        already_called = True
+        
+        def wrapper(*args, **kws):
+            ### Get imgs from args
+            if len(args) != 0:
+                
+                __imgs = args[0]
+            elif "imgs" in kws:
+                __imgs = kws["imgs"]
+            else:
+                raise ValueError("No argument 'imgs' found")
+            if isinstance(__imgs, l2Darrays):
+                # > Extract metadata
+                metadata = extract_metadata(__imgs)
+                # > Execute function
+                __imgs = func(*args, **kws)
+                # > Convert to mdarray to enable metadata
+                __imgs = l2Darrays([mdarray(img) for img in __imgs])
+                # > Apply metadata
+                __imgs = apply_metadata(__imgs, metadata)
+                return __imgs
+            else:
+                return func(*args, **kws)
+            
+        already_called = False
+        return wrapper
+    return decorator
+
+if __name__ == "__main__":
+    ### Get testdata
+    larries = edl.larries_s_all
+    print(larries)
+    #%%
+    # > Test function
+    @preserve_metadata()
+    def test_func(imgs: l2Darrays, **kws):
+        print("Test function executed")
+        _imgs = np.array(imgs +1)
+        _imgs = l2Darrays(_imgs, dtype=imgs.dtype)
+        return _imgs
+    
+    ### Test
+    _new_larry = test_func(larries[0])
+    _new_larry
 
 
 # %%

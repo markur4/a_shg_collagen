@@ -21,7 +21,7 @@ import imagep._utils.utils as ut
 import imagep._configs.rc as rc
 from imagep._plots.imageplots import imshow
 from imagep.images.mdarray import mdarray
-from imagep.images.list2Darrays import list2Darrays
+from imagep.images.l2Darrays import l2Darrays
 
 
 #
@@ -65,7 +65,7 @@ def arrays_from_folderlist(
     imgs = flatten(list(imgs_dict.values()))
 
     ### Convert to ListOfArrays
-    imgs = list2Darrays(arrays=imgs)
+    imgs = l2Darrays(arrays=imgs)
     # shapes: set = {img.shape for img in imgs}
     # if len(shapes) == 1:
     #     # imgs = np.array(imgs)
@@ -143,6 +143,7 @@ def arrays_from_folder(
 
     return _imgnames, _imgs
 
+
 def _order_imgpaths(
     imgpaths: list[Path],
     sort: bool,
@@ -154,15 +155,17 @@ def _order_imgpaths(
     # > sort txts by number
     if sort:
         imgpaths = sorted(imgpaths, key=_get_sortkey(imgname_position))
-        
+
     ### Invert if the first image is the bottom one
     if invertorder:
         imgpaths = imgpaths[::-1]
 
     return imgpaths
 
+
 #
 # == Extract Image names from Image paths ==============================
+
 
 def _imgnames_from_imgpaths(
     imgpaths: list[Path],
@@ -184,7 +187,6 @@ def _split_fname(path: str | Path) -> str:
     # > Convert to int if possible to sort by number
     split = [int(s) if s.isdigit() else s for s in split]
     return split
-
 
 
 # %%
@@ -212,9 +214,6 @@ def _pick_func_from_extension(fname_extension: str) -> Callable:
         return _array_from_imgfile
     else:
         raise ValueError(f"fname_extension '{fname_extension}' not supported.")
-
-
-
 
 
 # %%
@@ -245,6 +244,7 @@ def _array_from_txtfile(
 
 if __name__ == "__main__":
     import skimage as ski
+
     t = np.float32
     # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/Image3_6.txt"
     # img = from_txt(path, type=t)

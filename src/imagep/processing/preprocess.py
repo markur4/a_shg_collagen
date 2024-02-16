@@ -147,21 +147,37 @@ class PreProcess(Pipeline):
         ### Denoise
         if kws["denoise"]:
             self.imgs = self.filter.denoise()
+            # print("!!! name array:", type(self.imgs[0].name))
             self.capture_snapshot("Denoise")
 
         ### Subtract Background
         if kws["subtract_bg"]:
+            # print("!!! imgs", self.imgs)
+            # print("!!! type imgs", type(self.imgs))
+            # print("!!! type array:", type(self.imgs[0]))
+            # print("!!! name array:", self.imgs[0].name)
             self.imgs = self.background.subtract_threshold()
             self.capture_snapshot("subtract_bg")
 
         ### Normalize
         if kws["normalize"]:
+            # print("!!! imgs", self.imgs)
+            # print("!!! type imgs", type(self.imgs))
+            # print("!!! type array:", type(self.imgs[0]))
+            # print("!!! name array:", self.imgs[0].name)
             self.imgs = self.imgs / self.imgs.max()
             self.capture_snapshot("normalize")
 
         ### Remove empty slices
         if kws["remove_empty_slices"]:
+            # print("!!! type imgs", type(self.imgs))
+            # print("!!! type array:", type(self.imgs[0]))
+            # print("!!! name array:", self.imgs[0].name)
             self.imgs = self.remove_empty_slices(imgs=self.imgs)
+            
+            # print("!!! type imgs", type(self.imgs))
+            # print("!!! type array:", type(self.imgs[0]))
+            # print("!!! name array:", self.imgs[0].name)
 
     #
     # === HISTORY ====================================================
@@ -226,6 +242,7 @@ class PreProcess(Pipeline):
 
         ### Ignore background (0)
         # > or it'll skew statistics when bg is subtracted
+        #TODO: Change this after implementing list of 1D arrays
         imgs_bg = imgs[imgs > 0.0]
 
         return [

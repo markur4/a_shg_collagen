@@ -94,7 +94,7 @@ def array1D_to_str(array: np.ndarray):
     """Returns a string representation of the array"""
     ### Make head row
     typ = shorten_type(type(array))
-    head = f" 1D {typ} length {array.shape[0]} (z) {array.dtype}:"
+    head = f" 1D {typ} length {array.shape} (z) {array.dtype}:"
     ### Make first and last row
     row1 = f"{T}{makerow(array)}"
     ### Add metadata
@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
 
 # %%
-def array3D_to_str(arrays: np.ndarray, maximages: int = None) -> str:
+def arrays_to_str(arrays: np.ndarray, maximages: int = None) -> str:
     """Returns a string representation of the object"""
 
     ### Decide which images to show
@@ -227,14 +227,19 @@ def array3D_to_str(arrays: np.ndarray, maximages: int = None) -> str:
         indices = [0, len(arrays) // 2, len(arrays) - 1]
 
     ### OBJECT HEADER
-    S = f"{len(arrays)} images:"
+    S = f"{len(arrays)} arrays:"
     ### ARRAY CONTENT
     for i in indices:
         ### get image
         img = arrays[i]
 
-        ### Get rows per 2Darray
-        rows = array2D_to_str(img).split("\n")
+        ### Get rows per array
+        if len(img.shape) == 1:
+            S += "\n" + array1D_to_str(img)
+            continue
+        # > Array2D
+        else:
+            rows = array2D_to_str(img).split("\n")
 
         ### Make Head row
         rows[1] = f" #{i+1}/{len(arrays)}:" + rows[1]
@@ -250,7 +255,21 @@ def array3D_to_str(arrays: np.ndarray, maximages: int = None) -> str:
 
 
 if __name__ == "__main__":
-    print(array3D_to_str(arrays))
+    print(arrays_to_str(arrays))
     # %%
     ### Test maximages
-    print(array3D_to_str(arrays, maximages=3))
+    print(arrays_to_str(arrays, maximages=3))
+    
+    # %%
+    ### test for 1D arrays
+    arrays_1 = [
+        np.ones((1), dtype=np.uint8),
+        np.ones((5), dtype=np.uint8),
+        np.ones((10), dtype=np.uint8),
+        np.ones((20), dtype=np.uint8),
+        np.ones((1024), dtype=np.uint8),
+        np.ones((1,5), dtype=np.uint8),
+        np.ones((1,20), dtype=np.uint8),
+        np.ones((1,1024), dtype=np.uint8),
+    ]
+    print(arrays_to_str(arrays_1))

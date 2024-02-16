@@ -14,7 +14,7 @@ import imagep._configs.rc as rc
 import imagep._utils.types as T
 import imagep.images.importtools as importtools
 from imagep.images.mdarray import mdarray
-from imagep.images.list2Darrays import list2Darrays
+from imagep.images.l2Darrays import l2Darrays
 
 if TYPE_CHECKING:
     import imagep as ip
@@ -51,7 +51,7 @@ class CollectionImport:
 
         ### Init attributes, they will be set by the import functions
         self.folder: str | Path | list[str | Path] = self.FOLDER_PLACEHOLDER
-        self.imgs: ip.mdarray | list2Darrays = None
+        self.imgs: ip.mdarray | l2Darrays = None
         self.imgnames: dict[str, str] = self.IMGKEY_PLACEHOLDER
 
         ### Configure import from path
@@ -111,7 +111,7 @@ class CollectionImport:
         data: T.source_of_imgs,
     ) -> None:
         """Check if data is a valid image source"""
-        types = (str, Path, list, T.array, list2Darrays)
+        types = (str, Path, list, T.array, l2Darrays)
         m = (
             " Either (list of) path, (list of) array or self"
             + " must be given."
@@ -287,11 +287,11 @@ class CollectionImport:
             elif isinstance(val, (list, tuple)):
                 _self.imgs = self.imgs[list(val), ...]
                 indices = val
-        elif isinstance(self.imgs, list2Darrays):
+        elif isinstance(self.imgs, l2Darrays):
             # > Let the ListOfArrays handle the slicing
             # > Re-initialize as ListOfArrays to preserve the type
-            imgs: T.array | list2Darrays = self.imgs[val]
-            _self.imgs = list2Darrays(arrays=imgs)
+            imgs: T.array | l2Darrays = self.imgs[val]
+            _self.imgs = l2Darrays(arrays=imgs)
             # > Z[0] or Z[1,2,5] or Z[[1,2,5]]
             if isinstance(val, int):
                 indices = [val]

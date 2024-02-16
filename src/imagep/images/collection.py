@@ -54,7 +54,7 @@ class Collection(CollectionMeta):
         ### CollectionMeta kws:
         pixel_length: float | list[float] = None,
         unit: str = "µm",
-        scalebar_length: int = 10,  # > in (micro)meter
+        scalebar_length: int = None,  # > in (micro)meter
         ### fileimport_kws
         fname_pattern: str = "",
         fname_extension: str = "",

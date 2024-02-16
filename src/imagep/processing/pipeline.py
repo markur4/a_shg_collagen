@@ -103,9 +103,13 @@ class Pipeline(Collection):
         fig, axes = imageplots.imshow(
             self.snapshots_array,
             max_cols=2,
-            scalebar=scalebar,
+            # !! Don't apply scalebars to snapshots, since metadata is
+            # !! lost during processing
+            # scalebar=False, 
+            scalebar=scalebar, 
             scalebar_kws=dict(
-                pixel_length=self.pixel_length, length=self.scalebar_length
+                # pixel_length=self.pixel_length,
+                length=self.scalebar_length,
             ),
             share_cmap=False,
         )

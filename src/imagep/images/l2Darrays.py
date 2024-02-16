@@ -24,15 +24,15 @@ import imagep._configs.rc as rc
 import imagep._configs.loggers as loggers
 import imagep._utils.types as T
 from imagep.images.mdarray import mdarray
-from imagep.images._array_to_str import array3D_to_str
+import imagep.images._array_to_str as a2s
 
 
 # %%
 #
 # ======================================================================
-# == Class List Of 2D arrays ===========================================
-class list2Darrays:
-    """An Alternative to np.ndarrays / ip.Mdarray compatible with
+# == Class List Of (2D) arrays ===========================================
+class l2Darrays:
+    """An Alternative to np.ndarrays / ip.mdarray compatible with
     storing images of different sizes and types. Provides a
     np.array-esque experience, giving access to properties like shape and
     dtype without complicating subsequent code.
@@ -58,9 +58,11 @@ class list2Darrays:
     def _array_str(self, maximages: int = None) -> str:
         """Returns a string representation of the object"""
 
-        rows = array3D_to_str(self.arrays, maximages=maximages).split("\n")
+        rows = a2s.arrays_to_str(self.arrays, maximages=maximages).split("\n")
 
-        rows[0] = f"<class list2Darrays> with {len(self.arrays)} images:"
+        rows[0] = (
+            f"<class l2Darrays> with {len(self.arrays)} images of shapes {self.shapes}:"
+        )
 
         return "\n".join(rows)
 
@@ -71,22 +73,39 @@ class list2Darrays:
     def _outerdim_to_list(
         input: T.array | list[T.array] | Self,
     ) -> list[T.array]:
-        """Converts input into a list of 2D arrays
-        - if a scalar is passed, it's wrapped in a list
-        - If a single 2D array is passed, it's wrapped in a list
-        - If a list of 2D arrays is passed, it's returned as is
-        - If a 3D array is passed, it's converted into a list of 2D
-          arrays
-        - if a 1D or 4D array o is passed, a ValueError is raised
+        """Converts input into a list of 2D arrays:
+        - Single 1D array is coerced into a 2D array and wrapped into a
+          list
+        - List of 1D arrays is returned as is
+        - Single 2D array is wrapped into a list
+        - List of 2D arrays is returned as is
+        - Single 3D array is casted to a list
+        - List of a single 3D array is retrieved and casted into list
+        :param input: (list of) 1D, 2D, 3D array(s). List of 3D Arrays
+           must contain only one 3D array. Will be converted into a list
+           of 2D arrays
+        :type input: np.array|mdarray|list[np.array|mdarray]
+        :raises ValueError:
+        - Arrays with dimensions >= 4D
+        - List of arrays with dimensions >= 3D with more than 1 array
         - if a list of 1D or 3D arrays is passed, a ValueError is raised
+        :return: list of 2D arrays
+        :rtype: list[np.array|mdarray]
         """
-        # > input = list2Darrays
-        if isinstance(input, list2Darrays):
+        # > input = l2Darrays
+        if isinstance(input, l2Darrays):
             return input.arrays
         elif isinstance(input, list):
             if isinstance(input[0], T.array):
-                # > input = [np.array 2D, np.array 2D, ...]
-                if input[0].ndim == 2:
+                # > input = [np.array 1D]
+                # ' or [np.array 1D, np.array 1D, ...]
+                # ' or [np.array 2D, np.array 2D, ...]
+                # if input[0].ndim == 1:
+                #     # return [np.atleast_2d(arr) for arr in input]
+                #     return input
+                # elif input[0].ndim == 2:
+                #     return input
+                if input[0].ndim in (1, 2):
                     return input
                 # > input = [np.array 3D]
                 elif input[0].ndim == 3 and len(input) == 1:
@@ -94,22 +113,27 @@ class list2Darrays:
                 # > [np.array 3D, np.array 3D, ...]
                 else:
                     raise ValueError(
-                        f"List must contain 2D arrays, not {input[0].ndim}D arrays"
+                        f"List must contain 1D/2D arrays or a single 3D array"
+                        f", not {input[0].ndim}D arrays"
                     )
             else:
                 raise ValueError(
                     f"List must contain arrays, not {type(input[0])}"
                 )
+        # > input = np.array 1D/2D/3D
         elif isinstance(input, T.array):
-            # > input = np.array 2D
-            if input.ndim == 2:
+            # if input.ndim == 1:
+            #     # return [np.atleast_2d(input)]
+            #     return [input]
+            # elif input.ndim == 2:
+            #     return [input]
+            if input.ndim in (1, 2):
                 return [input]
-            # > input = np.array 3D
             elif input.ndim == 3:
                 return list(input)
             else:
                 raise ValueError(
-                    f"Must pass a 2D or 3D array, not {input.ndim}D array"
+                    f"When passing arrays, dimensions must be 1D/2D/3D, not {input.ndim}D array"
                 )
 
         else:
@@ -135,9 +159,17 @@ class list2Darrays:
     def shapes(self):
         """Returns (z, {y}, {x}), with x and y sets of all widths and
         heights occurring in the data"""
-        y_set = {img.shape[0] for img in self.arrays}
-        x_set = {img.shape[1] for img in self.arrays}
-        return (len(self.arrays), y_set, x_set)
+
+        shapes = [array.shape for array in self.arrays]
+        maxdim = max([len(shape) for shape in shapes])
+        ### Make a set of axis lengths for each axis from all shapes independently of dimensions
+        shapes_sets = [
+            set([shape[d] for shape in shapes if len(shape) > d])
+            for d in range(maxdim)
+        ]
+        # y_set = {img.shape[0] for img in self.arrays}
+        # x_set = {img.shape[1] for img in self.arrays}
+        return (len(self.arrays), *shapes_sets)
 
     @property
     def shape(self):
@@ -181,7 +213,7 @@ class list2Darrays:
         return {img.dtype for img in self.arrays}
 
     def astype(self, dtype: np.dtype):
-        return list2Darrays(self.arrays, dtype=dtype)
+        return l2Darrays(self.arrays, dtype=dtype)
 
     @property
     def dtype(self) -> Type:
@@ -213,21 +245,26 @@ class list2Darrays:
         - Does NOT preserve dimensions. That means that the
         result can be either an array or a list, but if list, it's a
         ListOfArrays to mimic numpy behavior.
-
         """
         # > self[1] or self[1:3]
         if isinstance(val, int):
             return self.arrays[val]
         # > self[1:3]
         if isinstance(val, slice):
-            return list2Darrays(self.arrays[val])
+            return l2Darrays(self.arrays[val])
         # > self[1,2,3] or self[[1,2,3]]
         elif isinstance(val, (tuple, list)):
-            return list2Darrays([self.arrays[v] for v in val])
-        # > self[ [True, False, ...] ]
-        elif isinstance(val, (T.array, list2Darrays)):
-            # > Like numpy, this does not preserve shape
-            return [array[val[i]] for i, array in enumerate(self.arrays)]
+            return l2Darrays([self.arrays[v] for v in val])
+        # > self[ array([True, False, ...]) ]
+        elif isinstance(val, (T.array, l2Darrays)):
+            # > Since numpy intentionally loses dimension information, we might
+            # ' also abandon metadata information
+            return np.concatenate(
+                [array[val[i]] for i, array in enumerate(self.arrays)]
+            )
+            # > This here DOES paritally preserve shape (z, but not y)
+            # return [array[val[i]] for i, array in enumerate(self.arrays)]
+
         else:
             raise ValueError(f"Invalid indexer '{val}'")
 
@@ -235,11 +272,11 @@ class list2Darrays:
         self, val: int | slice | tuple | list, item: T.array | list[T.array]
     ):
         # > self[boolean_index] = int
-        if isinstance(val, (T.array, list2Darrays)) and np.isscalar(item):
+        if isinstance(val, (T.array, l2Darrays)) and np.isscalar(item):
             for i, array in enumerate(self.arrays):
                 array[val[i]] = item
-                
-            return #!! Return early
+
+            return  #!! Return early
 
         ### > Convert scalar item to list of arrays
         if isinstance(item, (int, float)) or np.isscalar(item):
@@ -292,7 +329,7 @@ class list2Darrays:
                 f"Can't set {len(item)} items to a slice of length {insertlength}, their lengths must match."
             )
         ### Insert into slice (with regards to stepsize)
-        self.arrays = list2Darrays(
+        self.arrays = l2Darrays(
             [
                 (self.arrays[i] if i not in indices else item[indices.index(i)])
                 for i in range(len(self.arrays))
@@ -316,7 +353,7 @@ class list2Darrays:
             raise ValueError(
                 f"Can't set {len(item)} items to a slice of length {insertlength}, their lengths must match."
             )
-        self.arrays = list2Darrays(
+        self.arrays = l2Darrays(
             [
                 self.arrays[i] if i not in val else item[val.index(i)]
                 for i in range(len(self.arrays))
@@ -328,7 +365,7 @@ class list2Darrays:
 
     def copy(self) -> Self:
         """Returns a copy of the object"""
-        return list2Darrays([img.copy() for img in self.arrays])
+        return l2Darrays([img.copy() for img in self.arrays])
 
     def asarray(self, dtype=None):
         """Returns a 3D numpy array. This has these consequences:
@@ -354,17 +391,18 @@ class list2Darrays:
     #
     # == Statistics ====================================================
 
-    def max(self, **kws):
+    def max(self, **kws) -> int|float:
         if self.homogenous:
             return self.asarray().max(**kws)
         else:
-            return max([img.max(**kws) for img in self.arrays])
+            #!! mdarray.max() returns an 0D array..?
+            return max([img.max(**kws).item() for img in self.arrays])
 
-    def min(self, **kws):
+    def min(self, **kws)-> int|float:
         if self.homogenous:
             return self.asarray().min(**kws)
         else:
-            return min([img.min(**kws) for img in self.arrays])
+            return min([img.min(**kws).item() for img in self.arrays])
 
     # ==================================================================
     # == OPERATIONS ====================================================
@@ -379,25 +417,25 @@ class list2Darrays:
 
         ### Check Type
         isscalar: bool = np.isscalar(other) or isinstance(other, (int, float))
-        if not (isscalar or isinstance(other, (T.array, list2Darrays))):
+        if not (isscalar or isinstance(other, (T.array, l2Darrays))):
             raise TypeError(
                 f"Math operations are possible only with a scalar or a (list of) array(s), not {type(other)}"
             )
         # > self + 2
         elif isscalar:
-            return list2Darrays([operation(img, other) for img in self.arrays])
+            return l2Darrays([operation(img, other) for img in self.arrays])
         # > or self + np.array (1D or 2D)
-        # > or self + list2Darrays (1D or 2D)
+        # > or self + l2Darrays (1D or 2D)
         elif other.ndim in (1, 2):
-            return list2Darrays([operation(img, other) for img in self.arrays])
+            return l2Darrays([operation(img, other) for img in self.arrays])
         # > self + np.array (3D)
         elif other.ndim == 3 and len(other) == len(self.arrays):
-            return list2Darrays(
+            return l2Darrays(
                 [operation(img, other[i]) for i, img in enumerate(self.arrays)]
             )
         else:
             raise ValueError(
-                f"Can't perform math operations between list2Darray with"
+                f"Can't perform operations between list2Darray with"
                 f" shapes {self.shapes} with an array of shape {other.shape}"
             )
 
@@ -500,12 +538,12 @@ if __name__ == "__main__":
     I = 6
 
     # %%
-    larry = list2Darrays(arrays=list(Z.imgs))
+    larry = l2Darrays(arrays=list(Z.imgs))
     larry.shapes
     # Z.imgs.tolist()
 
     # %%
-    larry_hetero = list2Darrays(
+    larry_hetero = l2Darrays(
         arrays=[
             np.ones((2, 2), dtype=np.uint8),
             np.ones((2, 2), dtype=np.float16) * 2.5,
