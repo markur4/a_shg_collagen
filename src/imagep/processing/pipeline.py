@@ -132,7 +132,7 @@ class Pipeline(Stack):
             f"Snapshots acquired after each processing step\n"
             f"   Took image #{I+1}/{T} (i={I}/{T-1}) as sample"
         )
-        imageplots.figtitle_to_plot(FIGTITLE, fig=fig, axes=axes)
+        imageplots.figtitle_to_fig(FIGTITLE, fig=fig, axes=axes)
 
         if save_as:
             imageplots.savefig(save_as=save_as, verbose=self.verbose)

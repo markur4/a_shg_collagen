@@ -191,7 +191,7 @@ class Stack(StackMeta):
         max_cols: int = 2,
         scalebar: bool = False,
         scalebar_kws: dict = dict(),
-        colorbar:bool=True,
+        colorbar: bool = True,
         share_cmap: bool = False,
         batch_size: int = None,
         save_as: str = None,
@@ -214,6 +214,7 @@ class Stack(StackMeta):
             imgs=_imgs,
             max_cols=max_cols,
             cmap=cmap,
+            share_cmap=share_cmap,
             scalebar=scalebar,
             scalebar_kws=scalebar_KWS,
             colorbar=colorbar,
@@ -228,10 +229,10 @@ class Stack(StackMeta):
             fig, axes = imageplots.imshow(**_imshow_kws)
             fig_axes = (fig, axes)
         else:
-            fig_axes = imageplots.plot_images_in_batches(
+            fig_axes = imageplots.imshow_batched(
                 batch_size=batch_size, **_imshow_kws
             )
-        
+
         for fig, axes in fig_axes:
             ### Add Ax titles ==========================================
             for i, ax in enumerate(axes.flat):
@@ -242,7 +243,9 @@ class Stack(StackMeta):
                 # > retrieve image
                 img: mdarray = _imgs[i]
                 # > ax title
-                imageplots.axtitle_to_plot(ax, img, i=i, i_tot=_i_tot, T=T)
+                imageplots._axtitle_from_img(
+                    ax, img, i_in_total=i, i_total=_i_tot, tot=T
+                )
 
             ### Fig title
             _fig_tit = f"{self.paths_pretty}\n - {T} Total images"
@@ -250,7 +253,7 @@ class Stack(StackMeta):
                 _fig_tit += (
                     f"; Sliced to {len(_imgs)} image(s) (i=[{self._sliced}])"
                 )
-            imageplots.figtitle_to_plot(_fig_tit, fig=fig, axes=axes)
+            imageplots.figtitle_to_fig(_fig_tit, fig=fig, axes=axes)
 
             plt.tight_layout()
 

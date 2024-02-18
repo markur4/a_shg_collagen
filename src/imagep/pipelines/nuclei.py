@@ -69,7 +69,7 @@ if __name__ == "__main__":
     # %%
     ### Preprocess
     I = 2
-    # > IA_pp = Image Analysis preprocessed
+    # * IA_pp = Image Analysis preprocessed
     IA_pp = ip.PreProcess(
         data=IA_ori,
         median=True,

@@ -14,12 +14,13 @@ from pathlib import Path
 import imagep._utils.utils as ut
 import imagep._utils.types as T
 import imagep._plots.scalebar as scaleb
+from imagep.images.l2Darrays import l2Darrays
 
 
 # from imagep.images.imgs import Imgs
 
 # %%
-# == Testdata ==========================================================
+# :: Testdata ==========================================================
 if __name__ == "__main__":
     # !! Import must not be global, or circular import
     from imagep.images.stack import Stack
@@ -38,53 +39,18 @@ if __name__ == "__main__":
 
 
 # %%
-# == UTILS =============================================================
-# def _fname(fname: bool | str, extension=".png") -> Path:
-#     """Tool to get filename for saving"""
-#     if not isinstance(fname, str):
-#         raise ValueError("You must provide a filename for save")
-#     fname = Path(fname).with_suffix(".png")
-#     return fname
-
-
-def figtitle_to_plot(title: str, fig: plt.Figure, axes: np.ndarray) -> None:
-    """Makes a suptitle for figures"""
-    bbox_y = 1.05 if axes.shape[0] <= 2 else 1.01
-    fig.suptitle(title, ha="left", x=0.01, y=bbox_y, fontsize="large")
-
-
-def axtitle_to_plot(
-    ax: plt.Axes,
-    img: T.array,
-    i: int,
-    i_tot: int,
-    T: int,
-) -> None:
-    """Adds title to axes"""
-    _ax_tit = (
-        f"Image {i+1}/{T} (i={i_tot}/{T-1})"
-        f"    {img.shape[0]}x{img.shape[1]}  {img.dtype}"
-    )
-    # > Add Image keys
-    if img.name != "unnamed":
-        folder = Path(img.folder).parent
-        _ax_tit = f"'{folder}': '{img.name}'\n" + _ax_tit
-    ax.set_title(_ax_tit, fontsize="medium")
-
-
-# %%
-# == colorbar ==========================================================
+# == img to ax ==========================================================
 def _colorbar_to_ax(
-    plt_img: mpl.image,
+    ax_img: mpl.image,
     ax: plt.Axes,
     percentiles: tuple = None,
-    minmax: tuple = None,
+    min_max: tuple = None,
 ) -> plt.colorbar:
     """Add colorbar to axes"""
     # > Colorbar
 
     cb = plt.colorbar(
-        mappable=plt_img,
+        mappable=ax_img,
         ax=ax,
         fraction=0.04,  # > Size colorbar relative to ax
         orientation="vertical",
@@ -102,7 +68,7 @@ def _colorbar_to_ax(
         perc50, perc75, perc99 = percentiles
         ### min max lines
         line_max = cb.ax.hlines(
-            minmax[1],
+            min_max[1],
             ls="solid",
             lw=2,
             label=f"max",
@@ -134,7 +100,7 @@ def _colorbar_to_ax(
             **kws,
         )
         line_min = cb.ax.hlines(
-            minmax[0],
+            min_max[0],
             ls="solid",
             lw=2,
             label=f"min",
@@ -145,7 +111,7 @@ def _colorbar_to_ax(
             line.set_gapcolor("black")
 
         ### Add as minor ticks
-        cb.ax.set_yticks([minmax[0], minmax[1], perc50, perc75, perc99])
+        cb.ax.set_yticks([min_max[0], min_max[1], perc50, perc75, perc99])
         # cb.ax.tick_params(
         #     which="minor",
         #     labelsize="small",
@@ -159,42 +125,215 @@ def _colorbar_to_ax(
     return cb
 
 
-# == refactored ======================================================
-def _plot_image(
-    ax: plt.Axes,
+def _plot_img_to_ax(
+    ### Select image
     img: T.array,
-    imshow_kws: dict,
-    share_cmap: bool,
-    min_max: tuple,
+    ax: plt.Axes,
+    i_in_ax: int,
+    ### kws
     colorbar: bool,
-    _imgs_raw: T.array,
-    i,
-):
-    plt_img = ax.imshow(img, **imshow_kws)
+    share_cmap: bool,
+    ### Info persistant across batches of imgs
+    imgs_raw: T.array,
+    i_in_batch: int,
+    ### kws for ax.imshow()
+    **ax_imshow_kws,
+) -> tuple[plt.Axes]:
+    ### Extract parameters from imgs_raw
+    min_max = (np.min(imgs_raw), np.max(imgs_raw))
+    i_total = len(imgs_raw) - 1
+    i_in_total = i_in_batch + i_in_ax
+    img_raw = imgs_raw[i_in_total]
+
+    ### Plot img to ax
+    ax_img = ax.imshow(img, **ax_imshow_kws)
+
+    ### Remove x- and y-axis
     ax.axis("off")
 
+    ### Define color limits by image stack
     if share_cmap:
-        plt_img.set_clim(*min_max)
+        ax_img.set_clim(*min_max)
 
+    ### Colorbar
     if colorbar:
-        p = np.percentile(_imgs_raw[i], [50, 75, 99])
-        minmax = np.min(_imgs_raw[i]), np.max(_imgs_raw[i])
+        p = np.percentile(img_raw, [50, 75, 99])
+        min_max_img = np.min(img_raw[i_in_total]), np.max(img_raw[i_in_total])
         cb = _colorbar_to_ax(
-            plt_img=plt_img, percentiles=p, ax=ax, minmax=minmax
+            ax=ax,
+            ax_img=ax_img,
+            percentiles=p,
+            min_max=min_max_img,
         )
 
+    ### Ax title
+    axtitle = _axtitle_from_img(
+        img=img_raw,
+        i_in_total=i_in_total,
+        i_total=i_total,
+    )
+    ax.set_title(axtitle, fontsize="medium")
+
+    return ax, cb
+
+
+def _axtitle_from_img(
+    img: T.array,
+    i_in_total: int,
+    i_total: int,
+) -> None:
+    """Adds title to axes"""
+    
+    l = []
+    
+    ### Name
     if hasattr(img, "name"):
-        axtitle_to_plot(
+        # if img.name != "unnamed":
+        folder = Path(img.folder).parent
+        l.append(f"'{folder}': '{img.name}'")
+    
+    ### Index, shape, dtype
+    l.append(
+        f"Image {i_in_total+1}/{i_total+1} (i={i_in_total}/{i_total})"
+        f"    {img.shape[0]}x{img.shape[1]}  {img.dtype}"
+    )
+    return "\n".join(l)
+
+
+# %%
+# == imshow ============================================================
+def _get_folders_from_imgs(imgs: l2Darrays) -> list[str]:
+    """Extracts folder names from imgs"""
+    folders = set()
+    for img in imgs:
+        if hasattr(img, "folder"):
+            folders.add(img.folder)
+    return list(folders)
+
+def _figtitle_from_imgs(imgs: l2Darrays | T.array) -> str:
+    """Makes a suptitle for figures"""
+    
+    ### Extract parameters from imgs
+    if isinstance(imgs, l2Darrays):
+        types = imgs.dtypes_pretty
+        shapes = imgs.shapes
+    else:
+        types = str(imgs.dtype)
+        shapes = imgs.shape
+    
+    l = []
+    ### Length, types
+    l.append(f"{shapes[0]} images, {types}, shape: {shapes[1:]}")
+    
+    unique_folderlist = _get_folders_from_imgs(imgs)
+    l = l + unique_folderlist
+
+    return "\n".join(l)
+
+
+def figtitle_to_fig(imgs, fig: plt.Figure, axes: np.ndarray) -> None:
+    """Makes a suptitle for figures"""
+    figtitle = _figtitle_from_imgs(imgs)
+
+    bbox_y = 1.05 if axes.shape[0] <= 2 else 1.01
+    fig.suptitle(figtitle, ha="left", x=0.01, y=bbox_y, fontsize="large")
+
+
+def imshow(
+    imgs: l2Darrays | T.array,  # > Can be batch
+    ### Subplots kws
+    max_cols: int = 2,
+    scalebar: bool = False,
+    scalebar_kws: dict = dict(),
+    ### Info persistant across batches of imgs
+    imgs_raw: l2Darrays | T.array = None,
+    i_in_batch: int = 0,  # > Index of first image in batch
+    ### i/o
+    save_as: str = None,
+    ret=True,
+    verbose=True,
+    ### kws for _plot_img_to_ax()
+    colorbar=True,
+    share_cmap: bool = True,
+    ### kws for ax.imshow()
+    cmap: str = "gist_ncar",
+    **ax_imshow_kws,
+) -> tuple[plt.Figure, np.ndarray[plt.Axes]]:
+    """Show the images"""
+
+    # === Prepare images ===
+    ### Convert if single image
+    if len(imgs.shape) == 2:
+        imgs = l2Darrays([imgs])
+
+    ### Make copies so scalebar isn't persistant
+    _imgs_scalebar = imgs.copy()
+
+    ### Keep raw images
+    # - For calculating values for colorbar
+    # - Extract information persistant across batches of imgs
+    _imgs_raw = imgs.copy() if imgs_raw is None else imgs_raw
+
+    ### Burn scalebar into _imgs
+    if scalebar:
+        _imgs_scalebar = scaleb.burn_scalebars(
+            imgs=_imgs_scalebar, **scalebar_kws
+        )
+
+    # === Plot ===
+    ### Calculate n_cols and n_rows
+    n_cols = 1 if len(_imgs_scalebar) == 1 else max_cols
+    n_rows = int(np.ceil(len(_imgs_scalebar) / n_cols))
+    ### Init fig and axes
+    fig, axes = plt.subplots(
+        ncols=n_cols,
+        nrows=n_rows,
+        figsize=(n_cols * 5, n_rows * 5),
+        squeeze=False,
+    )
+
+    ### kws for ax.imshow()
+    imshow_KWS = dict(cmap=cmap)
+    imshow_KWS.update(ax_imshow_kws)
+
+    ### Plot images into axes
+    for i_in_ax, ax in enumerate(axes.flat):
+        # > Prevent displaying empty axis when reaching end of imgs
+        if i_in_ax >= len(_imgs_scalebar):
+            ax.axis("off")
+            continue
+        # > Retrieve image with scalebar burned in
+        img: np.ndarray = _imgs_scalebar[i_in_ax]
+        # > Plot ax
+        ax, cb = _plot_img_to_ax(
             ax=ax,
             img=img,
-            i=i,
-            i_tot=len(_imgs_raw) - 1,
-            T=len(_imgs_raw),
+            imgs_raw=_imgs_raw,
+            i_in_ax=i_in_ax,
+            i_in_batch=i_in_batch,
+            share_cmap=share_cmap,
+            colorbar=colorbar,
+            **imshow_KWS,
         )
-    else:
-        ax.set_title(f"Image {i+1}/{len(_imgs_raw)}", fontsize="medium")
 
-    return cb
+    # === Edits ===
+    ### Legend
+    _plot_legend(fig, cb, n_cols, n_rows)
+
+    ### Title
+    figtitle_to_fig(_imgs_raw, fig=fig, axes=axes)
+
+    ### Layout
+    plt.tight_layout()
+
+    # === I/O ===
+    return plot_IO(
+        fig=fig,
+        axes=axes,
+        ret=ret,
+        save_as=save_as,
+        verbose=verbose,
+    )
 
 
 def _plot_legend(fig, cb, n_cols, n_rows):
@@ -217,87 +356,7 @@ def _plot_legend(fig, cb, n_cols, n_rows):
     frame.set_facecolor("black")
 
 
-def imshow(
-    imgs: np.ndarray,
-    cmap: str = "gist_ncar",
-    max_cols: int = 2,
-    scalebar: bool = False,
-    scalebar_kws: dict = dict(),
-    colorbar=True,
-    share_cmap: bool = True,
-    min_max: tuple = None,
-    save_as: str = None,
-    ret=True,
-    **imshow_kws,
-) -> tuple[plt.Figure, np.ndarray[plt.Axes]]:
-    """Show the images"""
-
-    if len(imgs.shape) == 2:
-        imgs = np.array([imgs])
-
-    _imgs = imgs.copy()
-    _imgs_raw = imgs.copy()
-
-    if len(_imgs.shape) == 2:
-        _imgs = np.array([_imgs])
-
-    if scalebar:
-        _imgs = scaleb.burn_scalebars(
-            imgs=_imgs,
-            **scalebar_kws,
-        )
-
-    imshow_KWS = dict(cmap=cmap)
-    imshow_KWS.update(imshow_kws)
-
-    n_cols = 1 if len(_imgs) == 1 else max_cols
-    n_rows = int(np.ceil(len(_imgs) / n_cols))
-
-    fig, axes = plt.subplots(
-        ncols=n_cols,
-        nrows=n_rows,
-        figsize=(n_cols * 5, n_rows * 5),
-        squeeze=False,
-    )
-
-    if min_max is None:
-        min_max = (np.min(_imgs), np.max(_imgs))
-
-    for i, ax in enumerate(axes.flat):
-        if i >= len(_imgs):
-            ax.axis("off")
-            continue
-
-        img: np.ndarray = _imgs[i]
-
-        cb = _plot_image(
-            ax,
-            img,
-            imshow_KWS,
-            share_cmap,
-            min_max,
-            colorbar,
-            _imgs_raw,
-            i,
-        )
-
-    _plot_legend(fig, cb, n_cols, n_rows)
-
-    FIGTITLE = f"{imgs.shape[0]} images, {imgs.dtype}"
-    figtitle_to_plot(FIGTITLE, fig=fig, axes=axes)
-
-    plt.tight_layout()
-
-    if save_as:
-        savefig(save_as=save_as, verbose=True)
-
-    if ret:
-        return fig, axes
-    else:
-        plt.show()
-
-
-def _test_imshow_global(imgs: np.ndarray):
+def _test_imshow(imgs: np.ndarray):
     kws = dict(
         max_cols=2,
         scalebar=True,
@@ -306,7 +365,6 @@ def _test_imshow_global(imgs: np.ndarray):
         ),
         ret=False,
     )
-    # imgs = Z.imgs
 
     imshow(imgs[0], **kws)
     imshow(imgs[[0, 1, 2]], **kws)
@@ -316,11 +374,6 @@ def _test_imshow_global(imgs: np.ndarray):
     plt.imshow(imgs[0])
     plt.suptitle("no scalebar should be here")
     plt.show()
-
-
-if __name__ == "__main__":
-    pass
-    _test_imshow_global(imgs = Z.imgs)
 
 
 # %%
@@ -352,8 +405,6 @@ def savefig(
         print(f"Saved plot to: {save_as.resolve()}")
 
 
-# %%
-# == Batch Plotting ====================================================
 def save_figs_to_pdf(figs_axes, save_as):
     ### Add .pdf as suffix if no suffix is present
     save_as = _finalize_fname(save_as)
@@ -362,23 +413,46 @@ def save_figs_to_pdf(figs_axes, save_as):
             pdf.savefig(fig, bbox_inches="tight")
 
 
-def plot_images_in_batches(
-    imgs,
-    batch_size=4,
+def plot_IO(
+    fig: plt.Figure,
+    axes: plt.Axes,
+    ret: bool,
+    save_as: str,
+    verbose: bool = True,
+) -> None | tuple[plt.Figure, np.ndarray[plt.Axes]]:
+    """Save figure to file"""
+    if save_as:
+        savefig(save_as=save_as, verbose=verbose)
+    if ret:
+        return fig, axes
+    else:
+        plt.show()
+
+
+# %%
+# == Batch Plotting ====================================================
+
+
+def imshow_batched(
+    imgs: T.array | l2Darrays,
+    batch_size: int = 4,
     save_as: str = None,
-    **kwargs,
+    **imshow_kws,
 ):
-    ### Get range, sice we need that for shared colorbars
-    min_max = (np.min(imgs), np.max(imgs))
-    
+    ### Info to persist across batches
+    # - For calculating values for colorbar
+    # - Extract information persistant across batches of imgs
+    imgs_raw = imgs.copy()
+
     ### Plot in batches
     figs_axes = []
-    for i in range(0, len(imgs), batch_size):
+    for i_batch in range(0, len(imgs), batch_size):
         fig, axes = imshow(
-            imgs[i : i + batch_size],
-            min_max=min_max,
-            **kwargs,
+            imgs=imgs[i_batch : i_batch + batch_size],
+            imgs_raw=imgs_raw,
+            i_in_batch=i_batch,
             ret=True,
+            **imshow_kws,
         )
         figs_axes.append((fig, axes))
 
@@ -388,9 +462,9 @@ def plot_images_in_batches(
     return figs_axes
 
 
-def _test_batch_plot():
-    figs_axes = plot_images_in_batches(
-        Z.imgs,
+def _test_imshow_batched(imgs):
+    figs_axes = imshow_batched(
+        imgs,
         batch_size=4,
         save_as="test",
     )
@@ -398,8 +472,17 @@ def _test_batch_plot():
 
 
 if __name__ == "__main__":
-    pass
-    _test_batch_plot()
+    ### Test Plot l2Darrays
+    _test_imshow(imgs=Z.imgs)
+    # %%
+    ### Test Batch-plot l2Darrays
+    _test_imshow_batched(imgs=Z.imgs)
+    # %%
+    ### Test Plot np.ndarray
+    _test_imshow(imgs=Z.imgs.asarray())
+    #%% 
+    ### Test Batch-plot np.ndarray
+    _test_imshow_batched(imgs=Z.imgs.asarray())
 
 
 # %%
@@ -422,10 +505,18 @@ def plot_mip(
         interpolation="none",
     )
 
-    if not save_as is None:
-        savefig(save_as=save_as, verbose=verbose)
+    return plot_IO(
+        fig=plt.gcf(),
+        axes=plt.gca(),
+        ret=ret,
+        save_as=save_as,
+        verbose=verbose,
+    )
 
-    if ret:
-        return mip
-    else:
-        plt.show()
+    # if not save_as is None:
+    #     savefig(save_as=save_as, verbose=verbose)
+
+    # if ret:
+    #     return mip
+    # else:
+    #     plt.show()

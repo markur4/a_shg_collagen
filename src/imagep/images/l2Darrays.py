@@ -50,9 +50,13 @@ class l2Darrays:
     #
     # == Representation ================================================
     def __repr__(self) -> str:
+        """Human readable representation of the object with information
+        to reproduce the object.
+        """
         return self._array_str(maximages=4)
 
     def __str__(self) -> str:
+        """Human readable representation of the object."""
         return self._array_str()
 
     def _array_str(self, maximages: int = None) -> str:
@@ -212,6 +216,12 @@ class l2Darrays:
     def dtypes(self) -> set[Type]:
         """Retrieves dtype from one of its elements."""
         return {img.dtype for img in self.arrays}
+
+    @property
+    def dtypes_pretty(self) -> str:
+        """Retrieves dtype from one of its elements."""
+        strings = [str(dtype) for dtype in self.dtypes]
+        return str(set(strings))  # Make set to keep the curled brackets
 
     def astype(self, dtype: np.dtype):
         return l2Darrays([img.astype(dtype) for img in self.arrays])
