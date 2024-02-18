@@ -196,21 +196,22 @@ class Stack(StackMeta):
         batch_size: int = None,
         save_as: str = None,
         ret: bool = False,
-        **imshow_kws,
+        ### kwargs for ax.imshow()
+        **ax_imshow_kws,
     ) -> None:
         """Show the images"""
 
         ### Make copy to ensure
         _imgs = self.imgs.copy()
 
-        ### Update KWS
+        ### Collect scalebar kws
         scalebar_KWS = dict(
             length=self.scalebar_length,
         )
         scalebar_KWS.update(scalebar_kws)
 
-        ### Update kwargs
-        _imshow_kws = dict(
+        ### Collect kwargs
+        kws = dict(
             imgs=_imgs,
             max_cols=max_cols,
             cmap=cmap,
@@ -218,19 +219,21 @@ class Stack(StackMeta):
             scalebar=scalebar,
             scalebar_kws=scalebar_KWS,
             colorbar=colorbar,
+            save_as=save_as,
+            ret=ret,
         )
-        _imshow_kws.update(imshow_kws)
+        kws.update(ax_imshow_kws)
 
         ### Total number of images
         T = self._shape_original[0]
 
         ### MAKE IMAGE
         if batch_size is None:
-            fig, axes = imageplots.imshow(**_imshow_kws)
-            fig_axes = (fig, axes)
+            return imageplots.imshow(**kws)
+            # fig_axes = ((fig, axes),) #> double tuple
         else:
-            fig_axes = imageplots.imshow_batched(
-                batch_size=batch_size, **_imshow_kws
+            return imageplots.imshow_batched(
+                batch_size=batch_size, **kws
             )
 
         for fig, axes in fig_axes:
@@ -257,15 +260,15 @@ class Stack(StackMeta):
 
             plt.tight_layout()
 
-        ### Save
-        if not save_as is None:
-            imageplots.savefig(save_as=save_as, verbose=self.verbose)
+        # ### Save
+        # if not save_as is None:
+        #     imageplots.savefig(save_as=save_as, verbose=self.verbose)
 
-        ### Return or show
-        if ret:
-            return fig, axes
-        else:
-            plt.show()
+        # ### Return or show
+        # if ret:
+        #     return fig, axes
+        # else:
+        #     plt.show()
 
         # !!
 

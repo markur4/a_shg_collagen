@@ -22,7 +22,7 @@ import imagep._utils.utils as ut
 import imagep._utils.types as T
 from imagep.images.l2Darrays import l2Darrays
 from imagep.images.mdarray import mdarray
-import imagep.images.stack_meta as meta
+import imagep._utils.metadata as meta
 
 
 # %%

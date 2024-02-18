@@ -35,6 +35,7 @@ class mdarray(np.ndarray):
         cls,
         array: np.ndarray,
         name: str = "unnamed",
+        index: tuple[int] = (0, 0),  # > (z, total images)
         folder: str | Path = "unknown folder",
         pixel_length: float = None,
         unit: str = rc.UNIT_LENGTH,
@@ -47,6 +48,7 @@ class mdarray(np.ndarray):
         """
         obj = np.asarray(array, **np_kws).view(cls)
         obj.name = name
+        obj.index = index
         obj.folder = folder
         obj.pixel_length = pixel_length
         obj.unit = unit
@@ -70,9 +72,21 @@ class mdarray(np.ndarray):
 
         ### self references to the original np.array!
         self.name = getattr(new_obj, "name", "unnamed")
+        self.index = getattr(new_obj, "index", 0)
         self.folder = getattr(new_obj, "folder", "unknown folder")
         self.pixel_length = getattr(new_obj, "pixel_length", None)
         self.unit = getattr(new_obj, "unit", rc.UNIT_LENGTH)
+
+    @property
+    def metadata(self) -> dict:
+        """Returns metadata"""
+        return dict(
+            name=self.name,
+            index=self.index,
+            folder=self.folder,
+            pixel_length=self.pixel_length,
+            unit=self.unit,
+        )
 
     #
     # == Information ===================================================
@@ -129,16 +143,6 @@ class mdarray(np.ndarray):
             + f"{form(self.width_meter[0])} x {form(self.height_meter[0])}",
         ]
         return "\n".join(info)
-
-    @property
-    def metadata(self) -> dict:
-        """Returns metadata"""
-        return dict(
-            name=self.name,
-            folder=self.folder,
-            pixel_length=self.pixel_length,
-            unit=self.unit,
-        )
 
     #
     # == Properties ====================================================
@@ -210,7 +214,7 @@ if __name__ == "__main__":
     ### From txt
     # path = P + "/231215_adipose_tissue/2 healthy z-stack detailed/Image4_12.txt"
     ### From
-    path = P + "/240201 Imunocyto/Exp. 3 (im Paper)/Dmp1/LTMC I D0 DAPI.tif"
+    path = P + "/240201 Imunocyto/Exp. 3/Dmp1/LTMC I D0 DAPI.tif"
     array = importtools.array_from_path(path=path)
     img = mdarray(array=array, pixel_length=2.3)
     _test_img(img)

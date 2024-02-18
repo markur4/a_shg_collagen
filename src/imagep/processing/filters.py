@@ -10,7 +10,7 @@ import skimage as ski
 import imagep._utils.utils as ut
 from imagep.images.mdarray import mdarray
 from imagep.images.l2Darrays import l2Darrays
-import imagep.images.stack_meta as meta
+import imagep._utils.metadata as meta
 
 
 # %%

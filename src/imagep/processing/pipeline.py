@@ -85,7 +85,7 @@ class Pipeline(Stack):
 
     def plot_snapshots(
         self,
-        return_fig_axes=False,
+        ret=False,
         save_as: str = None,
     ) -> None | tuple[plt.Figure, np.ndarray[plt.Axes]]:
         """Plot sample images from preprocessing steps"""
@@ -114,31 +114,39 @@ class Pipeline(Stack):
         )
 
         ### Edit ax titles
-        for (
-            i,
-            (ax, (step, img)),
-        ) in enumerate(zip(axes.flat, self.snapshots.items())):
-
-            AXTITLE = (
-                f"{i}. step: '{step}'\n"
+        for i_step, (ax, (step, img)) in enumerate(
+            zip(axes.flat, self.snapshots.items())
+        ):
+            axtitle = (
+                f"{i_step}. step: '{step}'\n"
                 f"{img.shape[0]}x{img.shape[1]}  {img.dtype}"
             )
-            ax.set_title(AXTITLE, fontsize="medium")
+            ax.set_title(axtitle, fontsize="medium")
 
         ### Add fig title
-        I = self.snapshot_index
-        T = self._shape_original[0]
-        FIGTITLE = (
+        i_snap = self.snapshot_index
+        i_total = self._shape_original[0]
+        figtitle = (
             f"Snapshots acquired after each processing step\n"
-            f"   Took image #{I+1}/{T} (i={I}/{T-1}) as sample"
+            f"   Took image #{i_snap+1}/{i_total} (i={i_snap}/{i_total-1})"
+            " as sample"
         )
-        imageplots.figtitle_to_fig(FIGTITLE, fig=fig, axes=axes)
+        imageplots.figtitle_to_fig(title=figtitle, fig=fig, axes=axes)
 
-        if save_as:
-            imageplots.savefig(save_as=save_as, verbose=self.verbose)
+        ### Return
+        return imageplots.show_or_return(
+            fig=fig,
+            axes=axes,
+            save_as=save_as,
+            ret=ret,
+            verbose=self.verbose,
+        )
 
-        if return_fig_axes:
-            return fig, axes
+        # if save_as:
+        #     imageplots.savefig(save_as=save_as, verbose=self.verbose)
+
+        # if ret:
+        #     return fig, axes
 
         # axtit = (
         #         f"Image {i+1}/{len(self.imgs)} (i={_i}/{self._num_imgs-1})"

@@ -66,17 +66,21 @@ def arrays_from_folderlist(
 
     ### Convert to ListOfArrays
     imgs = l2Darrays(arrays=imgs)
-    # shapes: set = {img.shape for img in imgs}
-    # if len(shapes) == 1:
-    #     # imgs = np.array(imgs)
-    #     imgs = ListOfArrays(larry=imgs)
-    #     # imgs = Mdarray(imgs)
-    # else:
-    #     imgs = ListOfArrays(larry=imgs)
+
+    ### Assign index position to each image
+    imgs = _assign_index_to_imgs(imgs)
 
     #!! don't use imgdict in parallel to imgs, to prevent confusion,
     #!! construct a new dict from imgs
     return imgnames_dict, imgs
+
+
+def _assign_index_to_imgs(imgs: l2Darrays) -> l2Darrays:
+    """Assigns index position to each image"""
+    max_index = len(imgs) - 1
+    for i, img in enumerate(imgs):
+        img.index = (i, max_index)
+    return imgs
 
 
 # %%

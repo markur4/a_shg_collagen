@@ -10,6 +10,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 import imagep._plots.imageplots
+import imagep._utils.metadata
 
 # > Local
 from imagep.segmentation.segment import Segment
@@ -128,7 +129,7 @@ if __name__ == "__main__":
     ### Morphology: open (erode + dilate)
     from scipy import ndimage as sp_ndimage
 
-    @ip.preserve_metadata()
+    @imagep._utils.metadata.preserve_metadata()
     def open(imgs, iterations: int = 5):
         return ip.l2Darrays(
             [
@@ -170,7 +171,7 @@ if __name__ == "__main__":
     for img in IA_seg.imgs:
         # contour = draw_contours(img, masked=False)
         contour = draw_contours(img, masked=True)
-        print(contour.max())
+        # print(contour.max())
         # plt.imshow(contour)
         # plt.show()
 

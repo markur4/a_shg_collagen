@@ -19,23 +19,6 @@ from imagep.images.l2Darrays import l2Darrays
 
 # from imagep.images.imgs import Imgs
 
-# %%
-# :: Testdata ==========================================================
-if __name__ == "__main__":
-    # !! Import must not be global, or circular import
-    from imagep.images.stack import Stack
-
-    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-    Z = Stack(
-        data=path,
-        # fname_pattern="*.txt",
-        fname_extension="txt",
-        imgname_position=-1,
-        verbose=True,
-        pixel_length=(1.5 * 115.4) / 1024,
-    )
-    I = 6
-    Z
 
 
 # %%
@@ -139,10 +122,17 @@ def _plot_img_to_ax(
     ### kws for ax.imshow()
     **ax_imshow_kws,
 ) -> tuple[plt.Axes]:
-    ### Extract parameters from imgs_raw
-    i_total = len(imgs_all) - 1
-    i_in_total = i_in_batch + i_in_ax
-    img_raw = imgs_all[i_in_total]
+    ### Get indices
+    if hasattr(img, "index"):
+        i_total = img.index[1]
+        i_in_total = img.index[0]
+        i_in_plot = i_in_batch + i_in_ax
+        img_raw = imgs_all[i_in_plot]
+    else:
+        i_total = len(imgs_all) - 1
+        i_in_total = i_in_batch + i_in_ax
+        img_raw = imgs_all[i_in_total]
+
 
     ### Plot img to ax
     ax_img = ax.imshow(img, **ax_imshow_kws)
@@ -183,15 +173,15 @@ def _axtitle_from_img(
     i_total: int,
 ) -> None:
     """Adds title to axes"""
-    
+
     l = []
-    
+
     ### Name
     if hasattr(img, "name"):
         # if img.name != "unnamed":
         folder = Path(img.folder).parent
         l.append(f"'{folder}': '{img.name}'")
-    
+
     ### Index, shape, dtype
     l.append(
         f"Image {i_in_total+1}/{i_total+1} (i={i_in_total}/{i_total})"
@@ -210,9 +200,10 @@ def _get_folders_from_imgs(imgs: l2Darrays) -> list[str]:
             folders.add(img.folder)
     return list(folders)
 
+
 def _figtitle_from_imgs(imgs: l2Darrays | T.array) -> str:
     """Makes a suptitle for figures"""
-    
+
     ### Extract parameters from imgs
     if isinstance(imgs, l2Darrays):
         types = imgs.dtypes_pretty
@@ -220,30 +211,37 @@ def _figtitle_from_imgs(imgs: l2Darrays | T.array) -> str:
     else:
         types = str(imgs.dtype)
         shapes = imgs.shape
-    
+
     l = []
+    l += _get_folders_from_imgs(imgs)
     ### Length, types
-    l.append(f"{shapes[0]} images, {types}, shape: {shapes[1:]}")
-    
-    unique_folderlist = _get_folders_from_imgs(imgs)
-    l = l + unique_folderlist
+    l += [f"Showing {shapes[0]} images, {types}, shape: {shapes[1:]}"]
+
+    # unique_folderlist = _get_folders_from_imgs(imgs)
+    # l = l + unique_folderlist
 
     return "\n".join(l)
 
 
-def figtitle_to_fig(imgs, fig: plt.Figure, axes: np.ndarray) -> None:
+def figtitle_to_fig(
+    fig: plt.Figure,
+    axes: np.ndarray,
+    imgs: T.array | l2Darrays = None,
+    title: str = "",
+) -> None:
     """Makes a suptitle for figures"""
-    figtitle = _figtitle_from_imgs(imgs)
+
+    title = title if title else _figtitle_from_imgs(imgs)
 
     bbox_y = 1.05 if axes.shape[0] <= 2 else 1.01
-    fig.suptitle(figtitle, ha="left", x=0.01, y=bbox_y, fontsize="large")
+    fig.suptitle(title, ha="left", x=0.01, y=bbox_y, fontsize="large")
 
 
 def imshow(
     imgs: l2Darrays | T.array,  # > Can be batch
     ### Subplots kws
     max_cols: int = 2,
-    scalebar: bool = False,
+    scalebar: bool = True,
     scalebar_kws: dict = dict(),
     ### Info persistant across batches of imgs
     imgs_all: l2Darrays | T.array = None,
@@ -272,11 +270,9 @@ def imshow(
     _imgs_all = imgs if imgs_all is None else imgs_all
 
     ### Burn scalebar into _imgs
-    if scalebar:
-        imgs = scaleb.burn_scalebars(
-            imgs=imgs.copy(), **scalebar_kws
-        )
-
+    if scalebar and hasattr(imgs[0], "pixel_length"):
+        imgs = scaleb.burn_scalebars(imgs=imgs.copy(), **scalebar_kws)
+    
     # === Plot ===
     ### Calculate n_cols and n_rows
     n_cols = 1 if len(imgs) == 1 else max_cols
@@ -318,13 +314,13 @@ def imshow(
     _plot_legend(fig, cb, n_cols, n_rows)
 
     ### Title
-    figtitle_to_fig(_imgs_all, fig=fig, axes=axes)
+    figtitle_to_fig(imgs=_imgs_all, fig=fig, axes=axes)
 
     ### Layout
     plt.tight_layout()
 
-    # === I/O ===
-    return plot_IO(
+    # === return ===
+    return show_or_return(
         fig=fig,
         axes=axes,
         ret=ret,
@@ -353,30 +349,15 @@ def _plot_legend(fig, cb, n_cols, n_rows):
     frame.set_facecolor("black")
 
 
-def _test_imshow(imgs: np.ndarray):
-    kws = dict(
-        max_cols=2,
-        scalebar=True,
-        scalebar_kws=dict(
-            pixel_length=0.05,  # !! must be provided when scalebar
-        ),
-        ret=False,
-    )
-
-    imshow(imgs[0], **kws)
-    imshow(imgs[[0, 1, 2]], **kws)
-    imshow(imgs[0:10:2], **kws)
-
-    ### Check if scalebar is not burned it
-    plt.imshow(imgs[0])
-    plt.suptitle("no scalebar should be here")
-    plt.show()
-
-
 # %%
 # == Savefig ===========================================================
 def _finalize_fname(fname: str) -> Path:
     """Add .pdf as suffix if no suffix is present"""
+    if not isinstance(fname, str | Path):
+        raise ValueError(
+            f"You must provide a filename for save. Got: '{fname}'"
+        )
+
     if "." in fname:
         return Path(fname)
     else:
@@ -384,33 +365,34 @@ def _finalize_fname(fname: str) -> Path:
 
 
 def savefig(
-    save_as: str,
+    save_as: str | Path,
     verbose: bool = True,
 ) -> None:
     """Saves current plot to file"""
-
-    if not isinstance(save_as, str):
-        raise ValueError(
-            f"You must provide a filename for save. Got: '{save_as}'"
-        )
-    ### Add .pdf as suffix if no suffix is present
     save_as = _finalize_fname(save_as)
 
+    ### Save
     plt.savefig(save_as, bbox_inches="tight")
 
     if verbose:
         print(f"Saved plot to: {save_as.resolve()}")
 
 
-def save_figs_to_pdf(figs_axes, save_as):
+def save_figs_to_pdf(
+    save_as: str | Path,
+    figs_axes: tuple[plt.Figure, plt.Axes],
+    verbose: bool = True,
+):
     ### Add .pdf as suffix if no suffix is present
     save_as = _finalize_fname(save_as)
     with PdfPages(save_as) as pdf:
         for fig, _ in figs_axes:
             pdf.savefig(fig, bbox_inches="tight")
+    if verbose:
+        print(f"Saved plots to: {save_as.resolve()}")
 
 
-def plot_IO(
+def show_or_return(
     fig: plt.Figure,
     axes: plt.Axes,
     ret: bool,
@@ -426,17 +408,34 @@ def plot_IO(
         plt.show()
 
 
+def show_or_return_batched(
+    figs_axes: tuple[tuple[plt.Figure, np.ndarray[plt.Axes]]],
+    ret: bool,
+    save_as: str,
+    verbose: bool = True,
+) -> None | tuple[tuple[plt.Figure, np.ndarray[plt.Axes]]]:
+    if save_as:
+        save_figs_to_pdf(
+            figs_axes=figs_axes,
+            save_as=save_as,
+            verbose=verbose,
+        )
+    if ret:
+        return figs_axes
+    else:
+        plt.show()
+
+
 # %%
 # == Batch Plotting ====================================================
-
-
 def imshow_batched(
     imgs: T.array | l2Darrays,
     batch_size: int = 4,
+    ret: bool = False,
     save_as: str = None,
+    verbose: bool = True,
     **imshow_kws,
 ):
-
 
     ### Plot in batches
     figs_axes = []
@@ -445,38 +444,17 @@ def imshow_batched(
             imgs=imgs[i_batch : i_batch + batch_size],
             imgs_all=imgs,
             i_in_batch=i_batch,
-            ret=True,
+            ret=True,  # > must return fig, axes
             **imshow_kws,
         )
         figs_axes.append((fig, axes))
 
-    if not save_as is None:
-        save_figs_to_pdf(figs_axes, save_as)
-
-    return figs_axes
-
-
-def _test_imshow_batched(imgs):
-    figs_axes = imshow_batched(
-        imgs,
-        batch_size=4,
-        save_as="test",
+    return show_or_return_batched(
+        figs_axes=figs_axes,
+        ret=ret,
+        save_as=save_as,
+        verbose=verbose,
     )
-    # save_figs_to_pdf(figs_axes, "test.pdf")
-
-
-if __name__ == "__main__":
-    ### Test Plot l2Darrays
-    _test_imshow(imgs=Z.imgs)
-    # %%
-    ### Test Batch-plot l2Darrays
-    _test_imshow_batched(imgs=Z.imgs)
-    # %%
-    ### Test Plot np.ndarray
-    _test_imshow(imgs=Z.imgs.asarray())
-    #%% 
-    ### Test Batch-plot np.ndarray
-    _test_imshow_batched(imgs=Z.imgs.asarray())
 
 
 # %%
@@ -499,7 +477,7 @@ def plot_mip(
         interpolation="none",
     )
 
-    return plot_IO(
+    return show_or_return(
         fig=plt.gcf(),
         axes=plt.gca(),
         ret=ret,
@@ -514,3 +492,68 @@ def plot_mip(
     #     return mip
     # else:
     #     plt.show()
+
+
+
+# %%
+# :: Test ==============================================================
+def _test_imshow(imgs: np.ndarray):
+    kws = dict(
+        max_cols=2,
+        scalebar=True,
+        scalebar_kws=dict(
+            pixel_length=0.05,  # !! must be provided when scalebar
+        ),
+        ret=False,
+    )
+
+    imshow(imgs[0], **kws)
+    imshow(imgs[[0, 1, 2]], **kws)
+    imshow(imgs[0:10:2], **kws)
+
+    ### Check if scalebar is not burned it
+    plt.imshow(imgs[0])
+    plt.suptitle("no scalebar should be here")
+    plt.show()
+
+
+def _test_imshow_batched(imgs):
+    figs_axes = imshow_batched(
+        imgs,
+        batch_size=4,
+        save_as="test",
+    )
+
+
+
+if __name__ == "__main__":
+    # !! Import must not be global, or circular import
+    from imagep.images.stack import Stack
+
+    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    Z = Stack(
+        data=path,
+        # fname_pattern="*.txt",
+        fname_extension="txt",
+        imgname_position=-1,
+        verbose=True,
+        pixel_length=(1.5 * 115.4) / 1024,
+    )
+    I = 6
+    Z
+    # %%
+    print (f"{Z.imgs[2].index=}")
+    
+    
+    #%%
+    ### Test Plot l2Darrays
+    _test_imshow(imgs=Z.imgs)
+    # %%
+    ### Test Batch-plot l2Darrays
+    _test_imshow_batched(imgs=Z.imgs)
+    # %%
+    ### Test Plot np.ndarray
+    _test_imshow(imgs=Z.imgs.asarray())
+    # %%
+    ### Test Batch-plot np.ndarray
+    _test_imshow_batched(imgs=Z.imgs.asarray())

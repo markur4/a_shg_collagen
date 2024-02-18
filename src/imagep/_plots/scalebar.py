@@ -8,6 +8,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 # > local imports
 import imagep._utils.utils as ut
+import imagep._utils.types as T
+import imagep._utils.metadata as meta
 
 # if TYPE_CHECKING:
 #     from imagep.images.mdarray import Mdarray
@@ -15,7 +17,7 @@ import imagep._utils.utils as ut
 
 # %%
 def burn_scalebars(
-    imgs: np.ndarray,
+    imgs: T.array,
     pixel_length: float = None,
     unit = "µm",
     length: int = 10,
@@ -114,9 +116,9 @@ def burn_scalebar_to_img(
 
     return img
 
-
+@meta.preserve_metadata()
 def burn_micronlength_to_img(
-    img: np.ndarray,
+    img: T.array,
     length: int = 10,
     unit: str = "µm",
     thickness_px: int = 3,

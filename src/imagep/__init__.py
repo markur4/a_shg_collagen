@@ -11,11 +11,9 @@ from ._configs import rc
 # :: 'ip.<Interface>(**kws)'
 from .images.mdarray import mdarray  # :: ip.mdarray(**kws)
 from .images.l2Darrays import l2Darrays  # :: ip.l2Darrays(**kws)
-from .images.stack_meta import (
-    preserve_metadata,
-)  # :: @ip.preserve_metadata()
 from ._plots.imageplots import savefig  # :: ip.savefig(**kws)
 
+from ._utils.metadata import preserve_metadata  # :: @ip.preserve_metadata()
 # from .images.imgs_meta import ImgsMeta  # :: ip.ImgsMeta(**kws)
 from .images.stack import Stack  # :: ip.Imgs(**kws)
 from .processing.preprocess import PreProcess  # :: ip.PreProcess(**kws)
