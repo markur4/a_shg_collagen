@@ -23,13 +23,15 @@ import skimage as ski
 
 # > Local
 import imagep._configs.rc as rc
+import imagep._configs.parameters as p
 
 # from imagep.images.imgs import Imgs
 import imagep._utils.utils as ut
+from imagep._plots.imageplots import imshow
+from imagep.images.l2Darrays import l2Darrays
 
 # from imagep._utils.subcache import SubCache
 # from imagep.processing.transforms import Transform
-from imagep._plots.imageplots import imshow
 from imagep.processing.pipeline import Pipeline
 from imagep.processing.background import Background
 
@@ -69,8 +71,8 @@ class PreProcess(Pipeline):
         # verbose: bool = True,
         ### Preprocessing kws
         median: bool = False,
-        denoise=True,
-        normalize=True,
+        denoise: bool = True,
+        normalize: bool | str = True,
         subtract_bg: bool = False,
         subtract_bg_kws: dict = dict(
             method="triangle", sigma=1.5, per_img=False
@@ -147,37 +149,21 @@ class PreProcess(Pipeline):
         ### Denoise
         if kws["denoise"]:
             self.imgs = self.filter.denoise()
-            # print("!!! name array:", type(self.imgs[0].name))
             self.capture_snapshot("Denoise")
 
         ### Subtract Background
         if kws["subtract_bg"]:
-            # print("!!! imgs", self.imgs)
-            # print("!!! type imgs", type(self.imgs))
-            # print("!!! type array:", type(self.imgs[0]))
-            # print("!!! name array:", self.imgs[0].name)
             self.imgs = self.background.subtract_threshold()
             self.capture_snapshot("subtract_bg")
 
         ### Normalize
         if kws["normalize"]:
-            # print("!!! imgs", self.imgs)
-            # print("!!! type imgs", type(self.imgs))
-            # print("!!! type array:", type(self.imgs[0]))
-            # print("!!! name array:", self.imgs[0].name)
-            self.imgs = self.imgs / self.imgs.max()
+            self.imgs = self.normalize()
             self.capture_snapshot("normalize")
 
         ### Remove empty slices
         if kws["remove_empty_slices"]:
-            # print("!!! type imgs", type(self.imgs))
-            # print("!!! type array:", type(self.imgs[0]))
-            # print("!!! name array:", self.imgs[0].name)
             self.imgs = self.remove_empty_slices(imgs=self.imgs)
-            
-            # print("!!! type imgs", type(self.imgs))
-            # print("!!! type array:", type(self.imgs[0]))
-            # print("!!! name array:", self.imgs[0].name)
 
     #
     # === HISTORY ====================================================
@@ -187,7 +173,7 @@ class PreProcess(Pipeline):
 
         od = OrderedDict()
 
-        od["Import"] = f"'{self.folder}'"
+        od["Import"] = f"'{self.folders}'"
 
         if preprocess_kws["median"]:
             od["Median Filter"] = (
@@ -242,7 +228,7 @@ class PreProcess(Pipeline):
 
         ### Ignore background (0)
         # > or it'll skew statistics when bg is subtracted
-        #TODO: Change this after implementing list of 1D arrays
+        # TODO: Change this after implementing list of 1D arrays
         imgs_bg = imgs[imgs > 0.0]
 
         return [
@@ -273,7 +259,7 @@ class PreProcess(Pipeline):
 
         id["Data"] = [
             "=== Data ===",
-            just("folder") + str(self.path_short),
+            just("folder") + str(self.paths_short),
             just("dtype") + str(imgs.dtype),
             just("shape") + str(imgs.shape),
             just("images") + str(len(imgs)),
@@ -281,7 +267,7 @@ class PreProcess(Pipeline):
         id["Size"] = [
             "=== Size [µm] ===",
             # just("pixel size xy") + f"{form(self.pixel_length)}",
-            just("width, height (x,y)")
+            just("width, height (x,y)"),
             # + f"{form(self.x_µm)}, {form(self.y_µm)}",
         ]
         id["Brightness"] = [
@@ -317,7 +303,24 @@ class PreProcess(Pipeline):
         """Remove memory address and class name so joblib doesn't redo
         the preprocessing
         """
-        return f'< Images from "{self.path_short}">'
+        return f'< Images from "{self.paths_short}">'
+
+    #
+    # == Normalize =====================================================
+    def normalize(self, across: str | bool = None) -> np.ndarray:
+        ### Get arg
+        across = self.kws_preprocess["normalize"] if across is None else across
+
+        ### Handle args
+        across = p.handle_param(p.ACROSS, param=across, funcname="normalize")
+
+        ### Normalize each individual image
+        if across == "img":
+            return l2Darrays([img / img.max() for img in self.imgs])
+
+        ### Normalize across the whole stack
+        elif across == "stack":
+            return self.imgs / self.imgs.max()
 
     #
     # == Z-Stack optimizations ============================================
@@ -368,7 +371,8 @@ if __name__ == "__main__":
     # > z_dist = n_imgs * stepsize = 10 * 0.250 µm
     kws = dict(
         # z_dist=10 * 0.250,
-        pixel_length=(1.5 * 115.4) / 1024,
+        pixel_length=(1.5 * 115.4)
+        / 1024,
     )
     # > Detailed
     # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"

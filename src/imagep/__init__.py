@@ -5,14 +5,19 @@ from ._configs import rc
 # == Flatten Module Access =============================================
 # > The following imports are for direct access to the modules
 # > The comments show the convention for correct import statements
-# :: 'import imagep as ip'
+# :: import imagep as ip
 
 ### Import & Processing Interfaces
 # :: 'ip.<Interface>(**kws)'
 from .images.mdarray import mdarray  # :: ip.mdarray(**kws)
+from .images.l2Darrays import l2Darrays  # :: ip.l2Darrays(**kws)
+from .images.stack_meta import (
+    preserve_metadata,
+)  # :: @ip.preserve_metadata()
+from ._plots.imageplots import savefig  # :: ip.savefig(**kws)
 
 # from .images.imgs_meta import ImgsMeta  # :: ip.ImgsMeta(**kws)
-from .images.collection import Collection  # :: ip.Imgs(**kws)
+from .images.stack import Stack  # :: ip.Imgs(**kws)
 from .processing.preprocess import PreProcess  # :: ip.PreProcess(**kws)
 from .segmentation.segment import Segment  # , Annotate
 

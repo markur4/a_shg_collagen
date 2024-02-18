@@ -18,15 +18,16 @@ from imagep.images.l2Darrays import l2Darrays
 
 if TYPE_CHECKING:
     import imagep as ip
-    from imagep.images.collection import Collection
+    from imagep.images.stack import Stack
 
     # from imagep.processing.pipeline import Pipeline
     from imagep.processing.preprocess import PreProcess
 
 
 # %%
-# == Class CollectionImport =====================================================
-class CollectionImport:
+# ======================================================================
+# == Class StackImport =================================================
+class StackImport:
     """Class for handling the most basic functionalities:
     - Imports of raw image data
     - Slicing of image stacks
@@ -50,7 +51,7 @@ class CollectionImport:
             data = fileimport_kws["path"]
 
         ### Init attributes, they will be set by the import functions
-        self.folder: str | Path | list[str | Path] = self.FOLDER_PLACEHOLDER
+        self.folders: list[str | Path] = self.FOLDER_PLACEHOLDER
         self.imgs: ip.mdarray | l2Darrays = None
         self.imgnames: dict[str, str] = self.IMGKEY_PLACEHOLDER
 
@@ -75,7 +76,7 @@ class CollectionImport:
         """Returns dictionary with short folder names as keys and the
         images as values by retrieving metadata from the images"""
 
-        D = {shortpath: [] for shortpath in self.path_short}
+        D = {shortpath: [] for shortpath in self.paths_short}
         for img in self.imgs:
             # folder = img.folder
             D[img.folder].append(img)
@@ -85,14 +86,18 @@ class CollectionImport:
     # == Path ==========================================================
 
     @property
-    def path_short(self) -> list[str]:
+    def paths_short(self) -> list[str]:
         """Shortened path"""
-        if self.folder == self.FOLDER_PLACEHOLDER:
+        if self.folders == self.FOLDER_PLACEHOLDER:
             return self.FOLDER_PLACEHOLDER
-        elif isinstance(self.folder, (str | Path)):
-            return [ut.shortenpath(self.folder)]
-        elif isinstance(self.folder, list):
-            return [ut.shortenpath(path) for path in self.folder]
+        elif isinstance(self.folders, (str | Path)):
+            return [ut.shortenpath(self.folders)]
+        elif isinstance(self.folders, list):
+            return [ut.shortenpath(path) for path in self.folders]
+
+    @property
+    def paths_pretty(self) -> str:
+        return "\n".join(self.paths_short)
 
     @property
     def imgname_dict(self) -> dict[str, str]:
@@ -101,7 +106,7 @@ class CollectionImport:
         if self.imgnames == self.IMGKEY_PLACEHOLDER:
             return {self.IMGKEY_PLACEHOLDER: self.IMGKEY_PLACEHOLDER}
         elif isinstance(self.imgnames, list):
-            return {self.path_short[0]: self.imgnames}
+            return {self.paths_short[0]: self.imgnames}
 
     #
     # == Import Data ===================================================
@@ -141,13 +146,13 @@ class CollectionImport:
             data = [data]
         if isinstance(data[0], (str, Path)):
             self.imgnames, self.imgs = self.from_folders(data)
-            self.folder = data
+            self.folders = data
         elif isinstance(data, (np.ndarray, list)) or isinstance(
             data[0], np.ndarray
         ):
             self.imgnames = self.IMGKEY_PLACEHOLDER
             self.imgs = self.from_array(data)
-            self.folder = self.FOLDER_PLACEHOLDER
+            self.folders = self.FOLDER_PLACEHOLDER
         ### Importing from Instance
         # > Z = PreProcess(data=Imgs)
         # > issubclass(self=PreProcess, data=Imgs)
@@ -238,7 +243,7 @@ class CollectionImport:
                 + f" ({data.imgs.shapes[0]} images "
                 + f" {data.imgs.shapes[1]}x{data.imgs.shapes[2]},"
                 + f" {data.imgs.dtypes}; "
-                + f" from: '{data.path_short}') ..."
+                + f" from: '{data.paths_short}') ..."
             )
         ### Full atrribute transfer
         for attr, value in data.__dict__.items():
@@ -264,7 +269,7 @@ class CollectionImport:
     def __iter__(self):
         return iter(self.imgs)
 
-    def __getitem__(self, val: T.indices) -> Self | "Collection" | "PreProcess":
+    def __getitem__(self, val: T.indices) -> Self | "Stack" | "PreProcess":
         """Slice the z-stack and return a copied instance of this class.
         with a changes self.imgs.
         Slicing happens PRESERVING the dimension information. That means
@@ -326,22 +331,26 @@ class CollectionImport:
 
 
 # %%
-#
-# == Class ImgsGreyscale ===============================================
-class ImgsGreyscale:
-    """These images are all greyscale with shape (z, y, x)"""
-
-    def __init__(self) -> None:
-        pass
-
 
 #
 # == Class ImgsColored =================================================
-class ImgsColored:
+class StackColored(StackImport):
     """These images are all colored with shape (z, y, x, 3)"""
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, imgs) -> None:
+        super().__init__(data=imgs)
+
+        self.imgs_r = self.split_channel(0)
+        self.imgs_g = self.split_channel(1)
+        self.imgs_b = self.split_channel(2)
+
+    def split_channel(self, channel: int) -> np.ndarray:
+        """Split the images into the different color channels"""
+        return self.imgs[..., channel]
+
+    def merge_channels(self, imgs_r, imgs_g, imgs_b) -> np.ndarray:
+        """Merge the images into the different color channels"""
+        return np.stack([imgs_r, imgs_g, imgs_b], axis=-1)
 
 
 #

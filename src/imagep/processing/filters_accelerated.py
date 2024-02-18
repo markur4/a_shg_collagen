@@ -22,7 +22,7 @@ import imagep._utils.utils as ut
 import imagep._utils.types as T
 from imagep.images.l2Darrays import l2Darrays
 from imagep.images.mdarray import mdarray
-import imagep.images.collection_meta as meta
+import imagep.images.stack_meta as meta
 
 
 # %%
@@ -34,13 +34,13 @@ if __name__ == "__main__":
 # %%
 #!! TESTDATA ===========================================================
 if __name__ == "__main__":
-    from imagep.images.collection import Collection
+    from imagep.images.stack import Stack
     from imagep._plots.imageplots import imshow
 
     # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
 
-    Z = Collection(path=path, verbose=True, x_µm=1.5 * 115.4)
+    Z = Stack(path=path, verbose=True, x_µm=1.5 * 115.4)
     Z.imgs = Z.imgs / Z.imgs.max()  # > quick normalization
     I = 6
     # %%
@@ -73,8 +73,9 @@ def _collect_denoise_filter_kws(imgs: np.ndarray) -> list[dict]:
 
 # == Denoise Sequential ==
 
+
 #!! Always decorate the main filter, or the numpy output is cached!
-# @meta.preserve_metadata() 
+# @meta.preserve_metadata()
 def _denoise_sequential(imgs: np.ndarray) -> np.ndarray:
     kws_list = _collect_denoise_filter_kws(imgs)
     _imgs = [ski.restoration.denoise_nl_means(**kws) for kws in kws_list]
@@ -85,6 +86,7 @@ def _denoise_sequential(imgs: np.ndarray) -> np.ndarray:
 # == Denoise Parallel ==
 def _denoise_parallel_base(kwargs):
     return ski.restoration.denoise_nl_means(**kwargs)
+
 
 def _denoise_parallel(imgs: T.array, n_cores: int = 2) -> np.ndarray:
 
@@ -112,6 +114,7 @@ def _denoise(
         return _denoise_parallel(imgs=imgs, n_cores=n_cores)
     else:
         return _denoise_sequential(imgs=imgs)
+
 
 @meta.preserve_metadata()
 def denoise(
@@ -199,6 +202,7 @@ def _entropy_sequential(
 def _entropy_parallel_base(kwargs):
     return ski.filters.rank.entropy(**kwargs)
 
+
 def _entropy_parallel(
     imgs,
     kernel_radius: int = 3,
@@ -241,6 +245,7 @@ def _entropy(
         return _entropy_parallel(n_cores=n_cores, **kws)
     else:
         return _entropy_sequential(**kws)
+
 
 @meta.preserve_metadata()
 def entropy(
@@ -301,8 +306,9 @@ if __name__ == "__main__":
 # !! == End Class ==================================================
 # !! Median ============================================================
 
+
 #!! Always decorate the main filter, or the numpy output is cached!
-# @meta.preserve_metadata() 
+# @meta.preserve_metadata()
 def _median(
     imgs: np.ndarray,
     kernel_radius: int = 2,
@@ -340,6 +346,7 @@ def _median(
         _imgs = _imgs / _imgs.max()
 
     return _imgs
+
 
 @meta.preserve_metadata()
 def median(

@@ -161,18 +161,16 @@ def format_num(
     ### Return True / False if encountered
     if number == True or number == False:
         return str(number)
-    
+
     # if isinstance(number, bool):
     #     return str(number)
-    
-    
+
     ### If number is nested in a list, get it
     if isinstance(number, (list, tuple)):
         if len(number) == 1:
             number = number[0]
         else:
             raise ValueError(f"Number is a list of length {len(number)}")
-
 
     ### Return 0 if number is 0
     if number == 0:
@@ -248,46 +246,46 @@ def check_arguments(kws: dict, required: list, kws_name="kws"):
 # == Image Slice =======================================================
 
 
-def indices_from_slice(
-    slice: str | int | list | tuple,
-    n_imgs: int,
-    aslist: bool = False,
-) -> list[int] | range:
-    """Get indices from slice"""
-    if slice == "all":
-        indices = range(n_imgs)
-    elif isinstance(slice, int):
-        indices = [slice]
-    elif isinstance(slice, list):
-        indices = slice
-    elif isinstance(slice, tuple):
-        indices = range(*slice)
-    else:
-        raise ValueError(
-            f"img_slice must be 'all', int or tuple(start,stop,step), not {type(slice)}"
-        )
+# def indices_from_slice(
+#     slice: str | int | list | tuple,
+#     n_imgs: int,
+#     aslist: bool = False,
+# ) -> list[int] | range:
+#     """Get indices from slice"""
+#     if slice == "all":
+#         indices = range(n_imgs)
+#     elif isinstance(slice, int):
+#         indices = [slice]
+#     elif isinstance(slice, list):
+#         indices = slice
+#     elif isinstance(slice, tuple):
+#         indices = range(*slice)
+#     else:
+#         raise ValueError(
+#             f"img_slice must be 'all', int or tuple(start,stop,step), not {type(slice)}"
+#         )
 
-    if aslist:
-        indices = list(indices)
+#     if aslist:
+#         indices = list(indices)
 
-    return indices
-
-
-def _test_indices_from_slice(verbose=False):
-    n_imgs = 10
-
-    def _print(r):
-        print(r, type(r), list(r))
-
-    _print(indices_from_slice("all", n_imgs))
-    _print(indices_from_slice(1, n_imgs))  # > list[int]
-    _print(indices_from_slice((1, 5), n_imgs))  # > range
-    _print(indices_from_slice((1, 5, 2), n_imgs))  # > range
-    _print(indices_from_slice((1, 5, 2), n_imgs, aslist=True))  # > list[int]
+#     return indices
 
 
-if __name__ == "__main__":
-    _test_indices_from_slice()
+# def _test_indices_from_slice(verbose=False):
+#     n_imgs = 10
+
+#     def _print(r):
+#         print(r, type(r), list(r))
+
+#     _print(indices_from_slice("all", n_imgs))
+#     _print(indices_from_slice(1, n_imgs))  # > list[int]
+#     _print(indices_from_slice((1, 5), n_imgs))  # > range
+#     _print(indices_from_slice((1, 5, 2), n_imgs))  # > range
+#     _print(indices_from_slice((1, 5, 2), n_imgs, aslist=True))  # > list[int]
+
+
+# if __name__ == "__main__":
+#     _test_indices_from_slice()
 
 
 #
@@ -383,21 +381,86 @@ if __name__ == "__main__":
 # == I/O ===============================================================
 
 
-def saveplot(fname: str, verbose: bool = True) -> None:
-    """Saves current plot to file"""
+# def savefig(fname: str, verbose: bool = True) -> None:
+#     """Saves current plot to file"""
 
-    if not isinstance(fname, str):
-        raise ValueError(f"You must provide a filename for save. Got: {fname}")
+#     if not isinstance(fname, str):
+#         raise ValueError(f"You must provide a filename for save. Got: {fname}")
 
-    # > add .pdf as suffix if no suffix is present
-    if "." in fname:
-        fname = Path(fname)
-    else:
-        fname = Path(fname).with_suffix(".pdf")
-    plt.savefig(fname, bbox_inches="tight")
+#     # > add .pdf as suffix if no suffix is present
+#     if "." in fname:
+#         fname = Path(fname)
+#     else:
+#         fname = Path(fname).with_suffix(".pdf")
+#     plt.savefig(fname, bbox_inches="tight")
 
-    if verbose:
-        print(f"Saved plot to: {fname.resolve()}")
+#     if verbose:
+#         print(f"Saved plot to: {fname.resolve()}")
+
+
+from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.gridspec import GridSpec
+import math
+
+
+# def save_multipage_pdf(fname: str, verbose: bool = True) -> None:
+#     """Saves current plot to a multi-page PDF file"""
+#     FIG = plt.gcf()
+#     AXES = FIG.get_axes()
+#     num_pages = math.ceil(len(AXES) / 4)
+
+#     with PdfPages(fname) as pdf:
+#         for page in range(num_pages):
+#             ### Create a new figure for each page
+#             FIG, _ = plt.subplots(2, 2)
+
+#             ### Plot a subset of the axes on each page
+#             for i, ax in enumerate(AXES[page * 4 : (page + 1) * 4]):
+#                 ax.figure = FIG
+#                 FIG.axes.append(ax)
+#                 FIG.add_axes(ax)
+#                 ax.set_position(FIG.subplotpars.get_position(i))
+
+#             ### Remove any empty subplots
+#             while len(FIG.axes) > len(AXES[page * 4 : (page + 1) * 4]):
+#                 FIG.axes[-1].remove()
+
+#             ### Save the current page to the PDF
+#             pdf.savefig(FIG, bbox_inches="tight")
+
+#             ### Close the figure to free up memory
+#             plt.close(FIG)
+
+# def save_multipage_pdf(fname: str, verbose: bool = True) -> None:
+#     """Saves current plot to a multi-page PDF file"""
+#     raise NotImplementedError()
+#     fig = plt.gcf()
+#     axes = fig.get_axes()
+#     num_pages = math.ceil(len(axes) / 4)
+
+#     with PdfPages(fname) as pdf:
+#         for page in range(num_pages):
+#             # Create a new figure for each page
+#             fig, axs = plt.subplots(2, 2)
+
+#             # Plot a subset of the axes on each page
+#             for i, ax in enumerate(axes[page*4:(page+1)*4]):
+#                 # Get the data from the old axes
+#                 lines = ax.get_lines()
+#                 data = [line.get_data() for line in lines]
+
+#                 # Plot the data on the new axes
+#                 for x, y in data:
+#                     axs[i//2, i%2].plot(x, y)
+
+#             # Save the current page to the PDF
+#             pdf.savefig(fig, bbox_inches="tight")
+
+#             # Close the figure to free up memory
+#             plt.close(fig)
+
+#     if verbose:
+#         print(f"Saved plot to: {fname.resolve()}")
 
 
 #

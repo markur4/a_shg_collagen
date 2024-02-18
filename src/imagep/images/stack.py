@@ -25,26 +25,23 @@ import imagep._configs.rc as rc
 
 # import imagep.images.importtools as importtools
 # from imagep.images.imgs_import import CollectionImport
-import imagep._utils.utils as ut
 import imagep._utils.types as T
 from imagep.images.mdarray import mdarray
-from imagep.images.collection_meta import CollectionMeta
+from imagep.images.stack_meta import StackMeta
 import imagep._plots.scalebar as scaleb
 import imagep._plots.imageplots as imageplots
 import imagep._plots.dataplots as dataplots
 
 if TYPE_CHECKING:
-    from imagep.images.collection import Collection
+    from imagep.images.stack import Stack
 # from imagep.utils.transforms import Transform
 
 
 # %%
 # ======================================================================
-# == Class Collection ==================================================
-class Collection(CollectionMeta):
-    """Interface for handling images
-    - Adds experimental information to Images
-    """
+# == Class Stack =======================================================
+class Stack(StackMeta):
+    """Interface for handling images in a stack."""
 
     def __init__(
         self,
@@ -194,8 +191,11 @@ class Collection(CollectionMeta):
         max_cols: int = 2,
         scalebar: bool = False,
         scalebar_kws: dict = dict(),
-        colorbar=True,
-        saveto: str = None,
+        colorbar:bool=True,
+        share_cmap: bool = False,
+        batch_size: int = None,
+        save_as: str = None,
+        ret: bool = False,
         **imshow_kws,
     ) -> None:
         """Show the images"""
@@ -224,43 +224,46 @@ class Collection(CollectionMeta):
         T = self._shape_original[0]
 
         ### MAKE IMAGE
-        fig, axes = imageplots.imshow(**_imshow_kws)
-
-        ### Add Ax titles ==============================================
-        for i, ax in enumerate(axes.flat):
-            if i >= len(self.imgs):
-                break
-            # > get correct index if sliced
-            _i = self._slice_indices[i] if self._sliced else i
-            # > retrieve image
-            img: mdarray = _imgs[i]
-            # > ax title
-            _ax_tit = (
-                f"Image {i+1}/{T} (i={_i}/{T-1})"
-                f"    {img.shape[0]}x{img.shape[1]}  {img.dtype}"
+        if batch_size is None:
+            fig, axes = imageplots.imshow(**_imshow_kws)
+            fig_axes = (fig, axes)
+        else:
+            fig_axes = imageplots.plot_images_in_batches(
+                batch_size=batch_size, **_imshow_kws
             )
-            # > Add Image keys
-            if img.name != "unnamed":
-                folder = Path(img.folder).parent
-                _ax_tit = f"'{folder}': '{img.name}'\n" + _ax_tit
-            ax.set_title(_ax_tit, fontsize="medium")
+        
+        for fig, axes in fig_axes:
+            ### Add Ax titles ==========================================
+            for i, ax in enumerate(axes.flat):
+                if i >= len(self.imgs):
+                    break
+                # > get correct index if sliced
+                _i_tot = self._slice_indices[i] if self._sliced else i
+                # > retrieve image
+                img: mdarray = _imgs[i]
+                # > ax title
+                imageplots.axtitle_to_plot(ax, img, i=i, i_tot=_i_tot, T=T)
 
-        ### Fig title
-        _fig_tit = f"{self.path_short}\n - {T} Total images"
-        if self._sliced:
-            _fig_tit += (
-                f"; Sliced to {len(_imgs)} image(s) (i=[{self._sliced}])"
-            )
-        imageplots.figtitle_to_plot(_fig_tit, fig=fig, axes=axes)
+            ### Fig title
+            _fig_tit = f"{self.paths_pretty}\n - {T} Total images"
+            if self._sliced:
+                _fig_tit += (
+                    f"; Sliced to {len(_imgs)} image(s) (i=[{self._sliced}])"
+                )
+            imageplots.figtitle_to_plot(_fig_tit, fig=fig, axes=axes)
 
-        plt.tight_layout()
+            plt.tight_layout()
 
         ### Save
-        if not saveto is None:
-            ut.saveplot(fname=saveto, verbose=self.verbose)
+        if not save_as is None:
+            imageplots.savefig(save_as=save_as, verbose=self.verbose)
 
-        ### SHOW
-        plt.show()
+        ### Return or show
+        if ret:
+            return fig, axes
+        else:
+            plt.show()
+
         # !!
 
     def mip(self, scalebar=True, **mip_kws) -> np.ndarray | None:
@@ -270,7 +273,7 @@ class Collection(CollectionMeta):
             # > Put scalebar on first image only
             _imgs[0] = self.burn_scalebars()[0]
 
-        mip = imageplots.mip(imgs=_imgs, **mip_kws)
+        mip = imageplots.plot_mip(imgs=_imgs, **mip_kws)
         plt.show()
         return mip
 
@@ -281,13 +284,20 @@ class Collection(CollectionMeta):
         dataplots.histogram(self.imgs, bins=bins, log=log)
 
     #
+    # == Utils =========================================================
+
+    def copy(self) -> Self:
+        """Makes a full copy of itself"""
+        return copy.deepcopy(self)
+
+    #
     # !! == End Class ==================================================
 
 
 if __name__ == "__main__":
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
     pixel_length = (1.5 * 115.4) / 1024
-    Z = Collection(
+    Z = Stack(
         data=path,
         fname_extension="txt",
         verbose=True,
@@ -326,25 +336,25 @@ def _test_import_from_types(Z, I=6):
     )
 
     print("IMPORT FROM PATH:")
-    Z1 = Collection(data=path, **kws)
+    Z1 = Stack(data=path, **kws)
     Z1[I].imshow()
 
     print("IMPORT FROM ARRAY:")
-    Z2 = Collection(data=Z.imgs, **kws)
+    Z2 = Stack(data=Z.imgs, **kws)
     Z2[I].imshow()
 
     print("IMPORT FROM LIST OF ARRAYS:")
     # > Import from list of np.ndarrays
-    Z3 = Collection(data=[im for im in Z.imgs], **kws)
+    Z3 = Stack(data=[im for im in Z.imgs], **kws)
     Z3[I].imshow()
 
     print("IMPORT FROM SELF:")
-    Z4 = Collection(data=Z, **kws)
+    Z4 = Stack(data=Z, **kws)
     Z4[I].imshow()
     pprint(Z4.metadata, compact=True)
 
     print("IMPORT FROM SELF (as *arg):")
-    Z5 = Collection(Z, **kws)
+    Z5 = Stack(Z, **kws)
     Z5[I].imshow()
     pprint(Z5.metadata, compact=True)
 

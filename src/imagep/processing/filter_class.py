@@ -180,14 +180,14 @@ class Filter:
 
 # %%
 # !! TESTDATA ==========================================================
-from imagep.images.collection import Collection
+from imagep.images.stack import Stack
 from imagep._plots.imageplots import imshow
 
 if __name__ == "__main__":
     # path_r = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
     path_d = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
 
-    Z = Collection(path=path_d, verbose=True, x_µm=1.5 * 115.4)
+    Z = Stack(path=path_d, verbose=True, x_µm=1.5 * 115.4)
     I = 6
     Z.imgs[I + 1] = 3  # > Change next image to test multidimensional filters
     T = Filter(imgs=Z.imgs, verbose=True)

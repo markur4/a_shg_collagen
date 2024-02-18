@@ -16,7 +16,7 @@ import imagep._utils.utils as ut
 # from imagep.processing.preprocess import PreProcess
 import imagep.processing.filters as filters
 from imagep.images.l2Darrays import l2Darrays
-import imagep.images.collection_meta as meta
+import imagep.images.stack_meta as meta
 
 
 # %%

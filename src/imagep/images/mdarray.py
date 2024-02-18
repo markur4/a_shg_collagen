@@ -84,7 +84,9 @@ class mdarray(np.ndarray):
 
     def _array_str(self, maximages: int = None) -> str:
         """Returns a string representation of the array."""
-        if self.ndim == 1:
+        if self.ndim == 0:
+            return str(self.item())
+        elif self.ndim == 1:
             return a2s.array1D_to_str(self)
         elif self.ndim == 2:
             return a2s.array2D_to_str(self)

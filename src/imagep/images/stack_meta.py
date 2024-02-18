@@ -13,7 +13,7 @@ import numpy as np
 # > Local
 import imagep._utils.utils as ut
 import imagep._configs.rc as rc
-from imagep.images.collection_import import CollectionImport
+from imagep.images.stack_import import StackImport
 from imagep.images.l2Darrays import l2Darrays
 from imagep.images.mdarray import mdarray
 import imagep._example_data.larries as edl
@@ -40,7 +40,9 @@ def apply_metadata(
             setattr(img, k, v)
     return larry
 
+
 already_called = False
+
 
 def preserve_metadata():
     """A decorator that wraps functions using images as first argument.
@@ -48,17 +50,20 @@ def preserve_metadata():
     before the funciton executes and then re-applies them after the
     function has executed.
     """
+
     def decorator(func):
         global already_called
         if already_called:
             # todo: This might not be necessary
-            raise ValueError("Decorator already called, no nested decorators allowed.")
+            raise ValueError(
+                "Decorator already called, no nested decorators allowed."
+            )
         already_called = True
-        
+
         def wrapper(*args, **kws):
             ### Get imgs from args
             if len(args) != 0:
-                
+
                 __imgs = args[0]
             elif "imgs" in kws:
                 __imgs = kws["imgs"]
@@ -76,24 +81,27 @@ def preserve_metadata():
                 return __imgs
             else:
                 return func(*args, **kws)
-            
+
         already_called = False
         return wrapper
+
     return decorator
+
 
 if __name__ == "__main__":
     ### Get testdata
     larries = edl.larries_s_all
     print(larries)
-    #%%
+
+    # %%
     # > Test function
     @preserve_metadata()
     def test_func(imgs: l2Darrays, **kws):
         print("Test function executed")
-        _imgs = np.array(imgs +1)
+        _imgs = np.array(imgs + 1)
         _imgs = l2Darrays(_imgs, dtype=imgs.dtype)
         return _imgs
-    
+
     ### Test
     _new_larry = test_func(larries[0])
     _new_larry
@@ -102,7 +110,7 @@ if __name__ == "__main__":
 # %%
 # ======================================================================
 # == Class CollectionMeta ============================================
-class CollectionMeta(CollectionImport):
+class StackMeta(StackImport):
     """Class for assigning more metadata to stacks of images"""
 
     def __init__(
@@ -152,7 +160,7 @@ class CollectionMeta(CollectionImport):
         ### Check if metadata values are ...
         # - a single value
         # - or a list with the same length as the number of folders
-        kws = dict(target_key="folders", target_n=len(self.path_short))
+        kws = dict(target_key="folders", target_n=len(self.paths_short))
         for k, v in _MD_RAW.items():
             _MD_RAW[k] = ut.check_samelength_or_number(key=k, val=v, **kws)
 
@@ -173,11 +181,11 @@ class CollectionMeta(CollectionImport):
 
         ### Fill in metadata into MD
         # > Initialize outer dict: shortpath -> metadata
-        MD = {shortpath: {} for shortpath in self.path_short}
+        MD = {shortpath: {} for shortpath in self.paths_short}
         MD["unknown folder"] = {}  # > Capture images that aren't named
         for k, v in _MD_raw.items():
             for i, val in enumerate(v):
-                MD[self.path_short[i]][k] = val
+                MD[self.paths_short[i]][k] = val
 
         ### Fill in image names found in every folder
         for img in self.imgs:
@@ -232,7 +240,7 @@ if __name__ == "__main__":
     # folders = parent + "Exp. 1/Dmp1/"
     # > contains e.g.: "D0 LTMC DAPI 40x.tif"
 
-    Z = CollectionMeta(
+    Z = StackMeta(
         data=folders,
         fname_pattern="*DAPI*.tif",
         # invert=False,

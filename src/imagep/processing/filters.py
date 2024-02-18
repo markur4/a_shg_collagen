@@ -10,17 +10,17 @@ import skimage as ski
 import imagep._utils.utils as ut
 from imagep.images.mdarray import mdarray
 from imagep.images.l2Darrays import l2Darrays
-import imagep.images.collection_meta as meta
+import imagep.images.stack_meta as meta
 
 
 # %%
 # !! Testdata ==========================================================
 if __name__ == "__main__":
-    from imagep.images.collection import Collection
+    from imagep.images.stack import Stack
     from imagep._plots.imageplots import imshow
 
     path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-    Z = Collection(
+    Z = Stack(
         data=path,
         verbose=True,
         fname_extension="txt",
@@ -37,10 +37,10 @@ if __name__ == "__main__":
     # > Check type
     print(type(Z.imgs))
     print(type(Z.imgs[0]))
-    
-    #%%
+
+    # %%
     Z.imgs
-    
+
     # %%
 
     I = 6
@@ -87,15 +87,13 @@ def blur(
 
 if __name__ == "__main__":
     _imgs1 = blur(Z.imgs, sigma=1, kernel_3D=False, normalize=True)
-    imshow(_imgs1[[I, I + 1]])    
-    
-    #%%
+    imshow(_imgs1[[I, I + 1]])
+
+    # %%
     _imgs2 = blur(Z.imgs, sigma=1, kernel_3D=True, normalize=True)
     imshow(_imgs2[[I, I + 1]])
-    
+
     # %%
     ### metadata preserved?
     print("NAME:", _imgs2[0].name)
     _imgs2
-    
-    

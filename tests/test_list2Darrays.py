@@ -417,16 +417,15 @@ if __name__ == "__main__":
     ### Check warnings on dtypes manually
     print(_larry_het.dtypes)
     print(_larry_het.dtype)
-    
-    #%%
+
+    # %%
     ### test min max methods
     print(_larry_het)
     _larry_het.max()
-    #%%
+    # %%
     [img for img in _larry_het]
-    
-    #%%
-    
+
+    # %%
 
 
 # %%
@@ -769,7 +768,7 @@ if __name__ == "__main__":
     import imagep as ip
 
     folder = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-    Z = ip.Collection(
+    Z = ip.Stack(
         data=folder,
         fname_extension="txt",
         verbose=True,

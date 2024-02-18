@@ -21,8 +21,8 @@ import numpy as np
 # > Local
 import imagep._utils.utils as ut
 import imagep._configs.rc as rc
-import imagep._configs.loggers as loggers
 import imagep._utils.types as T
+import imagep._configs.loggers as loggers
 from imagep.images.mdarray import mdarray
 import imagep.images._array_to_str as a2s
 
@@ -177,11 +177,12 @@ class l2Darrays:
         and warns the user if there are multiple ones"""
 
         if not self.homogenous:  # and self._warnagain["shape"]:
-            loggers.DEBUG_LOGGER.warning(
-                f"List contains {len(self.shapes[2])} different shapes,"
-                " retrieving the shape of the first image. Try using"
-                " .shapes to display unique shapes.",
-            )
+            # loggers.DEBUG_LOGGER.warning(
+            #     f"List contains {len(self.shapes[2])} different shapes,"
+            #     " retrieving the shape of the first image. Try using"
+            #     " .shapes to display unique shapes.",
+            # )
+            pass
 
         shapes = [img.shape for img in self.arrays]
 
@@ -213,7 +214,7 @@ class l2Darrays:
         return {img.dtype for img in self.arrays}
 
     def astype(self, dtype: np.dtype):
-        return l2Darrays(self.arrays, dtype=dtype)
+        return l2Darrays([img.astype(dtype) for img in self.arrays])
 
     @property
     def dtype(self) -> Type:
@@ -391,14 +392,14 @@ class l2Darrays:
     #
     # == Statistics ====================================================
 
-    def max(self, **kws) -> int|float:
+    def max(self, **kws) -> int | float:
         if self.homogenous:
             return self.asarray().max(**kws)
         else:
             #!! mdarray.max() returns an 0D array..?
             return max([img.max(**kws).item() for img in self.arrays])
 
-    def min(self, **kws)-> int|float:
+    def min(self, **kws) -> int | float:
         if self.homogenous:
             return self.asarray().min(**kws)
         else:
@@ -528,7 +529,7 @@ if __name__ == "__main__":
     import imagep as ip
 
     folder = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-    Z = ip.Collection(
+    Z = ip.Stack(
         data=folder,
         fname_extension="txt",
         verbose=True,

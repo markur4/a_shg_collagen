@@ -14,8 +14,7 @@ import matplotlib.pyplot as plt
 
 # > local
 import imagep._configs.rc as rc
-import imagep._utils.utils as ut
-from imagep.images.collection import Collection
+from imagep.images.stack import Stack
 from imagep.processing.filter_class import Filter
 
 # from imagep.processing.background import Background
@@ -24,7 +23,7 @@ import imagep._plots.imageplots as imageplots
 
 # %%
 # == Class Process =====================================================
-class Pipeline(Collection):
+class Pipeline(Stack):
     """Base class for processing images
     - Access to transforms and filters
     - Track and display sample images before and during processing
@@ -87,7 +86,7 @@ class Pipeline(Collection):
     def plot_snapshots(
         self,
         return_fig_axes=False,
-        saveto: str = None,
+        save_as: str = None,
     ) -> None | tuple[plt.Figure, np.ndarray[plt.Axes]]:
         """Plot sample images from preprocessing steps"""
 
@@ -105,8 +104,8 @@ class Pipeline(Collection):
             max_cols=2,
             # !! Don't apply scalebars to snapshots, since metadata is
             # !! lost during processing
-            # scalebar=False, 
-            scalebar=scalebar, 
+            # scalebar=False,
+            scalebar=scalebar,
             scalebar_kws=dict(
                 # pixel_length=self.pixel_length,
                 length=self.scalebar_length,
@@ -135,8 +134,8 @@ class Pipeline(Collection):
         )
         imageplots.figtitle_to_plot(FIGTITLE, fig=fig, axes=axes)
 
-        if saveto:
-            ut.saveplot(fname=saveto, verbose=self.verbose)
+        if save_as:
+            imageplots.savefig(save_as=save_as, verbose=self.verbose)
 
         if return_fig_axes:
             return fig, axes

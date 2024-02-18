@@ -107,7 +107,7 @@ class ZStack(PreProcess):
         #!! Overrides PreProcess.mip(), so that correct z-axis dimension
         #!! is used
 
-        return ut.mip(imgs=self.imgs_zfilled, **mip_kws)
+        return ut.plot_mip(imgs=self.imgs_zfilled, **mip_kws)
 
     @property
     def stack_vtk(self):
