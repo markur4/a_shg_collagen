@@ -134,16 +134,15 @@ def _plot_img_to_ax(
     colorbar: bool,
     share_cmap: bool,
     ### Info persistant across batches of imgs
-    imgs_raw: T.array,
+    imgs_all: T.array,
     i_in_batch: int,
     ### kws for ax.imshow()
     **ax_imshow_kws,
 ) -> tuple[plt.Axes]:
     ### Extract parameters from imgs_raw
-    min_max = (np.min(imgs_raw), np.max(imgs_raw))
-    i_total = len(imgs_raw) - 1
+    i_total = len(imgs_all) - 1
     i_in_total = i_in_batch + i_in_ax
-    img_raw = imgs_raw[i_in_total]
+    img_raw = imgs_all[i_in_total]
 
     ### Plot img to ax
     ax_img = ax.imshow(img, **ax_imshow_kws)
@@ -153,12 +152,13 @@ def _plot_img_to_ax(
 
     ### Define color limits by image stack
     if share_cmap:
+        min_max = (np.min(imgs_all), np.max(imgs_all))
         ax_img.set_clim(*min_max)
 
     ### Colorbar
     if colorbar:
         p = np.percentile(img_raw, [50, 75, 99])
-        min_max_img = np.min(img_raw[i_in_total]), np.max(img_raw[i_in_total])
+        min_max_img = np.min(img_raw), np.max(img_raw)
         cb = _colorbar_to_ax(
             ax=ax,
             ax_img=ax_img,
@@ -246,7 +246,7 @@ def imshow(
     scalebar: bool = False,
     scalebar_kws: dict = dict(),
     ### Info persistant across batches of imgs
-    imgs_raw: l2Darrays | T.array = None,
+    imgs_all: l2Darrays | T.array = None,
     i_in_batch: int = 0,  # > Index of first image in batch
     ### i/o
     save_as: str = None,
@@ -266,24 +266,21 @@ def imshow(
     if len(imgs.shape) == 2:
         imgs = l2Darrays([imgs])
 
-    ### Make copies so scalebar isn't persistant
-    _imgs_scalebar = imgs.copy()
-
-    ### Keep raw images
+    ### Keep all raw images
     # - For calculating values for colorbar
     # - Extract information persistant across batches of imgs
-    _imgs_raw = imgs.copy() if imgs_raw is None else imgs_raw
+    _imgs_all = imgs if imgs_all is None else imgs_all
 
     ### Burn scalebar into _imgs
     if scalebar:
-        _imgs_scalebar = scaleb.burn_scalebars(
-            imgs=_imgs_scalebar, **scalebar_kws
+        imgs = scaleb.burn_scalebars(
+            imgs=imgs.copy(), **scalebar_kws
         )
 
     # === Plot ===
     ### Calculate n_cols and n_rows
-    n_cols = 1 if len(_imgs_scalebar) == 1 else max_cols
-    n_rows = int(np.ceil(len(_imgs_scalebar) / n_cols))
+    n_cols = 1 if len(imgs) == 1 else max_cols
+    n_rows = int(np.ceil(len(imgs) / n_cols))
     ### Init fig and axes
     fig, axes = plt.subplots(
         ncols=n_cols,
@@ -299,16 +296,16 @@ def imshow(
     ### Plot images into axes
     for i_in_ax, ax in enumerate(axes.flat):
         # > Prevent displaying empty axis when reaching end of imgs
-        if i_in_ax >= len(_imgs_scalebar):
+        if i_in_ax >= len(imgs):
             ax.axis("off")
             continue
         # > Retrieve image with scalebar burned in
-        img: np.ndarray = _imgs_scalebar[i_in_ax]
+        img: np.ndarray = imgs[i_in_ax]
         # > Plot ax
         ax, cb = _plot_img_to_ax(
             ax=ax,
             img=img,
-            imgs_raw=_imgs_raw,
+            imgs_all=_imgs_all,
             i_in_ax=i_in_ax,
             i_in_batch=i_in_batch,
             share_cmap=share_cmap,
@@ -321,7 +318,7 @@ def imshow(
     _plot_legend(fig, cb, n_cols, n_rows)
 
     ### Title
-    figtitle_to_fig(_imgs_raw, fig=fig, axes=axes)
+    figtitle_to_fig(_imgs_all, fig=fig, axes=axes)
 
     ### Layout
     plt.tight_layout()
@@ -439,17 +436,14 @@ def imshow_batched(
     save_as: str = None,
     **imshow_kws,
 ):
-    ### Info to persist across batches
-    # - For calculating values for colorbar
-    # - Extract information persistant across batches of imgs
-    imgs_raw = imgs.copy()
+
 
     ### Plot in batches
     figs_axes = []
     for i_batch in range(0, len(imgs), batch_size):
         fig, axes = imshow(
             imgs=imgs[i_batch : i_batch + batch_size],
-            imgs_raw=imgs_raw,
+            imgs_all=imgs,
             i_in_batch=i_batch,
             ret=True,
             **imshow_kws,
