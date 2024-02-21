@@ -192,7 +192,7 @@ class Stack(StackMeta):
         scalebar: bool = False,
         scalebar_kws: dict = dict(),
         colorbar: bool = True,
-        share_cmap: bool = False,
+        share_cmap: bool = True,
         batch_size: int = None,
         save_as: str = None,
         ret: bool = False,

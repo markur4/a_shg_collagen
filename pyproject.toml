@@ -102,8 +102,8 @@ dependencies = [
     #     "statannotations",
     #     "pingouin",
     #     #* Excel
-    #     "xlsxwriter",    #' For saving results to excel
-    #     "openpyxl",      #' Optional for Pandas, but error when not installed
+    "openpyxl",      #' Optional for Pandas, but error when not installed
+    "xlsxwriter",    #' For saving results to excel
     #* Misc
     "joblib", #' Caching
     #     "colour",      #' For custom colour maps

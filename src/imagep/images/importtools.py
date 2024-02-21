@@ -113,6 +113,9 @@ def arrays_from_folder(
 
     ### Get all files and sort them
     _imgpaths = list(folder.glob(pattern))
+    if len(_imgpaths) == 0:
+        raise ValueError(f"No files found with pattern '{pattern}'")
+    
     _imgpaths = _order_imgpaths(
         _imgpaths,
         sort=sort,
@@ -130,10 +133,12 @@ def arrays_from_folder(
     _imgs = np.array(_imgs)  # > list to array
 
     ### Get the keys to identify individual images
-    _imgnames = [path.stem for path in _imgpaths]  # > Initialize
+    imgnames = [path.stem for path in _imgpaths]  # > Initialize
     if not imgname_position is None:
         # > Use a shorter name, if the position is given
-        _imgnames = _imgnames_from_imgpaths(_imgpaths, imgname_position)
+        imgnames = _imgnames_from_imgpaths(_imgpaths, imgname_position)
+    if not fname_pattern is None:
+        imgnames = [str(name) + fname_pattern for name in imgnames]
 
     ### Add image names as metadata
     _imgs = [
@@ -142,10 +147,10 @@ def arrays_from_folder(
             name=imgname,
             folder=ut.shortenpath(folder),
         )
-        for img, imgname in zip(_imgs, _imgnames)
+        for img, imgname in zip(_imgs, imgnames)
     ]
 
-    return _imgnames, _imgs
+    return imgnames, _imgs
 
 
 def _order_imgpaths(

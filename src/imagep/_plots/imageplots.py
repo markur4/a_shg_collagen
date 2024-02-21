@@ -20,7 +20,6 @@ from imagep.images.l2Darrays import l2Darrays
 # from imagep.images.imgs import Imgs
 
 
-
 # %%
 # == img to ax ==========================================================
 def _colorbar_to_ax(
@@ -133,7 +132,6 @@ def _plot_img_to_ax(
         i_in_total = i_in_batch + i_in_ax
         img_raw = imgs_all[i_in_total]
 
-
     ### Plot img to ax
     ax_img = ax.imshow(img, **ax_imshow_kws)
 
@@ -194,11 +192,12 @@ def _axtitle_from_img(
 # == imshow ============================================================
 def _get_folders_from_imgs(imgs: l2Darrays) -> list[str]:
     """Extracts folder names from imgs"""
-    folders = set()
+    folders = []
     for img in imgs:
         if hasattr(img, "folder"):
-            folders.add(img.folder)
-    return list(folders)
+            folders.append(img.folder)
+    folders = list(set(folders))
+    return folders
 
 
 def _figtitle_from_imgs(imgs: l2Darrays | T.array) -> str:
@@ -213,12 +212,10 @@ def _figtitle_from_imgs(imgs: l2Darrays | T.array) -> str:
         shapes = imgs.shape
 
     l = []
-    l += _get_folders_from_imgs(imgs)
+    l = l + _get_folders_from_imgs(imgs)
     ### Length, types
-    l += [f"Showing {shapes[0]} images, {types}, shape: {shapes[1:]}"]
-
-    # unique_folderlist = _get_folders_from_imgs(imgs)
-    # l = l + unique_folderlist
+    l.append(f"Showing {shapes[0]} images, {types}, shape: {shapes[1:]}")
+    # print(f"{l =}")
 
     return "\n".join(l)
 
@@ -232,6 +229,7 @@ def figtitle_to_fig(
     """Makes a suptitle for figures"""
 
     title = title if title else _figtitle_from_imgs(imgs)
+
 
     bbox_y = 1.05 if axes.shape[0] <= 2 else 1.01
     fig.suptitle(title, ha="left", x=0.01, y=bbox_y, fontsize="large")
@@ -272,7 +270,7 @@ def imshow(
     ### Burn scalebar into _imgs
     if scalebar and hasattr(imgs[0], "pixel_length"):
         imgs = scaleb.burn_scalebars(imgs=imgs.copy(), **scalebar_kws)
-    
+
     # === Plot ===
     ### Calculate n_cols and n_rows
     n_cols = 1 if len(imgs) == 1 else max_cols
@@ -314,13 +312,13 @@ def imshow(
     _plot_legend(fig, cb, n_cols, n_rows)
 
     ### Title
-    figtitle_to_fig(imgs=_imgs_all, fig=fig, axes=axes)
+    figtitle_to_fig(imgs=imgs, fig=fig, axes=axes)
 
     ### Layout
     plt.tight_layout()
 
     # === return ===
-    return show_or_return(
+    return return_plot(
         fig=fig,
         axes=axes,
         ret=ret,
@@ -381,6 +379,7 @@ def savefig(
 def save_figs_to_pdf(
     save_as: str | Path,
     figs_axes: tuple[plt.Figure, plt.Axes],
+    # figs: list[plt.Figure],
     verbose: bool = True,
 ):
     ### Add .pdf as suffix if no suffix is present
@@ -392,7 +391,7 @@ def save_figs_to_pdf(
         print(f"Saved plots to: {save_as.resolve()}")
 
 
-def show_or_return(
+def return_plot(
     fig: plt.Figure,
     axes: plt.Axes,
     ret: bool,
@@ -403,13 +402,16 @@ def show_or_return(
     if save_as:
         savefig(save_as=save_as, verbose=verbose)
     if ret:
+        ### Subsequent code expects batched plotting
         return fig, axes
     else:
         plt.show()
 
 
-def show_or_return_batched(
+def return_plot_batched(
     figs_axes: tuple[tuple[plt.Figure, np.ndarray[plt.Axes]]],
+    # figs: list[plt.Figure],
+    # axess: list[np.ndarray[plt.Axes]],
     ret: bool,
     save_as: str,
     verbose: bool = True,
@@ -438,6 +440,7 @@ def imshow_batched(
 ):
 
     ### Plot in batches
+    # figs, axess = [], []
     figs_axes = []
     for i_batch in range(0, len(imgs), batch_size):
         fig, axes = imshow(
@@ -447,10 +450,14 @@ def imshow_batched(
             ret=True,  # > must return fig, axes
             **imshow_kws,
         )
+        # figs.append(fig)
+        # axess.append(axes)
         figs_axes.append((fig, axes))
 
-    return show_or_return_batched(
+    return return_plot_batched(
         figs_axes=figs_axes,
+        # figs=figs,
+        # axess=axess,
         ret=ret,
         save_as=save_as,
         verbose=verbose,
@@ -477,22 +484,13 @@ def plot_mip(
         interpolation="none",
     )
 
-    return show_or_return(
+    return return_plot(
         fig=plt.gcf(),
         axes=plt.gca(),
         ret=ret,
         save_as=save_as,
         verbose=verbose,
     )
-
-    # if not save_as is None:
-    #     savefig(save_as=save_as, verbose=verbose)
-
-    # if ret:
-    #     return mip
-    # else:
-    #     plt.show()
-
 
 
 # %%
@@ -522,8 +520,8 @@ def _test_imshow_batched(imgs):
         imgs,
         batch_size=4,
         save_as="test",
+        ret=True,
     )
-
 
 
 if __name__ == "__main__":
@@ -542,10 +540,9 @@ if __name__ == "__main__":
     I = 6
     Z
     # %%
-    print (f"{Z.imgs[2].index=}")
-    
-    
-    #%%
+    print(f"{Z.imgs[2].index =}")
+
+    # %%
     ### Test Plot l2Darrays
     _test_imshow(imgs=Z.imgs)
     # %%

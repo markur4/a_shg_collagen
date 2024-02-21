@@ -102,12 +102,8 @@ class Pipeline(Stack):
         fig, axes = imageplots.imshow(
             self.snapshots_array,
             max_cols=2,
-            # !! Don't apply scalebars to snapshots, since metadata is
-            # !! lost during processing
-            # scalebar=False,
             scalebar=scalebar,
             scalebar_kws=dict(
-                # pixel_length=self.pixel_length,
                 length=self.scalebar_length,
             ),
             share_cmap=False,
@@ -134,32 +130,10 @@ class Pipeline(Stack):
         imageplots.figtitle_to_fig(title=figtitle, fig=fig, axes=axes)
 
         ### Return
-        return imageplots.show_or_return(
+        return imageplots.return_plot(
             fig=fig,
             axes=axes,
             save_as=save_as,
             ret=ret,
             verbose=self.verbose,
         )
-
-        # if save_as:
-        #     imageplots.savefig(save_as=save_as, verbose=self.verbose)
-
-        # if ret:
-        #     return fig, axes
-
-        # axtit = (
-        #         f"Image {i+1}/{len(self.imgs)} (i={_i}/{self._num_imgs-1})"
-        #         f"    {img.shape[0]}x{img.shape[1]}  {img.dtype}"
-        #         # f"\nmin={form(img.min())}  mean={form(img.mean())}  max={form(img.max())}"
-        #     )
-        #     ax.set_title(axtit, fontsize="medium")
-
-        # ### Fig title
-        # tit = f"{self.path_short}\n - {self._num_imgs} Total images"
-        # if self._slice:
-        #     tit += f"; Sliced to {len(_imgs)} image(s) (i=[{self._slice}])"
-
-        # ### Get number of rows in axes
-        # bbox_y = 1.05 if axes.shape[0] <= 2 else 1.01
-        # fig.suptitle(tit, ha="left", x=0.01, y=bbox_y, fontsize=12)

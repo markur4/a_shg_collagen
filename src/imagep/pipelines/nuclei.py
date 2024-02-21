@@ -3,14 +3,15 @@
 """
 
 # %%
-
+from typing import Callable
 from pprint import pprint
 
 import numpy as np
 
 import matplotlib.pyplot as plt
-import imagep._plots.imageplots
-import imagep._utils.metadata
+import imagep._plots.imageplots as imageplots
+
+# import imagep._utils.metadata as meta
 
 # > Local
 from imagep.segmentation.segment import Segment
@@ -37,8 +38,16 @@ if __name__ == "__main__":
     )
     paths = [
         parent + "Exp. 1/LTMC Dmp1/",
+        parent + "Exp. 1/LTMC Sost/",
         parent + "Exp. 2/LTMC Dmp1/",
+        parent + "Exp. 2/LTMC Sost/",
+        parent + "Exp. 2/2D Dmp1/",
+        parent + "Exp. 2/2D Sost/",
         parent + "Exp. 3/LTMC Dmp1/",
+        parent + "Exp. 3/LTMC Sost/",
+        parent + "Exp. 3/2D Dmp1/",
+        parent + "Exp. 3/2D Sost/",
+        
     ]
     # > contains e.g.: "D0 LTMC DAPI 40x.tif"
 
@@ -51,15 +60,16 @@ if __name__ == "__main__":
         fname_pattern="*DAPI*.tif",
         # invert=False,
         sort=False,
-        imgname_position=[0, 0, 0],  # > Extract a key from the filename
+        # imgname_position=[0, 0, 0],  # > Extract a key from the
+        # filename
+        imgname_position=0
     )
     print(IA_ori.imgs.shape, IA_ori.imgs.dtype)
     _img = IA_ori.imgs[0]
     print(_img.shape, _img.dtype)
-    IA_ori.imshow(save_as="0_Original", batch_size=4)  #:: uncomment
 
     # %%
-    IA_ori.imshow()
+    IA_ori.imshow(save_as="0_Original", batch_size=4)  #:: uncomment
 
     # %%
     # ### Too much noise, run median filter
@@ -79,8 +89,9 @@ if __name__ == "__main__":
         subtract_bg_kws=dict(
             # method="triangle",
             # sigma = .7,
+            # sigma = 2,
             method="otsu",
-            sigma=6,
+            sigma=3,
             per_img=True,
         ),
         normalize="per_img",
@@ -115,21 +126,38 @@ if __name__ == "__main__":
     ### Quick segmentation
     seg = (IA_pp.imgs > 0).astype(np.uint8)
     print(seg.shape, seg.dtype)
-    # ip.imshow(S) # !! Does not preserve image names in plots
+    # ip.imshow(S) 
 
     ### Import into an instance of Collection for snapshots and names
     # > IA_seg = Image Analysis segmented
     IA_seg = IA_pp.copy()
     # > Update IA
     IA_seg.imgs = seg
-    IA_seg.imshow()  # > preserves image names
+    # IA_seg.imshow()  
     IA_seg.capture_snapshot("Segmentation: Values > 0 are white")
-
+    #%%
+    ### Problematic image
+    IA_ori[30].imshow()  
+    IA_pp[30].imshow()
+    IA_seg[30].imshow()  
     # %%
-    ### Morphology: open (erode + dilate)
+    ### Morphology: 
+    # > close (dilate + erode) to remove small holes
+    # > open (erode + dilate) to remove small objects
+    
     from scipy import ndimage as sp_ndimage
 
-    @imagep._utils.metadata.preserve_metadata()
+    @ip.preserve_metadata()
+    def close(imgs, iterations: int = 5):
+        return ip.l2Darrays(
+            [
+                sp_ndimage.binary_closing(img, iterations=iterations)
+                for img in imgs
+            ],
+            dtype=imgs.dtype,
+        )
+
+    @ip.preserve_metadata()
     def open(imgs, iterations: int = 5):
         return ip.l2Darrays(
             [
@@ -138,12 +166,12 @@ if __name__ == "__main__":
             ],
             dtype=imgs.dtype,
         )
-
-    segm_opened = open(seg, iterations=5)
+    seg = close(seg, iterations=5)
+    seg = open(seg, iterations=5)
 
     # > Update IA
-    IA_seg.imgs = segm_opened.astype(np.float32)
-    IA_seg.imshow()
+    IA_seg.imgs = seg.astype(np.float32)
+    IA_seg[30].imshow()
     IA_seg.capture_snapshot("Opening: Erode + Dilate (5 iterations)")
 
     # %%
@@ -187,68 +215,90 @@ if __name__ == "__main__":
         """Show the difference between two sets of images"""
 
         ### Init plot
-        fig, axes = self.imshow(
-            # self,
+        figs_axes = self.imshow(
             max_cols=2,
             scalebar=False,
             share_cmap=True,
-            batch_size=batch_size,
             ret=True,
+            batch_size=batch_size,
         )
+        for i_batch, (fig, axes) in enumerate(figs_axes):
+            ### Overlay Contour
+            for i, ax in enumerate(axes.flat):
+                index = i_batch * batch_size + i
+                contour = draw_contours(seg[index])
+                ax.imshow(contour, alpha=0.5)
 
-        ### Overlay Contour
-        for i, ax in enumerate(axes.flat):
-            contour = draw_contours(seg[i])
-            ax.imshow(contour, alpha=0.5)
-
-        if save_as is not None:
-            imagep._plots.imageplots.savefig(save_as)
-
-        if ret:
-            return fig, axes
-        else:
-            plt.show()
+        imageplots.return_plot_batched(
+            figs_axes,
+            save_as=save_as,
+            ret=ret,
+        )
 
     _ = plot_seg_contour(
         self=IA_pp,
         seg=IA_seg.imgs,
-        save_as="3_Segmentmask+Preprocessed",
+        save_as="3_Segmentmask-Preprocessed",
         batch_size=4,
     )
+    # %%
     _ = plot_seg_contour(
         self=IA_ori,
         seg=IA_seg.imgs,
-        save_as="3_Segmentmask+Original",
+        save_as="3_Segmentmask-Original",
         batch_size=4,
     )
 
     # %%
     ### Calculate percentage of area covered by nuclei
-    def perc_area_covered(seg: ip.l2Darrays) -> float:
+    def _calc_perc(img: np.ndarray) -> float:
+        perc = np.sum(img) / np.prod(img.shape)
+        return round(perc.item(), 4)
+    
+    def calc_and_record(imgs:ip.l2Darrays, op:Callable):
         """Calculates percentage of area covered by nuclei"""
 
-        data = {}
-        for i, img in enumerate(seg):
-            ### Construct Index
+        data = []
+        for img in imgs:
+            ### Calculate total intensity
+            result = op(img)
+            
+            ### Construct Record
             path = Path(img.folder).parts
-            index = (*path, img.name)
-            percent = np.sum(img) / np.prod(img.shape)
-            # print(np.prod(img.shape), type(np.prod(img.shape)))
-            # print(percent, type(percent))
-            data[index] = round(percent.item(), 4)
-        # > round
-        # perc = np.round(perc, 3)
+            record = (*path, img.name, result)
+            data.append(record)
+
         return data
 
-    # perc = [np.sum(img) / np.prod(img.shape) for img in segm_opened]
-    # # > round
-    # perc = np.round(perc, 3)
-    perc = perc_area_covered(IA_seg.imgs)
+    perc = calc_and_record(IA_seg.imgs, op=_calc_perc)
     pprint(perc)
 
     # %%
-    # > associate percentages with filekeys
-    perc_d = dict(zip(IA_ori.imgnames, perc))
-    # > pretty print
-    for k, v in perc_d.items():
-        print(f"{k}: {v}")
+    ### Make dataframe
+    import pandas as pd
+
+    def records_to_df(list_records: list[tuple]) -> pd.DataFrame:
+        """Converts dictionary to dataframe. Dictionary has tuple of
+        indices as keys and a scalar as value. Indices start with an
+        integer row index. Returns a dataframe with indices expanded to
+        columns.
+        """
+
+        ### Convert the list of records into a DataFrame
+        df = pd.DataFrame(
+            list_records,
+            columns=[
+                "folder1",
+                "folder2",
+                "img_name",
+                "result",
+            ],
+        )
+
+        return df
+
+    df = records_to_df(list_records=perc)
+    df
+    #%%
+    ### save dataframe as xlsx
+    df.to_excel("4_perc_nuclei.xlsx", index=False)
