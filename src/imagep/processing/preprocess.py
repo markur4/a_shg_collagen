@@ -27,6 +27,8 @@ import imagep._configs.parameters as p
 
 # from imagep.images.imgs import Imgs
 import imagep._utils.utils as ut
+import imagep._utils.metadata as meta
+import imagep._utils.types as T
 from imagep._plots.imageplots import imshow
 from imagep.images.l2Darrays import l2Darrays
 
@@ -72,7 +74,7 @@ class PreProcess(Pipeline):
         ### Preprocessing kws
         median: bool = False,
         denoise: bool = True,
-        normalize: bool | str = True,
+        normalize: bool | str = "img",
         subtract_bg: bool = False,
         subtract_bg_kws: dict = dict(
             method="triangle", sigma=1.5, per_img=False
@@ -163,7 +165,7 @@ class PreProcess(Pipeline):
 
         ### Remove empty slices
         if kws["remove_empty_slices"]:
-            self.imgs = self.remove_empty_slices(imgs=self.imgs)
+            self.imgs = self.remove_empty_slices()
 
     #
     # === HISTORY ====================================================
@@ -202,7 +204,8 @@ class PreProcess(Pipeline):
                 "Removed empty slices from stack. An entropy filter was"
                 " applied to images. Images were removed if the 99th"
                 " percentile of entropy was lower than"
-                " than 10%\ of max entropy found in all images"
+                " than a threshold entropy found in all images."
+                " The entropy threshold was calculated using Otsu's method."
             )
 
         return od
@@ -307,28 +310,36 @@ class PreProcess(Pipeline):
 
     #
     # == Normalize =====================================================
+    # @meta.preserve_metadata()
     def normalize(self, across: str | bool = None) -> np.ndarray:
         ### Get arg
-        across = self.kws_preprocess["normalize"] if across is None else across
+        # print(f"{self.imgs[0].metadata=}")
 
         ### Handle args
+        across = self.kws_preprocess["normalize"] if across is None else across
         across = p.handle_param(p.ACROSS, param=across, funcname="normalize")
 
         ### Normalize each individual image
         if across == "img":
-            return l2Darrays([img / img.max() for img in self.imgs])
+            return l2Darrays([img / img.max().item() for img in self.imgs])
 
         ### Normalize across the whole stack
         elif across == "stack":
-            return self.imgs / self.imgs.max()
+            # imgs = l2Darrays(self.imgs / self.imgs.max().item())
+            # print(f"{imgs[0].metadata=}")
+            # return imgs
+            return l2Darrays(self.imgs / self.imgs.max().item())
+        else:
+            raise ValueError(
+                f"across = '{across}' not recognized. Use 'img' or 'stack'"
+            )
 
     #
     # == Z-Stack optimizations ============================================
-    def remove_empty_slices(
-        self, imgs: np.ndarray = None, threshold=0.10
-    ) -> np.ndarray:
+    def remove_empty_slices(self, imgs: T.array = None) -> np.ndarray:
         """Empty images are those with a standard deviation lower than
         threshold (1%) of max standard deviation"""
+        # print(f"{type(self.imgs)=}")
 
         if self.verbose:
             print("=> Removing empty slices ...")
@@ -337,10 +348,14 @@ class PreProcess(Pipeline):
         imgs = self.imgs if imgs is None else imgs
 
         ### Perform entropy filtering
-        _imgs = self.filter.entropy(imgs=imgs)
+        _imgs = self.filter.entropy(imgs=imgs, normalize=False)
+        # print(f"{type(_imgs)=}")
 
         ### Get 99th percentiles for each image
         percentiles = np.percentile(_imgs, 99, axis=(1, 2))
+
+        ### Define threshould through otsu in percentiles
+        threshold = ski.filters.threshold_otsu(percentiles)
 
         ### Show
         if rc.DEBUG:
@@ -351,7 +366,13 @@ class PreProcess(Pipeline):
             plt.legend()
 
         ### Take only those slices where 99th percentile is above threshold
+        # print(f"before {type(imgs)=}", f"{type(imgs[0])=}")
+        # print(imgs.shape)
+        # print(percentiles > threshold)
         imgs = imgs[percentiles > threshold]
+
+        # print(f"afta {type(imgs)=}", f"{type(imgs[0])=}")
+        # print(imgs.shape)
 
         return imgs
 
@@ -364,9 +385,15 @@ class PreProcess(Pipeline):
 # == TESTS ============================================================
 
 if __name__ == "__main__":
+    import imagep as ip
+
+    parent = (
+        "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/"
+    )
+
     ### Import from a txt file.
     # > Rough
-    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
+    path = parent + "1 healthy z-stack rough/"
     # > x_µm = fast axis amplitude * calibration =  1.5 V * 115.4 µm/V
     # > z_dist = n_imgs * stepsize = 10 * 0.250 µm
     kws = dict(
@@ -375,28 +402,58 @@ if __name__ == "__main__":
         / 1024,
     )
     # > Detailed
-    # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    # path = parent + "2 healthy z-stack detailed/"
     # kws = dict(
     #     # z_dist=2 * 0.250,  # > stepsize * 0.250 µm
     #     x_µm=1.5
     #     * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
     # )
-    I = 17
+
+    # %%
+    I = 8
     Z = PreProcess(
         data=path,
         fname_extension=".txt",
         imgname_position=1,
         denoise=True,
+        normalize="stack",
         subtract_bg=True,
         subtract_bg_kws=dict(
-            method="triangle",
-            sigma=1.5,
-            per_img=True,
+            method="otsu",
+            sigma=3,
+            per_img=False,
         ),
-        scalebar_length=50,
+        scalebar_length=10,
         snapshot_index=I,
+        remove_empty_slices=True,
         **kws,
     )
+    # %%
+    Z_RAW = PreProcess(
+        data=path,
+        fname_extension=".txt",
+        imgname_position=1,
+        denoise=False,
+        normalize=False,
+        subtract_bg=False,
+        scalebar_length=10,
+        snapshot_index=I,
+        remove_empty_slices=False,
+        **kws,
+    )
+    # %%
+    print(type(Z.imgs))
+    print(type(Z.imgs[0]))
+
+    # %%
+    Z.plot_snapshots(save_as="1_preprocessing.pdf")
+
+    # %%
+    Z.scalebar_length
+
+    # %%
+    Z.plot_histogram(save_as="2_histogram.pdf")
+    Z_RAW.plot_histogram(save_as="2_histogram_raw.pdf")
     # %%
     print(Z.imgs.shape)
     print(Z._shape_original)
@@ -409,128 +466,70 @@ if __name__ == "__main__":
     # plt.imshow(zstack.stack[0])
 
     # %%
-    ### Check history
-    Z.info
+    ### Present entropy filter
+    _entr = Z.filter.entropy(normalize=False)
+    _entr_raw = Z_RAW.filter.entropy(normalize=False)
     # %%
-    Z.history
-
-    # %%
-    ### Check snapshots
-    # Z.snapshots_array
-    # %%
-    Z.plot_snapshots()
-
-    # %%
-    # print(Z.background.threshold)
-
-    # %%
-    # imshow(Z.snapshots_array)
-    # %%
-    # imshow(Z.filter.denoise()[I])
-
-    # %%
-    # Z[I].imshow()
-
-    # imshow(Z.snapshots_array)
-    # %%
-    hä
-
-    # %%
-    Z.kws_preprocess
-
-    # %%
-    ### Check __repr__
-    Z._info
-
-    # %%
-    Z_bg = PreProcess(path, subtract_bg=True, **kws)
-
-    # %%
-    Z.info
-
-    # %%
-    Z_bg
-
-    # %%
-    print(Z)
-
-    # %%
-    # HÄÄÄÄ
-
-    # %%
-    Z.mip(axis=0, show=True)  # ' z-axis
-    Z.mip(axis=1, show=True)  # ' x-axis
-    Z.mip(axis=2, show=True)  # ' y-axis
-    # %%
-    print(Z.x_µm)
-    print(Z.y_µm)
-    # print(Z.z_µm)
-    print(Z.pixel_length)
-    print(Z.spacing)
-
-    # %%
-    #:: Denoising makes background subtraction better
-    Z_d = PreProcess(
-        path,
-        denoise=True,
-        **kws,
+    m = _entr.max()
+    ip.imshow(
+        [
+            Z.imgs[I],
+            _entr_raw[I] / m,
+            _entr[I - 2] / m,
+            Z.imgs[2 - 2],
+            _entr_raw[2] / m,
+            _entr[2 - 2] / m,
+        ],
+        save_as="3_entropy.pdf",
+        max_cols=3,
     )
-    # Z_d_bg = PreProcess(
-    #     path,
-    #     denoise=True,
-    #     background_subtract=0.06,  # > In percent of max brightness
-    #     **kws,
-    # )
-    # %%
-    Z_d.info
 
     # %%
-    Z_d.mip()
-
+    percentiles99 = np.percentile(_entr_raw, 99, axis=(1, 2))
+    percentiles90 = np.percentile(_entr_raw, 90, axis=(1, 2))
+    percentiles50 = np.percentile(_entr_raw, 50, axis=(1, 2))
     # %%
-    #:: what's better to flatten background: denoise or blurring?
+    ### Define threshould through otsu in percentiles?
+    threshold = ski.filters.threshold_otsu(percentiles99)
+    # print(threshold)
 
-    S = Z_d.blur(sigma=1)
-    plt.imshow(S[7])
-
-    # %%
-    histkws = dict(bins=200, log=False, alpha=0.4)
-
-    plt.hist(Z.imgs.flatten(), label="raw", **histkws)
-    plt.hist(S.flatten(), label="blur", **histkws)
+    plt.plot(percentiles99, label="99th percentile")
+    plt.axhline(threshold, color="blue", label="99th perc. thresh.", ls="--")
+    plt.plot(percentiles90, label="90th percentile")
+    plt.plot(percentiles50, label="Median")
     plt.legend()
 
-    # %%
-    plt.hist(Z.imgs.flatten(), label="raw", **histkws)
-    plt.hist(Z_d.imgs.flatten(), label="denoise", **histkws)
-    plt.legend()
+    plt.suptitle("Removal of slices without information")
+    plt.xlabel(f"Slice")
+    plt.ylabel(f"Local Entropy [bits]")
+    ### format x axis to integers
+    plt.xticks(np.arange(0, len(percentiles99), 1))
+
+    ### Adjust height of figure
+    plt.gcf().set_size_inches(7, 3)
+
+    plt.savefig("3_entropy_percentiles.pdf", bbox_inches="tight")
 
     # %%
-    plt.hist(S.flatten(), label="blur", **histkws)
-    plt.hist(Z_d.imgs.flatten(), label="denoise", **histkws)
-    plt.legend()
+    ### Test case where there is no discernable threshold for entropy
+    # percentiles2 = percentiles[percentiles > threshold]
+    # # %%
+    # threshold2 = ski.filters.threshold_otsu(percentiles2)
+    # plt.plot(percentiles2, label="99percentiles")
+    # plt.axhline(threshold2, color="red", label="threshold")
+    # # !! otsu is greedy, it will always find a threshold
+    # %%
 
-    # Z.brightness_distribution()
-    # Z_d.brightness_distribution()
-    # Z_d_bg.brightness_distribution()
+    # Z.imgs[Z.imgs > 0.0] = 1
+
+    # plt.imshow(Z.imgs[0])
 
     # %%
-    print(ski.filters.threshold_triangle(Z.imgs))
-    print(ski.filters.threshold_triangle(S))
-    print(ski.filters.threshold_triangle(Z_d.imgs))
 
     # %%
-    #:: Denoising preserves textures!
-    # mip = Z.mip(ret=True)
-    # mip_d = Z_d.mip(ret=True)
-    # mip_d_bg = Z_d_bg.mip(ret=True)
+    ### Check history
+    # Z.info
+    # %%
+    # Z.history
 
     # %%
-    # sns.boxplot(
-    #     [
-    #         mip.flatten(),
-    #         # mip_d.flatten(),
-    #         mip_d_bg.flatten(),
-    #     ],
-    #     showfliers=False,
-    # )

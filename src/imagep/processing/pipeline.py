@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 
 # > local
 import imagep._configs.rc as rc
+import imagep._plots._plotutils
+from imagep.images.l2Darrays import l2Darrays
 from imagep.images.stack import Stack
 from imagep.processing.filter_class import Filter
 
@@ -79,9 +81,14 @@ class Pipeline(Stack):
         self.snapshots[step] = self.imgs[self.snapshot_index].copy()
 
     @property
-    def snapshots_array(self) -> np.ndarray:
+    def snapshots_as_nparray(self) -> np.ndarray:
         """Returns snapshots as an array"""
         return np.array(list(self.snapshots.values()))
+    
+    @property
+    def snapshots_as_l2Darrays(self) -> list:
+        """Returns snapshots as l2Darrays"""
+        return l2Darrays(list(self.snapshots.values()))
 
     def plot_snapshots(
         self,
@@ -100,7 +107,7 @@ class Pipeline(Stack):
         ### Plot
         scalebar = False if self.scalebar_length is None else True
         fig, axes = imageplots.imshow(
-            self.snapshots_array,
+            self.snapshots_as_l2Darrays,
             max_cols=2,
             scalebar=scalebar,
             scalebar_kws=dict(
@@ -127,10 +134,10 @@ class Pipeline(Stack):
             f"   Took image #{i_snap+1}/{i_total} (i={i_snap}/{i_total-1})"
             " as sample"
         )
-        imageplots.figtitle_to_fig(title=figtitle, fig=fig, axes=axes)
+        imagep._plots._plotutils.figtitle_to_fig(title=figtitle, fig=fig, axes=axes)
 
         ### Return
-        return imageplots.return_plot(
+        return imagep._plots._plotutils.return_plot(
             fig=fig,
             axes=axes,
             save_as=save_as,

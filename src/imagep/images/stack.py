@@ -232,33 +232,31 @@ class Stack(StackMeta):
             return imageplots.imshow(**kws)
             # fig_axes = ((fig, axes),) #> double tuple
         else:
-            return imageplots.imshow_batched(
-                batch_size=batch_size, **kws
-            )
+            return imageplots.imshow_batched(batch_size=batch_size, **kws)
 
-        for fig, axes in fig_axes:
-            ### Add Ax titles ==========================================
-            for i, ax in enumerate(axes.flat):
-                if i >= len(self.imgs):
-                    break
-                # > get correct index if sliced
-                _i_tot = self._slice_indices[i] if self._sliced else i
-                # > retrieve image
-                img: mdarray = _imgs[i]
-                # > ax title
-                imageplots._axtitle_from_img(
-                    ax, img, i_in_total=i, i_total=_i_tot, tot=T
-                )
+        # for fig, axes in fig_axes:
+        #     ### Add Ax titles ==========================================
+        #     for i, ax in enumerate(axes.flat):
+        #         if i >= len(self.imgs):
+        #             break
+        #         # > get correct index if sliced
+        #         _i_tot = self._slice_indices[i] if self._sliced else i
+        #         # > retrieve image
+        #         img: mdarray = _imgs[i]
+        #         # > ax title
+        #         imageplots._axtitle_from_img(
+        #             ax, img, i_in_total=i, i_total=_i_tot, tot=T
+        #         )
 
-            ### Fig title
-            _fig_tit = f"{self.paths_pretty}\n - {T} Total images"
-            if self._sliced:
-                _fig_tit += (
-                    f"; Sliced to {len(_imgs)} image(s) (i=[{self._sliced}])"
-                )
-            imageplots.figtitle_to_fig(_fig_tit, fig=fig, axes=axes)
+        #     ### Fig title
+        #     _fig_tit = f"{self.paths_pretty}\n - {T} Total images"
+        #     if self._sliced:
+        #         _fig_tit += (
+        #             f"; Sliced to {len(_imgs)} image(s) (i=[{self._sliced}])"
+        #         )
+        #     imageplots.figtitle_to_fig(_fig_tit, fig=fig, axes=axes)
 
-            plt.tight_layout()
+        #     plt.tight_layout()
 
         # ### Save
         # if not save_as is None:
@@ -283,11 +281,28 @@ class Stack(StackMeta):
         plt.show()
         return mip
 
-    def plot_histogram(self, bins=75, log=True) -> None:
+    def plot_histogram(
+        self,
+        # array: np.ndarray,
+        bins=100,
+        log: bool = True,
+        cmap="gist_ncar",
+        ret: bool = False,
+        save_as: str | Path = None,
+        **kws,
+    ) -> None:
         """Plot the brightness distribution of the z-stack as
         histogram"""
 
-        dataplots.histogram(self.imgs, bins=bins, log=log)
+        dataplots.histogram(
+            array=self.imgs,
+            bins=bins,
+            log=log,
+            cmap=cmap,
+            ret=ret,
+            save_as=save_as,
+            **kws,
+        )
 
     #
     # == Utils =========================================================

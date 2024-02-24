@@ -715,6 +715,7 @@ if __name__ == "__main__":
     # == Get familiar with numpy indexing ===
     arr = ed_larries.larry_homo_s.asarray()
     print(arr.shape, arr.dtype, type(arr))
+    print(arr.shape)
     print(arr)
     # %%
     # > Bool selection preserves shape
@@ -722,6 +723,29 @@ if __name__ == "__main__":
     # %%
     # ? Bool indexing returns 1D Array
     arr[arr > 9]
+    # %%
+    # > Bool indexing with 1D array returns arrays
+    arr[[True, False, True]]
+    # %%
+    arr[True].shape
+
+    # %%
+    arr[:].shape
+
+    # %%
+
+    # %%
+    val = [True, False, True]
+    val = np.array([True, False, True])
+    [array[val[i]] for i, array in enumerate(arr)]
+    # %%
+    np.concatenate([array[val[i]] for i, array in enumerate(arr)])
+    # %%
+    # val = [True, False, True]
+    val = arr > 9
+    ääh = [array[val[i]] for i, array in enumerate(arr)]
+    [array[0] for array in ääh if array.shape[0] != 0]
+
     # %%
     # > this implementation preserves z-dimension, (losing only y-dimension)
     val = arr > 9
@@ -738,6 +762,47 @@ if __name__ == "__main__":
     # %%
     # ? Bool selection preserves shape
     larry > 9
+
+    # %%
+    val = [True, False, True]
+    val = np.array([True, False, True])
+    sliced = [array[val[i]] for i, array in enumerate(larry)]
+    sliced
+    #%%
+    larry[val]
+    
+    
+    # %%
+    np.array([True, False, True])
+    # %%
+    # print(aa_c[0].name) # !! np.concat destroy metadata
+    aa_c = np.concatenate(sliced)
+    aa_c
+
+    # %%
+    aa_c2 = [array for array in sliced if array.shape[0] != 0]
+    aa_c2
+
+    # %%
+    np.array(aa_c2).shape
+
+    # %%
+    def concatenate(sliced):
+        ### Remove empty arrays
+        return l2Darrays(
+            [array.squeeze() for array in sliced if array.shape[0] != 0]
+        )
+    conc = concatenate(sliced)
+    conc
+
+    # %%
+    print(sliced[0].name)  # ?? Does not lose metadata !!
+    
+    # %%
+    sliced2 = larry > 9
+    conc2 = concatenate(sliced2)
+    conc2
+    
     # %%
     # !! Bool indexing returns a LIST of 1D arrays
     larry[larry > 9]

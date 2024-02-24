@@ -162,7 +162,9 @@ def get_threshold_from_array(
     **kws,
 ) -> np.float64:
     """Calculates a threshold for an array"""
-
+    
+    array = np.array(array) if not isinstance(array, np.ndarray) else array
+    
     ### Apply Filters
     if method == "otsu":
         return ski.filters.threshold_otsu(array, **kws)

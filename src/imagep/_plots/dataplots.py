@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import imagep._configs.rc as rc
 import imagep._utils.utils as ut
 from imagep._plots.imageplots import imshow
+from imagep._plots._plotutils import return_plot
 
 
 # %%
@@ -29,7 +30,14 @@ if __name__ == "__main__":
 
 
 # %%
-def histogram(array: np.ndarray, bins=100, log: bool = True, cmap="gist_ncar"):
+def histogram(
+    array: np.ndarray,
+    bins=100,
+    log: bool = True,
+    cmap="gist_ncar",
+    ret:bool = False,
+    save_as: str | Path = None,
+):
 
     pixels = array.flatten()
 
@@ -96,7 +104,12 @@ def histogram(array: np.ndarray, bins=100, log: bool = True, cmap="gist_ncar"):
     frame = legend.get_frame()
     frame.set_facecolor("black")
 
-    plt.show()
+    ### Add axis labels
+    plt.xlabel("Pixel intensity")
+    plt.ylabel("Frequency")
+    
+    ### Save figure
+    return return_plot(fig, axes, save_as=save_as, ret=ret)
 
 
 if __name__ == "__main__":

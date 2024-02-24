@@ -75,32 +75,24 @@ def preserve_metadata():
                 __imgs = kws["img"]
             else:
                 raise ValueError("No argument 'imgs' found")
-            
+
             ### Check Type
             if not isinstance(__imgs, (mdarray, l2Darrays)):
                 raise ValueError(
                     f"Can't preserve metadata from type '{type(__imgs)}'"
                 )
-                
+            if isinstance(__imgs, l2Darrays) and not all(
+                isinstance(img, mdarray) for img in __imgs
+            ):
+                raise ValueError(
+                    "Can't preserve metadata from l2Darrays with non-mdarray"
+                )
+
             ### Execute function
-            # if isinstance(__imgs, (mdarray, l2Darrays)):
             metadata = extract_metadata(__imgs)
             __imgs = func(*args, **kws)
             __imgs = apply_metadata(__imgs, metadata)
             return __imgs
-            # if isinstance(__imgs, l2Darrays):
-            #     # > Extract metadata
-            #     metadata = extract_metadata(__imgs)
-            #     # > Execute function !!
-            #     __imgs = func(*args, **kws)
-            #     # > Convert to mdarray to enable metadata
-            #     __imgs = l2Darrays([mdarray(img) for img in __imgs])
-            #     # > Apply metadata
-            #     __imgs = apply_metadata(__imgs, metadata)
-            #     return __imgs
-            ### 
-            # else:
-            #     return func(*args, **kws)
 
         already_called = False
         return wrapper

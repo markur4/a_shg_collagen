@@ -209,7 +209,8 @@ def _entropy_parallel(
     normalize=True,
     n_cores: int = 2,
 ) -> np.ndarray:
-    """Performs entropy filter on image parallel"""
+    """Performs entropy filter on image parallel. Entropy = the minimum
+    number of bits required to encode local gray-level distribution"""
 
     ### Collect arguments
     kws_list = _collect_entropy_filter_kws(imgs, kernel_radius=kernel_radius)

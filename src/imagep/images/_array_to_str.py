@@ -94,7 +94,7 @@ def array1D_to_str(array: np.ndarray):
     """Returns a string representation of the array"""
     ### Make head row
     typ = shorten_type(type(array))
-    head = f" 1D {typ} length {array.shape} (z) {array.dtype}:"
+    head = f" 1D {typ} shape {array.shape} {array.dtype}:"
     ### Make first and last row
     row1 = f"{T}{makerow(array)}"
     ### Add metadata
@@ -225,9 +225,12 @@ def arrays_to_str(arrays: np.ndarray, maximages: int = None) -> str:
     toomany = len(arrays) > maximages
     if toomany:
         indices = [0, len(arrays) // 2, len(arrays) - 1]
-
-    ### OBJECT HEADER
-    S = f"{len(arrays)} arrays:"
+    
+    ### Surrounding object header
+    # S = f"{type(arrays)}:\n"
+    
+    ### Content OBJECT HEADER
+    S = f"{shorten_type(type(arrays))} length {len(arrays)} (["
     ### ARRAY CONTENT
     for i in indices:
         ### get image
@@ -250,6 +253,8 @@ def arrays_to_str(arrays: np.ndarray, maximages: int = None) -> str:
 
         ### Add to string
         S += "\n".join(rows)
+        
+    S += "\n])"
 
     return S
 

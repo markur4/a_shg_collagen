@@ -267,12 +267,17 @@ class l2Darrays:
         elif isinstance(val, (tuple, list)):
             return l2Darrays([self.arrays[v] for v in val])
         # > self[ array([True, False, ...]) ]
-        elif isinstance(val, (T.array, l2Darrays)):
+        elif isinstance(
+            val, (T.array, l2Darrays)
+        ):  # and val.shape == self.arrays.shape:
             # > Since numpy intentionally loses dimension information, we might
             # ' also abandon metadata information
-            return np.concatenate(
+            # !! NO, since imgs = imgs[percentiles > threshold] requires
+            # !! metadata preservation
+            return concatenate(
                 [array[val[i]] for i, array in enumerate(self.arrays)]
             )
+
             # > This here DOES paritally preserve shape (z, but not y)
             # return [array[val[i]] for i, array in enumerate(self.arrays)]
 
@@ -286,7 +291,6 @@ class l2Darrays:
         if isinstance(val, (T.array, l2Darrays)) and np.isscalar(item):
             for i, array in enumerate(self.arrays):
                 array[val[i]] = item
-
             return  #!! Return early
 
         ### > Convert scalar item to list of arrays
@@ -378,7 +382,7 @@ class l2Darrays:
         """Returns a copy of the object"""
         return l2Darrays([img.copy() for img in self.arrays])
 
-    def asarray(self, dtype=None):
+    def asarray(self, dtype=None) -> np.ndarray:
         """Returns a 3D numpy array. This has these consequences:
         - !!! Metadata gets lost
         - Inhomogenous dtypes are converted into the largest dtype
@@ -398,6 +402,10 @@ class l2Darrays:
         # else:
         #     # !! Return as a 3D mdarray
         #     return mdarray(self.arrays, dtype=dtype)
+
+    def flatten(self) -> np.ndarray:
+        """Returns a 1D array of all pixel/array values"""
+        return self.asarray().flatten()
 
     #
     # == Statistics ====================================================
@@ -533,6 +541,19 @@ class l2Darrays:
     # !! == End  Class =================================================
 
 
+# %%
+# ======================================================================
+# == Static Functions =================================================
+def concatenate(arrays: list|np.ndarray) -> l2Darrays:
+    """Concatenates a list of arrays into l2Darray by removing axes with
+    length 0 and empty arrays."""
+    ### Remove empty arrays
+    return l2Darrays(
+        [array.squeeze() for array in arrays if array.shape[0] != 0]
+    )
+
+
+# :: Testing ===========================================================
 # %%
 ### Test as part of Collection
 if __name__ == "__main__":

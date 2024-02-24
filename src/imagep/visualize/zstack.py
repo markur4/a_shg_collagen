@@ -21,10 +21,12 @@ import imagep._plots.imageplots as ut
 class ZStack(PreProcess):
     def __init__(
         self,
-        z_dist,
-        scalebar: bool = True,
-        remove_empty_slices: bool = True,
+        # imgs,
         *imgs_args,
+        z_dist,
+        pixel_length: float = None,
+        scalebar: bool = True,
+        # remove_empty_slices: bool = True,
         **preprocess_kws,
     ):
         """Visualize Z-stacks.
@@ -40,6 +42,11 @@ class ZStack(PreProcess):
         """
         super().__init__(*imgs_args, **preprocess_kws)
 
+        # self.imgs = imgs
+
+        print(f"{type(self.imgs)=}")
+        print(f"{self.imgs[0].pixel_length=}")
+
         ### Burn Scalebar into the first image:
         # > This is very awesome for volume rendering!
         self.scalebar = scalebar
@@ -49,14 +56,22 @@ class ZStack(PreProcess):
         ### Z-distance
         self.z_dist = z_dist
 
-        self.spacing = (self.x_µm, self.y_µm)
+        ### Retrieve pixel_length, since it's useful
+        if pixel_length is not None:
+            self.pixel_length = pixel_length
+        elif hasattr(self.imgs[0], "pixel_length"):
+            self.pixel_length = self.imgs[0].pixel_length
+        else:
+            raise ValueError(
+                "pixel_length not provided and not found in the images"
+            )
 
         ### Fill z
         self.imgs_zfilled = self.fill_z()
 
         ### Remove empty slices
-        if remove_empty_slices:
-            self.imgs_zfilled = self.remove_empty_slices(self.imgs_zfilled)
+        # if remove_empty_slices:
+        #     self.imgs_zfilled = self.remove_empty_slices(self.imgs_zfilled)
 
     # ==================================================================
     # == Utils =========================================================
@@ -227,30 +242,50 @@ if __name__ == "__main__":
     ### Import from a txt file.
     # > Rough
     path_rough = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
-    kws = dict(
-        z_dist=10 * 0.250,  # stepsize * 0.250 µm
-        x_µm=1.5 * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
-    )
-    Z_r = ZStack(
-        path=path_rough,
+    kws = dict()
+    # %%
+    I = 8
+    Z = PreProcess(
+        data=path_rough,
+        fname_extension=".txt",
+        imgname_position=1,
         denoise=True,
+        normalize="stack",
         subtract_bg=True,
+        subtract_bg_kws=dict(
+            method="otsu",
+            sigma=3,
+            per_img=False,
+        ),
+        scalebar_length=10,
+        snapshot_index=I,
         remove_empty_slices=True,
+        pixel_length=(1.5 * 115.4)
+        / 1024,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
         **kws,
     )
+    #%%
+    Z.imgs[0].pixel_length
+
     # %%
-    Z_r.mip(axis=0)
-    Z_r.mip(axis=1)
-    Z_r.mip(axis=2)
+    ZS = ZStack(
+        data=Z,
+        pixel_length=(1.5 * 115.4)/1024,
+        z_dist=10 * 0.250,  # stepsize * 0.250 µm
+    )
+    # %%
+    ZS.mip(axis=0)
+    ZS.mip(axis=1)
+    ZS.mip(axis=2)
     # %%
     ### make gif of rough
-    Z_r.info
+    ZS.info
     # %%
-    Z_r.mip()
+    ZS.mip()
     # %%
     # Z2.plot_volume()
     # %%
-    Z_r.makegif_rotate(fname="rotate_rough_scalebar=10", angle_per_frame=3)
+    ZS.makegif_rotate(fname="rotate_rough_scalebar=10", angle_per_frame=3)
 
     # %%
     ### make gif for detailed!

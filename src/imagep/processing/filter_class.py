@@ -82,6 +82,8 @@ class Filter:
         segmentation, but edges are expanded, but this expansion doesn't
         change with radius
         """
+        
+        print(f"{type(self.imgs)=}")
 
         ### KWARGS
         # > Acceleration KWS

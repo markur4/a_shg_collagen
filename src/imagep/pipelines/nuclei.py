@@ -9,7 +9,7 @@ from pprint import pprint
 import numpy as np
 
 import matplotlib.pyplot as plt
-import imagep._plots.imageplots as imageplots
+import imagep._plots._plotutils as imageplots
 
 # import imagep._utils.metadata as meta
 
