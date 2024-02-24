@@ -8,8 +8,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 # > local imports
 import imagep._utils.utils as ut
-import imagep._utils.types as T
-import imagep._utils.metadata as meta
+import imagep.types as T
+import imagep.images.metadata as meta
 
 # if TYPE_CHECKING:
 #     from imagep.images.mdarray import Mdarray
@@ -39,9 +39,9 @@ def burn_scalebars(
         ### Burn scalebar to image
         imgs[i] = burn_scalebar_to_img(
             img=img,
-            length=length,
+            scalebar_length=length,
             pixel_length=_px_len,
-            thickness_px=thickness_px,
+            scalebar_thickness_px=thickness_px,
             xy_pad=xy_pad,
             bar_color=bar_color,
             frame_color=frame_color,
@@ -62,8 +62,8 @@ def burn_scalebars(
 def burn_scalebar_to_img(
     img: np.ndarray,
     pixel_length: float,
-    length: int = 10,
-    thickness_px: int = 20,  # > In pixels
+    scalebar_length: int = 10,
+    scalebar_thickness_px: int = 20,  # > In pixels
     xy_pad: tuple[float] = (0.05, 0.05),
     bar_color: int | float = None,
     frame_color: int | float = None,
@@ -91,12 +91,14 @@ def burn_scalebar_to_img(
     frame_color = img.max() * 0.9 if frame_color is None else frame_color
 
     ### Convert µm to pixels
-    len_px = int(round(length / pixel_length))
+    # print(f"{length=}")
+    # print(f"{pixel_length=}")
+    len_px = int(round(scalebar_length / pixel_length))
     # thickness_px = int(round(thickness / pixel_length))
 
     ### Define Scalebar as an array
     # > Color is derived from img colormap
-    scalebar = np.zeros((thickness_px, len_px))
+    scalebar = np.zeros((scalebar_thickness_px, len_px))
     scalebar[:, :] = bar_color
 
     ### Add Frame around scalebar with two pixels thickness
@@ -112,7 +114,7 @@ def burn_scalebar_to_img(
 
     ### Burn scalebar to the bottom right of the image
     # !! Won't work if nan are at scalebar position
-    img[-pad_y - thickness_px : -pad_y, -pad_x - len_px : -pad_x] = scalebar
+    img[-pad_y - scalebar_thickness_px : -pad_y, -pad_x - len_px : -pad_x] = scalebar
 
     return img
 

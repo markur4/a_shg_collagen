@@ -16,7 +16,7 @@ import skimage.io as sk_io
 
 
 # > Local
-import imagep._utils.types as T
+import imagep.types as T
 import imagep._utils.utils as ut
 import imagep._configs.rc as rc
 from imagep._plots.imageplots import imshow

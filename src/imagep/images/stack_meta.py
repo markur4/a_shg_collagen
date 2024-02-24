@@ -9,9 +9,9 @@ from pathlib import Path
 from pprint import pprint
 
 import numpy as np
-from imagep._utils.metadata import extract_metadata
-from imagep._utils.metadata import apply_metadata
-from imagep._utils.metadata import preserve_metadata
+from imagep.images.metadata import extract_metadata
+from imagep.images.metadata import apply_metadata
+from imagep.images.metadata import preserve_metadata
 
 # > Local
 import imagep._utils.utils as ut
@@ -36,6 +36,7 @@ class StackMeta(StackImport):
         data: str | Path | np.ndarray | list[np.ndarray] | Self = None,
         verbose: bool = True,
         ### Metadata:
+        init_metadata: bool = True,
         pixel_length: float | list[float] = None,
         unit: str | list[str] = rc.UNIT_LENGTH,
         scalebar_length: int = None,  # > in (micro)meter
@@ -52,9 +53,10 @@ class StackMeta(StackImport):
             unit=unit,
         )
         # > Check and rearrange passed metadata
-        self.metadata = self._init_metadata()
-        # > Add metadata to images according to folders
-        self._add_further_metadata_per_folders()
+        if init_metadata:
+            self.metadata = self._init_metadata()
+            # > Add metadata to images according to folders
+            self._add_further_metadata_per_folders()
 
         ### Metadata for the complete stack (not folders)
         self.scalebar_length = scalebar_length

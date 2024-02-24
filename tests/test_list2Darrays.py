@@ -8,7 +8,7 @@ import math
 from pprint import pprint
 
 # > Locals
-import imagep._utils.types as T
+import imagep.types as T
 from imagep.images.mdarray import mdarray
 from imagep.images.l2Darrays import l2Darrays
 import imagep._example_data.larries as ed_larries

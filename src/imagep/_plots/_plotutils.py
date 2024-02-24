@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # > Local
-import imagep._utils.types as T
+import imagep.types as T
 from imagep.images.l2Darrays import l2Darrays
 
 

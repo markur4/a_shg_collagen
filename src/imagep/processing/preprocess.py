@@ -23,18 +23,18 @@ import skimage as ski
 
 # > Local
 import imagep._configs.rc as rc
-import imagep._configs.parameters as p
+import imagep._utils.parameters as p
 
 # from imagep.images.imgs import Imgs
 import imagep._utils.utils as ut
-import imagep._utils.metadata as meta
-import imagep._utils.types as T
+import imagep.images.metadata as meta
+import imagep.types as T
 from imagep._plots.imageplots import imshow
 from imagep.images.l2Darrays import l2Darrays
 
 # from imagep._utils.subcache import SubCache
 # from imagep.processing.transforms import Transform
-from imagep.processing.pipeline import Pipeline
+from imagep.processing.process import Process
 from imagep.processing.background import Background
 
 
@@ -64,7 +64,7 @@ from imagep.processing.background import Background
 
 # %%
 # == CLASS PREPROCESSING ===============================================
-class PreProcess(Pipeline):
+class PreProcess(Process):
     def __init__(
         self,
         ### Imgs and Pipeline args
@@ -79,7 +79,7 @@ class PreProcess(Pipeline):
         subtract_bg_kws: dict = dict(
             method="triangle", sigma=1.5, per_img=False
         ),
-        remove_empty_slices: bool = True,
+        remove_empty_slices: bool = False,
         ### Imgs and pipeline kws
         **kws,
     ) -> None:

@@ -12,7 +12,7 @@ from imagep._plots._plotutils import figtitle_to_fig, return_plot, return_plot_b
 
 # > local imports
 import imagep._utils.utils as ut
-import imagep._utils.types as T
+import imagep.types as T
 import imagep._plots.scalebar as scaleb
 from imagep.images.l2Darrays import l2Darrays
 

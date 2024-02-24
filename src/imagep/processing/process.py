@@ -1,5 +1,4 @@
 """Base class for processing images
-- Block super()__init__ if to avoid re-loading images
 - Track and display sample images before and during processing
 - Track and display history of processing steps
 """
@@ -25,7 +24,7 @@ import imagep._plots.imageplots as imageplots
 
 # %%
 # == Class Process =====================================================
-class Pipeline(Stack):
+class Process(Stack):
     """Base class for processing images
     - Access to transforms and filters
     - Track and display sample images before and during processing
@@ -84,7 +83,7 @@ class Pipeline(Stack):
     def snapshots_as_nparray(self) -> np.ndarray:
         """Returns snapshots as an array"""
         return np.array(list(self.snapshots.values()))
-    
+
     @property
     def snapshots_as_l2Darrays(self) -> list:
         """Returns snapshots as l2Darrays"""
@@ -134,7 +133,9 @@ class Pipeline(Stack):
             f"   Took image #{i_snap+1}/{i_total} (i={i_snap}/{i_total-1})"
             " as sample"
         )
-        imagep._plots._plotutils.figtitle_to_fig(title=figtitle, fig=fig, axes=axes)
+        imagep._plots._plotutils.figtitle_to_fig(
+            title=figtitle, fig=fig, axes=axes
+        )
 
         ### Return
         return imagep._plots._plotutils.return_plot(

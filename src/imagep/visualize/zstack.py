@@ -15,18 +15,15 @@ import pyvista as pv
 from imagep.processing.preprocess import PreProcess
 import imagep._plots.imageplots as ut
 
+
 # %%
-
-
 class ZStack(PreProcess):
     def __init__(
         self,
-        # imgs,
         *imgs_args,
         z_dist,
-        pixel_length: float = None,
         scalebar: bool = True,
-        # remove_empty_slices: bool = True,
+        remove_empty_slices: bool = False,
         **preprocess_kws,
     ):
         """Visualize Z-stacks.
@@ -42,11 +39,9 @@ class ZStack(PreProcess):
         """
         super().__init__(*imgs_args, **preprocess_kws)
 
-        # self.imgs = imgs
-
         print(f"{type(self.imgs)=}")
         print(f"{self.imgs[0].pixel_length=}")
-
+        
         ### Burn Scalebar into the first image:
         # > This is very awesome for volume rendering!
         self.scalebar = scalebar
@@ -56,22 +51,12 @@ class ZStack(PreProcess):
         ### Z-distance
         self.z_dist = z_dist
 
-        ### Retrieve pixel_length, since it's useful
-        if pixel_length is not None:
-            self.pixel_length = pixel_length
-        elif hasattr(self.imgs[0], "pixel_length"):
-            self.pixel_length = self.imgs[0].pixel_length
-        else:
-            raise ValueError(
-                "pixel_length not provided and not found in the images"
-            )
-
         ### Fill z
         self.imgs_zfilled = self.fill_z()
 
         ### Remove empty slices
-        # if remove_empty_slices:
-        #     self.imgs_zfilled = self.remove_empty_slices(self.imgs_zfilled)
+        if remove_empty_slices:
+            self.imgs_zfilled = self.remove_empty_slices(self.imgs_zfilled)
 
     # ==================================================================
     # == Utils =========================================================
@@ -96,7 +81,7 @@ class ZStack(PreProcess):
         stack = np.array(stack)
         return stack
 
-    # == __str__ ======================================================
+    # == __str__ =======================================================
 
     @property
     def _info_ZStack(self):
@@ -241,7 +226,10 @@ if __name__ == "__main__":
     # %%
     ### Import from a txt file.
     # > Rough
-    path_rough = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
+    parent = (
+        "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/"
+    )
+    path_rough = parent + "1 healthy z-stack rough/"
     kws = dict()
     # %%
     I = 8
@@ -260,17 +248,24 @@ if __name__ == "__main__":
         scalebar_length=10,
         snapshot_index=I,
         remove_empty_slices=True,
-        pixel_length=(1.5 * 115.4)
-        / 1024,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
+        # fast axis amplitude 1.5 V * calibration 115.4 µm/V
+        pixel_length=(1.5 * 115.4) / 1024,
         **kws,
     )
     #%%
+    Z.pixel_length
+    # %%
     Z.imgs[0].pixel_length
 
     # %%
     ZS = ZStack(
         data=Z,
-        pixel_length=(1.5 * 115.4)/1024,
+        init_metadata=False,
+        denoise=False,  # TODO make a proper interface for this
+        normalize=False,
+        remove_empty_slices=False,
+        # pixel_length=(1.5 * 115.4)/1024,
+        scalebar_length=10,
         z_dist=10 * 0.250,  # stepsize * 0.250 µm
     )
     # %%

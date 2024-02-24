@@ -19,10 +19,10 @@ import skimage as ski
 from imagep._configs.caches import FILTERS
 import imagep._configs.rc as rc
 import imagep._utils.utils as ut
-import imagep._utils.types as T
+import imagep.types as T
 from imagep.images.l2Darrays import l2Darrays
 from imagep.images.mdarray import mdarray
-import imagep._utils.metadata as meta
+import imagep.images.metadata as meta
 
 
 # %%

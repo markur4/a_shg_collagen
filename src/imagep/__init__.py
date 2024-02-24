@@ -13,7 +13,7 @@ from .images.mdarray import mdarray  # :: ip.mdarray(**kws)
 from .images.l2Darrays import l2Darrays  # :: ip.l2Darrays(**kws)
 from ._plots._plotutils import savefig  # :: ip.savefig(**kws)
 
-from ._utils.metadata import preserve_metadata  # :: @ip.preserve_metadata()
+from .images.metadata import preserve_metadata  # :: @ip.preserve_metadata()
 # from .images.imgs_meta import ImgsMeta  # :: ip.ImgsMeta(**kws)
 from .images.stack import Stack  # :: ip.Imgs(**kws)
 from .processing.preprocess import PreProcess  # :: ip.PreProcess(**kws)
@@ -26,8 +26,8 @@ from .visualize.zstack import ZStack  # :: ip.ZStack(**kws)
 
 
 ### Pipelines for Analysis
-# :: 'ip.<Pipeline>(**kws)'
-from .pipelines.diameter import FibreDiameter  # :: ip.FibreDiameter(**kws)
+# 'ip.<Pipeline>(**kws)'
+# from .analysis.diameter import FibreDiameter  # :: ip.FibreDiameter(**kws)
 
 
 ### Libraries for tools

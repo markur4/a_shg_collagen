@@ -21,7 +21,7 @@ import numpy as np
 # > Local
 import imagep._utils.utils as ut
 import imagep._configs.rc as rc
-import imagep._utils.types as T
+import imagep.types as T
 import imagep._configs.loggers as loggers
 from imagep.images.mdarray import mdarray
 import imagep.images._array_to_str as a2s

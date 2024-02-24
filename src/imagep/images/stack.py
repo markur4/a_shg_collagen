@@ -1,5 +1,6 @@
-""" The first interface for interacting with imageP. A Class providing
+"""The first interface for interacting with imageP. A Class providing
 basic tools for imported images. Her we include:
+- Block super()__init__ if to avoid re-loading images
 - Calling main import function
 - Pixel scale to µm
 - Add Scalebar
@@ -25,7 +26,7 @@ import imagep._configs.rc as rc
 
 # import imagep.images.importtools as importtools
 # from imagep.images.imgs_import import CollectionImport
-import imagep._utils.types as T
+import imagep.types as T
 from imagep.images.mdarray import mdarray
 from imagep.images.stack_meta import StackMeta
 import imagep._plots.scalebar as scaleb
