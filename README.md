@@ -141,7 +141,7 @@ The `visualise` package contains tools to visualize complex image data.
 
 
 ### Inheritance Tree
-
+#### Internal Structure
 ```mermaid
 
 classDiagram
@@ -246,6 +246,10 @@ classDiagram
          ...
          ....()
       }
+      class Trainer{
+         ...
+         ....()
+      }
       class Regions{
          ...
          dilate()
@@ -258,8 +262,9 @@ classDiagram
    Segment *-- Process
    Regions *-- Segment 
    Classifier *-- Segment
+   Trainer *-- Segment
    
-   %% == Analysis ======================================================
+   %% == Processes: Analysis ===========================================
    namespace analysis{
       class FibreDiameter{
          data_check_integrity()
@@ -277,7 +282,7 @@ classDiagram
    filters_accelerated <.. Classifier
    filters <.. Classifier
    
-   %% == Visualize =====================================================
+   %% == Processes: Visualize ==========================================
    namespace visuals{
       class ZStack{
          z_dist
@@ -290,9 +295,9 @@ classDiagram
    namespace main_interface{
       class Pipeline{
          <<interface>>
-         snapshots: OrderedDict
          background: Background
          filter: Filter
+         ...
          preprocess()
          segment()
          ....()
@@ -302,9 +307,28 @@ classDiagram
    
 ```
 
+
+### Main Interface: Pipeline
 ```mermaid
 classDiagram
-
+   direction LR
+   namespace processing{
+      class Process
+      class Background
+      class Filter
+      class PreProcess
+   }
+   namespace segmentation{
+      class Segment
+      class Regions
+   }
+   namespace analysis{
+      class FibreDiameter
+      class Nuclei
+   }
+   namespace visuals{
+      class ZStack
+   }
    namespace main_interface{
       class Pipeline{
          <<interface>>
@@ -313,18 +337,39 @@ classDiagram
          filter: Filter
          preprocess()
          segment()
+         nuclei()
+         zstack()
          ....()
       }
    }
+   %% Main Inheritance
    Process <|-- Pipeline
 
-   %% Compositions because it's useful
+   %% Rough Structure of all dependencies
+   Background *-- PreProcess
+   Filter *-- Process
+   Segment *-- Process
+   Regions *-- Segment
+   
+   %% Processes
+   FibreDiameter <|--  Process
+   Nuclei <|--  Process
+   ZStack <|--  Process
+   
+   %% ==================================================================
+   %% Compositions of Tools
    Filter *-- Pipeline
+   Segment *-- Pipeline
    
    %% Sub-Compositions added by executing Processes
    Background *-- Pipeline 
    Regions *-- Pipeline 
-
+   
+   %% Functions
+   PreProcess <..  Pipeline
+   FibreDiameter <..  Pipeline
+   Nuclei <..  Pipeline
+   ZStack <..  Pipeline
 
 
 
