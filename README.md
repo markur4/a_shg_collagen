@@ -147,7 +147,7 @@ The `visualise` package contains tools to visualize complex image data.
 classDiagram
    direction LR
    namespace arrays{
-      class numpy_ndarray{
+      class np_ndarray{
          ...
          ....()
       }
@@ -190,7 +190,7 @@ classDiagram
          ....()
       }
    }
-   numpy_ndarray <|-- mdarray
+   np_ndarray <|-- mdarray
    mdarray *-- l2Darrays
    l2Darrays *-- StackImport
    StackImport <|-- StackMeta
@@ -263,9 +263,9 @@ classDiagram
       }
    }
    Segment *-- Process
-   Regions *-- Segment 
    Classifier *-- Segment
    Trainer *-- Segment
+   Regions *-- Segment 
    
    %% == Processes: Analysis ===========================================
    namespace analysis{
@@ -301,12 +301,19 @@ classDiagram
          background: Background
          filter: Filter
          ...
-         preprocess()
-         segment()
-         ....()
+         preprocess() Pipeline
+         segment() Pipeline
+         nuclei() Pipeline
+         zstack() Pipeline
+         ....() Pipeline
       }
    }
    Process <|-- Pipeline
+   
+   PreProcess <..  Pipeline
+   FibreDiameter <..  Pipeline
+   Nuclei <..  Pipeline
+   ZStack <..  Pipeline
    
 ```
 
@@ -338,28 +345,15 @@ classDiagram
          snapshots: OrderedDict
          background: Background
          filter: Filter
-         preprocess()
-         segment()
-         nuclei()
-         zstack()
-         ....()
+         preprocess() Pipeline
+         segment() Pipeline
+         nuclei() Pipeline
+         zstack() Pipeline
+         ....() Pipeline
       }
    }
    %% Main Inheritance
    Process <|-- Pipeline
-
-   %% Rough Structure of all dependencies
-   Background *-- PreProcess
-   Filter *-- Process
-   Segment *-- Process
-   Regions *-- Segment
-   
-   %% Processes
-   FibreDiameter <|--  Process
-   Nuclei <|--  Process
-   ZStack <|--  Process
-   
-   %% ==================================================================
    %% Compositions of Tools
    Filter *-- Pipeline
    Segment *-- Pipeline
@@ -373,6 +367,20 @@ classDiagram
    FibreDiameter <..  Pipeline
    Nuclei <..  Pipeline
    ZStack <..  Pipeline
+
+   %% ==================================================================
+   %% Rough Structure of all dependencies
+   Filter *-- Process
+   Segment *-- Process
+   Background *-- PreProcess
+   Regions *-- Segment
+   
+   %% Processes
+   Process <|--  PreProcess
+   Process <|--  FibreDiameter
+   Process <|--  Nuclei
+   Process <|--  ZStack
+   
 
 
 
