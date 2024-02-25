@@ -16,8 +16,8 @@ import imagep._utils.utils as ut
 import imagep._configs.rc as rc
 import imagep.types as T
 import imagep.images.importtools as importtools
-from imagep.images.mdarray import mdarray
-from imagep.images.l2Darrays import l2Darrays
+from imagep.arrays.mdarray import mdarray
+from imagep.arrays.l2Darrays import l2Darrays
 
 if TYPE_CHECKING:
     import imagep as ip

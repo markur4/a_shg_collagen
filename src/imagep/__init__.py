@@ -9,8 +9,8 @@ from ._configs import rc
 
 ### Import & Processing Interfaces
 # :: 'ip.<Interface>(**kws)'
-from .images.mdarray import mdarray  # :: ip.mdarray(**kws)
-from .images.l2Darrays import l2Darrays  # :: ip.l2Darrays(**kws)
+from .arrays.mdarray import mdarray  # :: ip.mdarray(**kws)
+from .arrays.l2Darrays import l2Darrays  # :: ip.l2Darrays(**kws)
 from ._plots._plotutils import savefig  # :: ip.savefig(**kws)
 
 from .images.metadata import preserve_metadata  # :: @ip.preserve_metadata()

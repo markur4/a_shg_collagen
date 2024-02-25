@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 # > local
 import imagep._configs.rc as rc
 import imagep._plots._plotutils
-from imagep.images.l2Darrays import l2Darrays
+from imagep.arrays.l2Darrays import l2Darrays
 from imagep.images.stack import Stack
 from imagep.processing.filter_class import Filter
 

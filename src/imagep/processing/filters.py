@@ -8,8 +8,8 @@ import skimage as ski
 
 # > Local
 import imagep._utils.utils as ut
-from imagep.images.mdarray import mdarray
-from imagep.images.l2Darrays import l2Darrays
+from imagep.arrays.mdarray import mdarray
+from imagep.arrays.l2Darrays import l2Darrays
 import imagep.images.metadata as meta
 
 

@@ -25,7 +25,7 @@ import imagep._configs.rc as rc
 import imagep.types as T
 import imagep._utils.utils as ut
 from imagep.images.stack import Stack
-from imagep.images.l2Darrays import l2Darrays
+from imagep.arrays.l2Darrays import l2Darrays
 from imagep.processing.filter_class import Filter
 from imagep.processing.background import Background
 from imagep.processing.process import Process

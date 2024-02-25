@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 
 # > Local
-from imagep.images.mdarray import mdarray
+from imagep.arrays.mdarray import mdarray
 
 # %%
 array = Union[

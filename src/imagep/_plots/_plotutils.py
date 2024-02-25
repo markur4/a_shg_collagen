@@ -7,7 +7,7 @@ import numpy as np
 
 # > Local
 import imagep.types as T
-from imagep.images.l2Darrays import l2Darrays
+from imagep.arrays.l2Darrays import l2Darrays
 
 
 #%%

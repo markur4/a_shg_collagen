@@ -145,9 +145,8 @@ The `visualise` package contains tools to visualize complex image data.
 ```mermaid
 
 classDiagram
-   
-   %% == Import ======================================================
-   namespace Images {
+   direction LR
+   namespace arrays{
       class numpy_ndarray{
          ...
          ....()
@@ -163,6 +162,9 @@ classDiagram
          ...
          ....()
       }
+   }
+   %% == Import ========================================================
+   namespace Images {
       class StackImport {
          data
          verbose
@@ -184,6 +186,7 @@ classDiagram
          _get_attributes()
          burn_scalebars()
          imshow()
+         mip()
          ....()
       }
    }

@@ -20,8 +20,8 @@ import imagep.types as T
 import imagep._utils.utils as ut
 import imagep._configs.rc as rc
 from imagep._plots.imageplots import imshow
-from imagep.images.mdarray import mdarray
-from imagep.images.l2Darrays import l2Darrays
+from imagep.arrays.mdarray import mdarray
+from imagep.arrays.l2Darrays import l2Darrays
 
 
 #

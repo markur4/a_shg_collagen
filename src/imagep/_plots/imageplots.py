@@ -18,7 +18,7 @@ from imagep._plots._plotutils import (
 import imagep._utils.utils as ut
 import imagep.types as T
 import imagep._plots.scalebar as scaleb
-from imagep.images.l2Darrays import l2Darrays
+from imagep.arrays.l2Darrays import l2Darrays
 
 
 # from imagep.images.imgs import Imgs

@@ -27,7 +27,7 @@ import imagep._configs.rc as rc
 # import imagep.images.importtools as importtools
 # from imagep.images.imgs_import import CollectionImport
 import imagep.types as T
-from imagep.images.mdarray import mdarray
+from imagep.arrays.mdarray import mdarray
 from imagep.images.stack_meta import StackMeta
 import imagep._plots.scalebar as scaleb
 import imagep._plots.imageplots as imageplots

@@ -30,7 +30,7 @@ import imagep._utils.utils as ut
 import imagep.images.metadata as meta
 import imagep.types as T
 from imagep._plots.imageplots import imshow
-from imagep.images.l2Darrays import l2Darrays
+from imagep.arrays.l2Darrays import l2Darrays
 
 # from imagep._utils.subcache import SubCache
 # from imagep.processing.transforms import Transform
@@ -529,11 +529,14 @@ if __name__ == "__main__":
     # plt.imshow(Z.imgs[0])
 
     # %%
-    
     from imagep.images.stack import Stack
     from imagep.processing.process import Process
     from imagep.pipeline import Pipeline
     
+    self = Stack
+    data = Pipeline
+    issubclass(self, data)
+    isinstance(Stack, Process)
     
     # %%
     ### Check history

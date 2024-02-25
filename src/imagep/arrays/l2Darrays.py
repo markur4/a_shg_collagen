@@ -23,7 +23,7 @@ import imagep._utils.utils as ut
 import imagep._configs.rc as rc
 import imagep.types as T
 import imagep._configs.loggers as loggers
-from imagep.images.mdarray import mdarray
+from imagep.arrays.mdarray import mdarray
 import imagep.images._array_to_str as a2s
 
 

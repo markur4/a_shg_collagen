@@ -3,8 +3,8 @@
 import numpy as np
 
 # > Local
-from imagep.images.l2Darrays import l2Darrays
-from imagep.images.mdarray import mdarray
+from imagep.arrays.l2Darrays import l2Darrays
+from imagep.arrays.mdarray import mdarray
 
 def multiply(larries):
     for larry in larries:

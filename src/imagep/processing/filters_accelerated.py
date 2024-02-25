@@ -20,8 +20,8 @@ from imagep._configs.caches import FILTERS
 import imagep._configs.rc as rc
 import imagep._utils.utils as ut
 import imagep.types as T
-from imagep.images.l2Darrays import l2Darrays
-from imagep.images.mdarray import mdarray
+from imagep.arrays.l2Darrays import l2Darrays
+from imagep.arrays.mdarray import mdarray
 import imagep.images.metadata as meta
 
 
