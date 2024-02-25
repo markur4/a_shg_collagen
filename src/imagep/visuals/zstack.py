@@ -13,15 +13,16 @@ import pyvista as pv
 
 # > Local
 from imagep.processing.preprocess import PreProcess
+from imagep.processing.process import Process
 import imagep._plots.imageplots as ut
 
 
 # %%
-class ZStack(PreProcess):
+class ZStack(Process):
     def __init__(
         self,
         *imgs_args,
-        z_dist,
+        z_length: float,
         scalebar: bool = True,
         remove_empty_slices: bool = False,
         **preprocess_kws,
@@ -41,7 +42,7 @@ class ZStack(PreProcess):
 
         print(f"{type(self.imgs)=}")
         print(f"{self.imgs[0].pixel_length=}")
-        
+
         ### Burn Scalebar into the first image:
         # > This is very awesome for volume rendering!
         self.scalebar = scalebar
@@ -49,7 +50,7 @@ class ZStack(PreProcess):
             self.imgs[0] = self.burn_scalebars()[0]
 
         ### Z-distance
-        self.z_dist = z_dist
+        self.z_length = z_length
 
         ### Fill z
         self.imgs_zfilled = self.fill_z()
@@ -67,7 +68,7 @@ class ZStack(PreProcess):
         image has a thickness of z_dist in µm"""
 
         ### Calculate number how often each image has to be repeated
-        thickness_pixel = self.z_dist / self.pixel_length
+        thickness_pixel = self.z_length / self.pixel_length
         thickness_pixel = int(round(thickness_pixel))
 
         ### Duplicate images n times so that each layer has thickness
@@ -90,8 +91,8 @@ class ZStack(PreProcess):
 
         ### Append Z Information to "Distance"
         ID["Distance"] = ID["Distance"] + [
-            adj("pixel size z") + f"{self.z_dist}",
-            adj("z") + f"{self.z_dist * self.imgs.shape[0]}",
+            adj("pixel size z") + f"{self.z_length}",
+            adj("z") + f"{self.z_length * self.imgs.shape[0]}",
         ]
 
         return ID
@@ -107,7 +108,7 @@ class ZStack(PreProcess):
         #!! Overrides PreProcess.mip(), so that correct z-axis dimension
         #!! is used
 
-        return ut.plot_mip(imgs=self.imgs_zfilled, **mip_kws)
+        return ut.mip(imgs=self.imgs_zfilled, **mip_kws)
 
     @property
     def stack_vtk(self):
@@ -252,7 +253,7 @@ if __name__ == "__main__":
         pixel_length=(1.5 * 115.4) / 1024,
         **kws,
     )
-    #%%
+    # %%
     Z.pixel_length
     # %%
     Z.imgs[0].pixel_length
@@ -266,7 +267,7 @@ if __name__ == "__main__":
         remove_empty_slices=False,
         # pixel_length=(1.5 * 115.4)/1024,
         scalebar_length=10,
-        z_dist=10 * 0.250,  # stepsize * 0.250 µm
+        z_length=10 * 0.250,  # stepsize * 0.250 µm
     )
     # %%
     ZS.mip(axis=0)

@@ -1,4 +1,7 @@
-"""Classes to handle raw image formats and slicing"""
+"""Classes to handle 
+- raw image formats
+- slicing
+"""
 
 # %%
 from typing import Self, TYPE_CHECKING

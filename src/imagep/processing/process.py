@@ -33,10 +33,10 @@ class Process(Stack):
 
     def __init__(
         self,
-        *imgs_args,
+        *stack_args,
         snapshot_index: int = None,
         keep_original: bool = True,
-        **imgs_kws,
+        **stack_kws,
     ):
         """Initialize the Process class
         :param imgs_args: Positional arguments for Imgs
@@ -45,7 +45,7 @@ class Process(Stack):
             snapshots to document the processing steps, defaults to 6
         :type snapshot_index: int, optional
         """
-        super().__init__(*imgs_args, **imgs_kws)
+        super().__init__(*stack_args, **stack_kws)
 
         ### Collect Samples for each processing step
         self.snapshot_index = (

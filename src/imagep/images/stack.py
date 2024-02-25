@@ -46,10 +46,10 @@ class Stack(StackMeta):
 
     def __init__(
         self,
-        ### CollectionImport kws:
+        ### StackImport kws:
         data: T.source_of_imgs = None,
         verbose: bool = True,
-        ### CollectionMeta kws:
+        ### StackMeta kws:
         pixel_length: float | list[float] = None,
         unit: str = "µm",
         scalebar_length: int = None,  # > in (micro)meter
@@ -278,7 +278,7 @@ class Stack(StackMeta):
             # > Put scalebar on first image only
             _imgs[0] = self.burn_scalebars()[0]
 
-        mip = imageplots.plot_mip(imgs=_imgs, **mip_kws)
+        mip = imageplots.mip(imgs=_imgs, **mip_kws)
         plt.show()
         return mip
 

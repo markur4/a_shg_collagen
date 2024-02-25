@@ -8,7 +8,11 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from pathlib import Path
-from imagep._plots._plotutils import figtitle_to_fig, return_plot, return_plot_batched
+from imagep._plots._plotutils import (
+    figtitle_to_fig,
+    return_plot,
+    return_plot_batched,
+)
 
 # > local imports
 import imagep._utils.utils as ut
@@ -191,7 +195,7 @@ def _axtitle_from_img(
 # %%
 # == imshow ============================================================
 def imshow(
-    imgs: l2Darrays | T.array |list,  # > Can be batch
+    imgs: l2Darrays | T.array | list,  # > Can be batch
     ### Subplots kws
     max_cols: int = 2,
     scalebar: bool = True,
@@ -216,7 +220,7 @@ def imshow(
     ### Convert if list
     if isinstance(imgs, list):
         imgs = l2Darrays(imgs)
-    
+
     ### Convert if single image
     if len(imgs.shape) == 2:
         imgs = l2Darrays([imgs])
@@ -344,7 +348,7 @@ def imshow_batched(
 
 # %%
 # == mip ===============================================================
-def plot_mip(
+def mip(
     imgs: np.ndarray,
     axis: int = 0,
     colormap: str = "gist_ncar",

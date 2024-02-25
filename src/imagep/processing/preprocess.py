@@ -68,20 +68,18 @@ class PreProcess(Process):
     def __init__(
         self,
         ### Imgs and Pipeline args
-        *args,
-        # data=None,
-        # verbose: bool = True,
+        *stack_args,
         ### Preprocessing kws
         median: bool = False,
         denoise: bool = True,
         normalize: bool | str = "img",
         subtract_bg: bool = False,
         subtract_bg_kws: dict = dict(
-            method="triangle", sigma=1.5, per_img=False
+            method="otsu", sigma=3, per_img=False
         ),
         remove_empty_slices: bool = False,
         ### Imgs and pipeline kws
-        **kws,
+        **stack_kws,
     ) -> None:
         """Preprocessing pipeline for image stacks
 
@@ -93,7 +91,7 @@ class PreProcess(Process):
             the processing steps, defaults to 6
         :type sample_index: int, optional
         """
-        super().__init__(*args, **kws)
+        super().__init__(*stack_args, **stack_kws)
 
         ### Access to background functionality
         self._background = Background(
@@ -132,7 +130,7 @@ class PreProcess(Process):
     #
     # == Preprocess MAIN ===============================================
 
-    def preprocess(self) -> np.ndarray:
+    def preprocess(self) -> Self:
 
         if self.verbose:
             print(f"=> Pre-processing: {self.history_steps} ...")
@@ -166,6 +164,8 @@ class PreProcess(Process):
         ### Remove empty slices
         if kws["remove_empty_slices"]:
             self.imgs = self.remove_empty_slices()
+        
+        return self
 
     #
     # === HISTORY ====================================================
@@ -428,6 +428,8 @@ if __name__ == "__main__":
         remove_empty_slices=True,
         **kws,
     )
+    #%%
+    # Z = Z.preprocess()
     # %%
     Z_RAW = PreProcess(
         data=path,
@@ -441,6 +443,8 @@ if __name__ == "__main__":
         remove_empty_slices=False,
         **kws,
     )
+    #%%
+    # Z_RAW = Z_RAW.preprocess()
     # %%
     print(type(Z.imgs))
     print(type(Z.imgs[0]))
@@ -525,7 +529,12 @@ if __name__ == "__main__":
     # plt.imshow(Z.imgs[0])
 
     # %%
-
+    
+    from imagep.images.stack import Stack
+    from imagep.processing.process import Process
+    from imagep.pipeline import Pipeline
+    
+    
     # %%
     ### Check history
     # Z.info

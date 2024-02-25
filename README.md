@@ -146,120 +146,189 @@ The `visualise` package contains tools to visualize complex image data.
 
 classDiagram
    
-
-
-
    %% == Import ======================================================
-   class numpy_ndarray{
-      ...
-      ....()
+   namespace Images {
+      class numpy_ndarray{
+         ...
+         ....()
+      }
+      class mdarray {
+         pixel_length
+         name
+         folder
+         unit
+         width_meter
+      }
+      class l2Darrays{
+         ...
+         ....()
+      }
+      class StackImport {
+         data
+         verbose
+         imgs
+         imgnames
+         folders
+         __get_item__()
+         __set_item__()
+         from_textfile()
+      }
+      class StackMeta{
+         pixel_length
+         unit
+         scalebar
+         ....()
+      }
+      class Stack{
+         ...
+         _get_attributes()
+         burn_scalebars()
+         imshow()
+         ....()
+      }
    }
-   class mdarray {
-      pixel_length
-      name
-      folder
-      unit
-      width_meter
-   }
-   numpy_ndarray <-- mdarray
-   
-   class ListOfArrays{
-      ...
-      ....()
-   }
-   mdarray *-- ListOfArrays
-   
-   class CollectionImport {
-      imgs
-      verbose
-      from_textfile()
-   }
-   ListOfArrays *-- CollectionImport
-   
-   class CollectionMeta{
-      pixel_length
-      unit
-      scalebar
-      ....()
-   }
-   CollectionImport <-- CollectionMeta
-   
-   class Collection{
-      ...
-      ....()
-   }
-   CollectionMeta <-- Collection
-   
-   %% == Preprocessing ==============================================
+   numpy_ndarray <|-- mdarray
+   mdarray *-- l2Darrays
+   l2Darrays *-- StackImport
+   StackImport <|-- StackMeta
+   StackMeta <|-- Stack
 
-   class Filters{
-      imgs
-      verbose
-      denoise()
-      ....()
-   }
-   Pipeline *-- Filters
    
-   class Pipeline {
-      history
-      snapshots
-      ...
-      capture_snapshot()
-      ....()
+   %% ==================================================================
+   %% == PROCESS =======================================================
+   namespace processing{
+      class filters
+      class filters_accelerated
+      
+      class Filter{
+         imgs
+         verbose
+         denoise()
+         ....()
+      }
+      class Process {
+         history
+         snapshots: OrderedDict
+         ...
+         capture_snapshot()
+         ....()
+      }
+      %% Preprocessing
+      class Background{
+         imgs
+         verbose
+         subtract()
+         ....()
+      }
+      class PreProcess {
+         kws_preprocess: dict
+         ....()
+      }
    }
-   Collection <-- Pipeline
-
-   class Background{
-      imgs
-      verbose
-      subtract()
-      ....()
-   }
-   PreProcess *-- Background
+   %% Process
+   Stack <|-- Process
    
-   class PreProcess {
-      ...
-      ....()
-   }
-   Pipeline <-- PreProcess
+   filters_accelerated <.. Filter
+   filters <.. Filter
+   Filter *-- Process
    
-   class Annotate{
-      ...
-      ....()
+   %% Preprocessing
+   Background *-- PreProcess
+   Process <|-- PreProcess
+
+   %% == Segmentation ==================================================
+   namespace segmentation{
+      class Segment{
+         ...
+         ....()
+      }
+      class Classifier{
+         ...
+         ....()
+      }
+      class Regions{
+         ...
+         dilate()
+         erode()
+         open()
+         close()
+         ....()
+      }
    }
-   class Segment{
-      ...
-      ....()
-   }
-   PreProcess <-- Segment
+   Segment *-- Process
+   Regions *-- Segment 
+   Classifier *-- Segment
    
-   %% == Visualize ===============================================
-   class ZStack{
-      z_µm
-      ....()
-    }
-   PreProcess <-- ZStack
+   %% == Analysis ======================================================
+   namespace analysis{
+      class FibreDiameter{
+         data_check_integrity()
+         ....()
+      }
+
+      class Nuclei{
+         percentage()
+         ...
+         ....()
+      }
+   }
+   Process <|-- FibreDiameter
+   Process <|-- Nuclei
+   filters_accelerated <.. Classifier
+   filters <.. Classifier
    
-   %% == Analysis ===============================================
-   class FibreDiameter{
-      data_check_integrity()
-      ....()
+   %% == Visualize =====================================================
+   namespace visuals{
+      class ZStack{
+         z_dist
+         ....()
+      }
    }
-   Segment <-- FibreDiameter
-
-   class Nuclei{
-      percentage()
-      ...
-      ....()
+   Process <|-- ZStack
+   
+   %% == Interface: Pipeline =========================================
+   namespace main_interface{
+      class Pipeline{
+         <<interface>>
+         snapshots: OrderedDict
+         background: Background
+         filter: Filter
+         preprocess()
+         segment()
+         ....()
+      }
    }
-   Segment <-- Nuclei
-
-
-
-
-
-
+   Process <|-- Pipeline
+   
 ```
+
+```mermaid
+classDiagram
+
+   namespace main_interface{
+      class Pipeline{
+         <<interface>>
+         snapshots: OrderedDict
+         background: Background
+         filter: Filter
+         preprocess()
+         segment()
+         ....()
+      }
+   }
+   Process <|-- Pipeline
+
+   %% Compositions because it's useful
+   Filter *-- Pipeline
+   
+   %% Sub-Compositions added by executing Processes
+   Background *-- Pipeline 
+   Regions *-- Pipeline 
+
+
+
+
+
 
 
 

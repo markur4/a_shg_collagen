@@ -28,12 +28,14 @@ from imagep.images.stack_import import StackImport
 # ======================================================================
 # == Class CollectionMeta ============================================
 class StackMeta(StackImport):
+# class StackMeta:
     """Class for assigning more metadata to stacks of images"""
 
     def __init__(
         self,
         ### ImgsImport kws:
         data: str | Path | np.ndarray | list[np.ndarray] | Self = None,
+        # imgs: np.ndarray = None,
         verbose: bool = True,
         ### Metadata:
         init_metadata: bool = True,

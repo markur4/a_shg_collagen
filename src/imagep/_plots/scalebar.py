@@ -47,7 +47,7 @@ def burn_scalebars(
             frame_color=frame_color,
         )
         ### Burn annotation to image
-        imgs[i] = burn_micronlength_to_img(
+        imgs[i] = _burn_micronlength_to_img(
             img=img,
             length=length,
             unit=_unit,
@@ -119,7 +119,7 @@ def burn_scalebar_to_img(
     return img
 
 @meta.preserve_metadata()
-def burn_micronlength_to_img(
+def _burn_micronlength_to_img(
     img: T.array,
     length: int = 10,
     unit: str = "µm",
