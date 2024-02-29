@@ -9,9 +9,10 @@ from pathlib import Path
 from pprint import pprint
 
 import numpy as np
-from imagep.images.metadata import extract_metadata
-from imagep.images.metadata import apply_metadata
-from imagep.images.metadata import preserve_metadata
+import imagep.images.metadata as meta
+# from imagep.images.metadata import extract_metadata
+# from imagep.images.metadata import apply_metadata
+# from imagep.images.metadata import preserve_metadata
 
 # > Local
 import imagep._utils.utils as ut
@@ -50,6 +51,9 @@ class StackMeta(StackImport):
 
         ### Metadata
         # > Collect Metadata
+        # TODO: Never nest attributes into dictionaries at the top level
+        self.pixel_length = pixel_length
+        self.unit = unit
         self._metadata_perfolder = dict(
             pixel_length=pixel_length,
             unit=unit,
@@ -142,11 +146,11 @@ class StackMeta(StackImport):
     def extract_metadata(self) -> list[dict]:
         """Extracts metadata from images and returns a list of
         dictionaries with key and value pairs"""
-        return extract_metadata(self.imgs)
+        return meta.extract_metadata(self.imgs)
 
     def apply_metadata(self, metadata: list[dict]) -> None:
         """Applies metadata to images"""
-        return apply_metadata(self.imgs, metadata)
+        return meta.apply_metadata(self.imgs, metadata)
 
     # !! == End Class ==================================================
 

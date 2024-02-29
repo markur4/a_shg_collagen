@@ -13,11 +13,12 @@ import imagep._utils.utils as ut
 # == utils =============================================================
 def docs_to_str(docs: dict[str, str]) -> str:
     """Converts object to string"""
-    just = lambda x: ut.justify_str(x, justify=10)
+    just = lambda x: ut.justify_str(x, justify=12)
 
     lines = []
     for key, val in docs.items():
         key = f"'{str(key)}'" if isinstance(key, str) else f"{str(key)}"
+        key = f"- {key}"
         line = just(key) + val
         lines.append(line)
 
@@ -38,9 +39,8 @@ def handle_param(
     docs = paramconfig["docs"]
     funcname = funcname + ": " if funcname else ""
 
-    if param in paramconfig["docs"]:
-        return param
-    elif param in paramconfig["alts"]:
+    if param in paramconfig["alts"]:
+        # print(f"param in alts: {param=}")
         return paramconfig["alts"][param]
     else:
         raise ValueError(
@@ -59,12 +59,12 @@ ACROSS = dict(
     docs={
         "img": "Applies operation for each image (ignoring the stack)",
         "stack": "Applies operation on complete stack, (e.g. calculates number for all images and using that number on every image)",
-        True: "Alias for 'image'",
+        # True: "Alias for 'image'",
         False: "Does not perform operation",
     },
     alts={
         False: False,
-        True: "img", 
+        # True: "img", # !! for normalize and across, this can be ambiguous
         "img": "img",
         "per_img": "img",
         "stack": "stack",
@@ -75,7 +75,7 @@ ACROSS = dict(
 
 if __name__ == "__main__":
     # pass
-    vals = [False, "img", "stack", "per_img", "per_stack", "asdf"]
+    vals = [False, "img", "stack", "per_img", "per_stack", "asdf", True]
     funcname = "blafunc"
     for val in vals:
         try:
@@ -83,3 +83,7 @@ if __name__ == "__main__":
         except ValueError as e:
             # print(f"ERROR: Value '{val}' not recognized")
             print(e)
+            
+    #%%
+    True in ACROSS["alts"]
+    True in ACROSS["alts"]

@@ -31,25 +31,30 @@ def _colorbar_to_ax(
     ax: plt.Axes,
     percentiles: tuple = None,
     min_max: tuple = None,
+    fraction: float = 0.04,
+    **colorbar_kws
 ) -> plt.colorbar:
     """Add colorbar to axes"""
-    # > Colorbar
-
-    cb = plt.colorbar(
+    
+    ### Gather kws
+    kws = dict(
         mappable=ax_img,
         ax=ax,
-        fraction=0.04,  # > Size colorbar relative to ax
         orientation="vertical",
+        fraction=fraction,  # > Size colorbar relative to ax
     )
-    # > plot metrics onto colorbar
+    kws.update(colorbar_kws)
+    
+    # > Colorbar
+    cb = plt.colorbar(**kws)
+
+    #### Metrics
     kws = dict(
         xmin=0,
         xmax=15,
         zorder=100,
         alpha=1,  # !! override
     )
-
-    ### Plot percentiles
     if percentiles is not None:
         perc50, perc75, perc99 = percentiles
         ### min max lines
@@ -348,23 +353,119 @@ def imshow_batched(
 
 # %%
 # == mip ===============================================================
+def _multi_mip(imgs: np.ndarray, colormap: str = "gist_ncar") -> None:
+    """Plots a 3D volume as maximum intensity projections along each
+    axis in a pretty way, assigning each axis to a subplots.
+    """
+
+    ### Make projections:
+    Z = imgs.max(axis=0)
+    Y = imgs.max(axis=1)
+    X = imgs.max(axis=2).T  # > rotate by 90 degrees
+
+    ### Init Plot
+    z_length = X.shape[1] / X.shape[0]
+    fig, axes = plt.subplots(
+        ncols=2,
+        nrows=2,
+        width_ratios=[1, z_length],
+        height_ratios=[1, z_length],
+        gridspec_kw=dict(
+            hspace=0.1,
+            wspace=0.001,
+        ),
+    )
+
+    ### kws for ax.imshow()
+    kws = dict(
+        cmap=colormap,
+        interpolation="none",
+    )
+    _ax: plt.Axes  # > Declare type
+
+    ### Z Projection (default)
+    _ax = axes[0, 0]
+    _ax.imshow(Z, **kws)
+    _ax.set_title("z-Projection", fontsize="medium")
+    _ax.set_ylabel("y")
+    # > Remove x-axis labels
+    _ax.set_xticklabels([])
+
+    ### Y Projection (bottom)
+    _ax = axes[1, 0]
+    _ax.imshow(Y, **kws)
+    # _ax.set_title("y-Projection", loc="right")
+    _ax.set_xlabel("x\ny-Projection")
+    _ax.set_ylabel("z")
+
+    ### X Projection (right)
+    _ax = axes[0, 1]
+    # > rotate axis by 90 degrees so that it's displayed as y-projection
+    _ax_img = _ax.imshow(X, **kws)
+    _ax.set_title("x-Projection", fontsize="medium")
+    # > Remove y-axis
+    _ax.set_yticklabels([])
+    
+    # > Add colorbar
+    cb = _colorbar_to_ax(_ax_img, _ax, fraction=.2, )
+    _ax.set_xlabel("z")
+
+    ### Empty
+    _ax = axes[1, 1]
+    _ax.axis("off")
+
+    # === Edits ===
+
+    ### Shift x-projection to the left
+    pos_z = axes[0, 0].get_position()
+    pos_x = axes[0, 1].get_position()
+    new_pos_x = [
+        pos_z.x0 + pos_z.width + 0.02,
+        pos_z.y0,
+        pos_x.width,
+        pos_z.height,
+    ]
+    axes[0, 1].set_position(new_pos_x)
+
+    ### Resize colorbar
+    pos_cb = cb.ax.get_position()
+    new_pos_cb = [
+        0.9,
+        0.1,
+        pos_cb.width,
+        0.8,
+    ]
+    cb.ax.set_position(new_pos_cb)
+
+
 def mip(
     imgs: np.ndarray,
-    axis: int = 0,
+    axis: int | str = 0,
     colormap: str = "gist_ncar",
     ret=False,
     save_as: str = None,
     verbose=True,
 ) -> np.ndarray | None:
-    """Maximum intensity projection across certain axis"""
+    """Maximum intensity projection across certain axis
+    :param imgs: 3D array
+    :param axis: Axis to project. If 'all', subplots are created for
+        each axis
+    :type axis: int|str
+    :param colormap: Colormap
+    """
 
-    mip = imgs.max(axis=axis)
+    if isinstance(axis, int):
+        mip = imgs.max(axis=axis)
+        plt.imshow(
+            mip,
+            cmap=colormap,
+            interpolation="none",
+        )
+    elif axis == "all" and len(imgs.shape) == 3:
+        _multi_mip(imgs=imgs, colormap=colormap)
 
-    plt.imshow(
-        mip,
-        cmap=colormap,
-        interpolation="none",
-    )
+    else:
+        raise ValueError(f"Invalid axis: '{axis}', must be int or 'all'")
 
     return return_plot(
         fig=plt.gcf(),

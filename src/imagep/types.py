@@ -34,4 +34,3 @@ indices = Union[
         # list[slice],
         # np.ndarray,
     ]
-

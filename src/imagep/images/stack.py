@@ -66,8 +66,6 @@ class Stack(StackMeta):
         """Interface for image-stack functionalities.
         - Block super()__init__ if to avoid re-loading images
         - Show content of collection (`imshow()`)
-
-
         :param data: pathlike string or object
         :type data: str | Path | np.ndarray | list[np.ndarray] | Self
         :param x_µm: Total width of image in µm, defaults to 200
@@ -115,16 +113,26 @@ class Stack(StackMeta):
         fileimport_kws: dict,
         **importfunc_kws,
     ):
-        """Import images from another Collection instance. This will transfer
-        all attributes from the Collection instance. Methods are transferred
-        by inheritance, because we want the option to import images at
-        every stage of the processing pipeline."""
+        """Import images from another Collection instance. This will
+        transfer all attributes from the Collection instance. Methods
+        are transferred by inheritance, because we want the option to
+        import images at every stage of the processing pipeline.
+        
+        This will skip the constructor.
+        """
+        # TODO: I probably made this to skip the constructor when
+        # importing from instance. But this
+        # here is ugly as hell, I should just NOT let the constructor
+        # execute the processing pipeline, but explicitly call it when
+        # needed, so I don't need this hacky stuff here
 
         ### Get user input on source data
         data = import_kws["data"]
 
         ### If data is an instance of Collection, just transfer its attributes
-        if isinstance(data, type(self)):
+        # todo: It's not this class' job to handle import functionalities. Rethink this. 
+        if self._is_like_self(data):
+        # if isinstance(data, type(self)):
             # todo: User modify metadata when re-importing from instance
             super().from_instance(
                 **import_kws,
@@ -235,50 +243,15 @@ class Stack(StackMeta):
         else:
             return imageplots.imshow_batched(batch_size=batch_size, **kws)
 
-        # for fig, axes in fig_axes:
-        #     ### Add Ax titles ==========================================
-        #     for i, ax in enumerate(axes.flat):
-        #         if i >= len(self.imgs):
-        #             break
-        #         # > get correct index if sliced
-        #         _i_tot = self._slice_indices[i] if self._sliced else i
-        #         # > retrieve image
-        #         img: mdarray = _imgs[i]
-        #         # > ax title
-        #         imageplots._axtitle_from_img(
-        #             ax, img, i_in_total=i, i_total=_i_tot, tot=T
-        #         )
 
-        #     ### Fig title
-        #     _fig_tit = f"{self.paths_pretty}\n - {T} Total images"
-        #     if self._sliced:
-        #         _fig_tit += (
-        #             f"; Sliced to {len(_imgs)} image(s) (i=[{self._sliced}])"
-        #         )
-        #     imageplots.figtitle_to_fig(_fig_tit, fig=fig, axes=axes)
-
-        #     plt.tight_layout()
-
-        # ### Save
-        # if not save_as is None:
-        #     imageplots.savefig(save_as=save_as, verbose=self.verbose)
-
-        # ### Return or show
-        # if ret:
-        #     return fig, axes
-        # else:
-        #     plt.show()
-
-        # !!
-
-    def mip(self, scalebar=True, **mip_kws) -> np.ndarray | None:
+    def mip(self, scalebar=True, axis:str|int="all",**mip_kws) -> np.ndarray | None:
         ### Make copy in case of burning in scalebar
         _imgs = self.imgs.copy()
         if scalebar:
             # > Put scalebar on first image only
             _imgs[0] = self.burn_scalebars()[0]
 
-        mip = imageplots.mip(imgs=_imgs, **mip_kws)
+        mip = imageplots.mip(imgs=_imgs, axis=axis, **mip_kws)
         plt.show()
         return mip
 

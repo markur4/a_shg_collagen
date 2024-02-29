@@ -12,6 +12,7 @@ import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 
 import scipy as sp
+
 import skimage as ski
 
 # > local imports
@@ -304,7 +305,7 @@ if __name__ == "__main__":
     imshow(_imgs7[I])
 
 # %%
-# !! == End Class ==================================================
+# !! == End Class ======================================================
 # !! Median ============================================================
 
 
@@ -314,17 +315,17 @@ def _median(
     imgs: np.ndarray,
     kernel_radius: int = 2,
     kernel_3D: bool = False,
-    normalize=False,
+    normalize: bool = False,
     **filter_kws,
 ) -> np.ndarray:
     """Performs median filter on image"""
 
     ### Apply 3D or 2D filter
     if kernel_3D:
-        axes = None  # > Cross-talk in z-axis
+        # axes = None  # > Cross-talk in z-axis
         kernel = ski.morphology.ball(radius=kernel_radius)
     else:
-        axes = (1, 2)  # > No cross-talk in z-axis
+        # axes = (1, 2)  # > No cross-talk in z-axis
         kernel = ski.morphology.disk(radius=kernel_radius)
 
     ### Collect kws
@@ -336,7 +337,7 @@ def _median(
 
     ### Execute
     if kernel_3D:
-        _imgs = ski.filters.rank.median(imgs, axes=axes, **kws)
+        _imgs = ski.filters.rank.median(imgs, **kws)
     else:
         _imgs = [ski.filters.rank.median(img, **kws) for img in imgs]
 
@@ -353,8 +354,8 @@ def _median(
 def median(
     imgs: np.ndarray,
     kernel_radius: int = 2,
-    kernel_3D: bool = True,
-    normalize=False,
+    kernel_3D: bool = False,
+    normalize: bool = False,
     cached: bool = True,
     **filter_kws,
 ) -> np.ndarray:

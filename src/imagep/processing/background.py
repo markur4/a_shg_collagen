@@ -29,8 +29,9 @@ class Background:
         imgs: np.ndarray,
         verbose: bool = True,
         ### Settings
-        method: str = "triangle",
-        sigma: float = 1.5,
+        method: str = "otsu",
+        sigma: float = 2,
+        factor: float = 1.0,
         per_img: bool = False,
     ) -> np.ndarray:
         # super().__init__(imgs=imgs, verbose=verbose) # !! no
@@ -39,6 +40,7 @@ class Background:
         self.verbose = verbose
 
         ### Settings
+        self.factor = factor
         self.method = method
         self.sigma = sigma
         self.per_img = per_img
@@ -92,14 +94,15 @@ class Background:
 
     #
     # == Subtract MAIN functions =======================================
-    
+
     # @meta.preserve_metadata() # !! No nested
     def subtract_threshold(
         self,
         method: str = None,
         sigma: float = None,
+        factor: float = None,
         per_img: bool = None,
-    )-> np.ndarray:
+    ) -> np.ndarray:
         """Subtracts a threshold from the images"""
 
         ### Collect KWS
@@ -107,6 +110,7 @@ class Background:
             method=self.method if method is None else method,
             sigma=self.sigma if sigma is None else sigma,
             per_img=self.per_img if per_img is None else per_img,
+            factor=self.factor if factor is None else factor,
         )
 
         if self.verbose:
@@ -162,9 +166,9 @@ def get_threshold_from_array(
     **kws,
 ) -> np.float64:
     """Calculates a threshold for an array"""
-    
+
     array = np.array(array) if not isinstance(array, np.ndarray) else array
-    
+
     ### Apply Filters
     if method == "otsu":
         return ski.filters.threshold_otsu(array, **kws)
@@ -196,11 +200,13 @@ def subtract(img: np.ndarray, value: float) -> np.ndarray:
 
     return img_bg
 
+
 # @meta.preserve_metadata() #!! no nested metadata
 def _subtract_threshold(
     imgs: np.ndarray,
     method: str,
     sigma: float,
+    factor: float = 1.0,
     per_img=True,
 ) -> tuple[np.ndarray, list[float]]:
     """Subtracts a threshold (calculated by method) from the images"""
@@ -213,7 +219,9 @@ def _subtract_threshold(
 
     if not per_img:
         ### List with ONE threshold for the stack
-        threshold = [get_threshold_from_array(imgs_blurred, method=method)]
+        threshold = [
+            get_threshold_from_array(imgs_blurred, method=method) * factor
+        ]
 
         ### Subtract
         _imgs = [subtract(img, value=threshold) for img in imgs]
@@ -221,7 +229,8 @@ def _subtract_threshold(
     else:
         ### Threshold for each image
         threshold = [
-            get_threshold_from_array(img, method=method) for img in imgs_blurred
+            get_threshold_from_array(img, method=method) * factor
+            for img in imgs_blurred
         ]
         ### Subtract
         _imgs = [subtract(img, value=t) for img, t in zip(imgs, threshold)]
@@ -245,7 +254,8 @@ if __name__ == "__main__":
     # > z_dist = n_imgs * stepsize = 10 * 0.250 µm
     kws = dict(
         # z_dist=10 * 0.250,
-        pixel_length=(1.5 * 115.4)/1024,
+        pixel_length=(1.5 * 115.4)
+        / 1024,
     )
     # > Detailed
     # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
@@ -275,11 +285,11 @@ if __name__ == "__main__":
     )
     print(Z.imgs.shape)
     print(Z._shape_original)
-    
-    #%%
-    
+
+    # %%
+
     Z.imgs
-    
+
     # plt.imshow(zstack.stack[0])
 
     # %%

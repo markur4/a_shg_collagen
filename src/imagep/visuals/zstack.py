@@ -103,12 +103,16 @@ class ZStack(Process):
     # ==================================================================
     # == Plotting ======================================================
 
-    def mip(self, **mip_kws) -> np.ndarray | None:
+    def mip(
+        self,
+        axis: str | int = "all",
+        **mip_kws,
+    ) -> np.ndarray | None:
         """Maximum intensity projection across certain axis"""
         #!! Overrides PreProcess.mip(), so that correct z-axis dimension
         #!! is used
 
-        return ut.mip(imgs=self.imgs_zfilled, **mip_kws)
+        return ut.mip(imgs=self.imgs_zfilled, axis=axis, **mip_kws)
 
     @property
     def stack_vtk(self):
@@ -168,7 +172,7 @@ class ZStack(Process):
 
     def makegif_rotate(
         self,
-        fname: str = "rotate.gif",
+        save_as: str = "rotate.gif",
         angle_per_frame=1,
     ):
         ### Initialize plotter
@@ -187,12 +191,12 @@ class ZStack(Process):
 
         ### Write Animation
         if self.verbose:
-            print(f"=> Writing {self.imgs_zfilled.shape}, '{fname}' ...")
+            print(f"=> Writing {self.imgs_zfilled.shape}, '{save_as}' ...")
 
         # > Open GIF
-        if not fname.endswith(".gif"):
-            fname += ".gif"
-        volplot.open_gif(fname)
+        if not save_as.endswith(".gif"):
+            save_as += ".gif"
+        volplot.open_gif(save_as)
 
         self.rotate_and_write(
             volplot,
@@ -245,6 +249,7 @@ if __name__ == "__main__":
             method="otsu",
             sigma=3,
             per_img=False,
+            factor=3,
         ),
         scalebar_length=10,
         snapshot_index=I,
@@ -257,48 +262,62 @@ if __name__ == "__main__":
     Z.pixel_length
     # %%
     Z.imgs[0].pixel_length
-
     # %%
     ZS = ZStack(
         data=Z,
-        init_metadata=False,
-        denoise=False,  # TODO make a proper interface for this
-        normalize=False,
+        # init_metadata=False,
         remove_empty_slices=False,
-        # pixel_length=(1.5 * 115.4)/1024,
         scalebar_length=10,
         z_length=10 * 0.250,  # stepsize * 0.250 µm
     )
+    # %%
+    ZS.metadata
     # %%
     ZS.mip(axis=0)
     ZS.mip(axis=1)
     ZS.mip(axis=2)
     # %%
-    ### make gif of rough
-    ZS.info
+    ### make .gif of rough
+    # ZS.info
     # %%
-    ZS.mip()
+    ZS.mip(axis="all", save_as="4_mip_all.pdf")
     # %%
-    # Z2.plot_volume()
-    # %%
-    ZS.makegif_rotate(fname="rotate_rough_scalebar=10", angle_per_frame=3)
+    ### .gif No median filter
+    ZS.makegif_rotate(save_as="4_rough", angle_per_frame=3)
+
 
     # %%
-    ### make gif for detailed!
-    # > Detailed
-    path_detailed = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-    kws_detailed = dict(
-        z_dist=2 * 0.250,  # stepsize * 0.250 µm
-        x_µm=1.5 * 115.4,  # fast axis amplitude 1.5 V * calibration 115.4 µm/V
-    )
+    ### .gif with median filter
+    # !! Makes it blurry and ugly
+    # import skimage as ski
 
-    Z_d = ZStack(
-        path=path_detailed,
-        denoise=True,
-        subtract_bg=True,
-        remove_empty_slices=True,
-        **kws_detailed,
-    )
-    Z_d
+    # filtered = ski.filters.rank.median(
+    #     ZS.imgs_zfilled,
+    #     footprint=ski.morphology.ball(radius=3),
+    # )
+    # ZS_M = ZS.copy()
+    # ZS_M.imgs_zfilled = filtered
+    # ZS_M.makegif_rotate(save_as="4_rough_median", angle_per_frame=3)
+
     # %%
-    Z_d.makegif_rotate(fname="rotate_detailed_scalebar=10", angle_per_frame=3)
+
+    # %%
+    # ### make gif for detailed!
+    # # > Detailed
+    # path_detailed = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
+    # kws_detailed = dict(
+    #     z_length=2 * 0.250,  # stepsize * 0.250 µm
+    #     # fast axis amplitude 1.5 V * calibration 115.4 µm/V
+    #     pixel_length=(1.5 * 115.4) / 1024,
+    # )
+
+    # Z_d = ZStack(
+    #     path=path_detailed,
+    #     denoise=True,
+    #     subtract_bg=True,
+    #     remove_empty_slices=True,
+    #     **kws_detailed,
+    # )
+    # Z_d
+    # # %%
+    # Z_d.makegif_rotate(fname="rotate_detailed_scalebar=10", angle_per_frame=3)

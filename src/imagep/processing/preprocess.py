@@ -74,9 +74,7 @@ class PreProcess(Process):
         denoise: bool = True,
         normalize: bool | str = "img",
         subtract_bg: bool = False,
-        subtract_bg_kws: dict = dict(
-            method="otsu", sigma=3, per_img=False
-        ),
+        subtract_bg_kws: dict = dict(method="otsu", sigma=3, per_img=False),
         remove_empty_slices: bool = False,
         ### Imgs and pipeline kws
         **stack_kws,
@@ -164,7 +162,7 @@ class PreProcess(Process):
         ### Remove empty slices
         if kws["remove_empty_slices"]:
             self.imgs = self.remove_empty_slices()
-        
+
         return self
 
     #
@@ -419,8 +417,9 @@ if __name__ == "__main__":
         normalize="stack",
         subtract_bg=True,
         subtract_bg_kws=dict(
-            method="otsu",
+            method="triangle",
             sigma=3,
+            factor=3,
             per_img=False,
         ),
         scalebar_length=10,
@@ -428,7 +427,7 @@ if __name__ == "__main__":
         remove_empty_slices=True,
         **kws,
     )
-    #%%
+    # %%
     # Z = Z.preprocess()
     # %%
     Z_RAW = PreProcess(
@@ -443,7 +442,7 @@ if __name__ == "__main__":
         remove_empty_slices=False,
         **kws,
     )
-    #%%
+    # %%
     # Z_RAW = Z_RAW.preprocess()
     # %%
     print(type(Z.imgs))
@@ -523,25 +522,40 @@ if __name__ == "__main__":
     # plt.axhline(threshold2, color="red", label="threshold")
     # # !! otsu is greedy, it will always find a threshold
     # %%
-
     # Z.imgs[Z.imgs > 0.0] = 1
-
     # plt.imshow(Z.imgs[0])
 
     # %%
     from imagep.images.stack import Stack
     from imagep.processing.process import Process
     from imagep.pipeline import Pipeline
-    
+
+    # >
     self = Stack
     data = Pipeline
     issubclass(self, data)
     isinstance(Stack, Process)
-    
     # %%
-    ### Check history
-    # Z.info
+    Z2 = PreProcess(Z)
     # %%
-    # Z.history
-
+    isinstance(Z2, PreProcess)
     # %%
+    isinstance(Z2, Process)  # True
+    # %%
+    isinstance(type(Z2), Process)  # False
+    # %%
+    isinstance(Z2, Stack)  # True
+    # %%
+    isinstance(Z2, Pipeline)  # False
+    # %%
+    isinstance(Pipeline, type(Z2))  # False
+    # %%
+    isinstance(Pipeline, Process)  # False
+    # %%
+    issubclass(Pipeline, Process)  # True
+    #%%
+    issubclass(Pipeline, Stack)  # True
+    #%%
+    issubclass(Pipeline, PreProcess)  # False
+    # %%
+    Pipeline.__base__

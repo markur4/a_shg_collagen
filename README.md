@@ -231,9 +231,11 @@ classDiagram
    %% Process
    Stack <|-- Process
    
+   %% composition arrows point towards the part
+   Filter *-- Process
+   %% dependency arrows point towards the dependency
    filters_accelerated <.. Filter
    filters <.. Filter
-   Filter *-- Process
    
    %% Preprocessing
    Background *-- PreProcess
@@ -299,6 +301,7 @@ classDiagram
       class Pipeline{
          <<interface>>
          background: Background
+         regions: Regions
          filter: Filter
          ...
          preprocess() Pipeline
@@ -310,10 +313,10 @@ classDiagram
    }
    Process <|-- Pipeline
    
-   PreProcess <..  Pipeline
-   FibreDiameter <..  Pipeline
-   Nuclei <..  Pipeline
-   ZStack <..  Pipeline
+   PreProcess ..|>  Pipeline
+   FibreDiameter ..|>  Pipeline
+   Nuclei ..|>  Pipeline
+   ZStack ..|>  Pipeline
    
 ```
 
@@ -344,6 +347,7 @@ classDiagram
          <<interface>>
          snapshots: OrderedDict
          background: Background
+         regions: Regions
          filter: Filter
          preprocess() Pipeline
          segment() Pipeline
@@ -355,7 +359,6 @@ classDiagram
    %% Main Inheritance
    Process <|-- Pipeline
    %% Compositions of Tools
-   Filter *-- Pipeline
    Segment *-- Pipeline
    
    %% Sub-Compositions added by executing Processes
@@ -363,16 +366,17 @@ classDiagram
    Regions *-- Pipeline 
    
    %% Functions
-   PreProcess <..  Pipeline
-   FibreDiameter <..  Pipeline
-   Nuclei <..  Pipeline
-   ZStack <..  Pipeline
+   %% Realization arrow: ..|> points to the interface
+   PreProcess ..|>  Pipeline
+   FibreDiameter ..|>  Pipeline
+   Nuclei ..|>  Pipeline
+   ZStack ..|>  Pipeline
 
    %% ==================================================================
    %% Rough Structure of all dependencies
+   Background *-- PreProcess
    Filter *-- Process
    Segment *-- Process
-   Background *-- PreProcess
    Regions *-- Segment
    
    %% Processes

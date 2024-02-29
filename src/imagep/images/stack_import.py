@@ -19,6 +19,9 @@ import imagep.images.importtools as importtools
 from imagep.arrays.mdarray import mdarray
 from imagep.arrays.l2Darrays import l2Darrays
 
+# from imagep.processing.process import Process
+
+
 if TYPE_CHECKING:
     import imagep as ip
     from imagep.images.stack import Stack
@@ -64,7 +67,7 @@ class StackImport:
         self._fileimport_kws = _importconfig
 
         ### IMPORT data and convert it into dtype
-        self._import(data)
+        self.import_data(data)
 
         ### Slicing
         # > Remember if this object has been sliced
@@ -114,30 +117,49 @@ class StackImport:
     #
     # == Import Data ===================================================
 
+    def _is_like_self(self, data: Self) -> bool:
+        """Checks if data is a class defined in this library that can
+        serve as a source of images, preferrably including metadata.
+        - self can be any subclass of this class here, including:
+            - Process
+            - PreProcess
+            - Stack
+        """
+        # > pp = self(data=data)
+        if (
+            # > pp = Process(data=Process)
+            isinstance(data, type(self))
+            # > pp = Process(data=PreProcess)
+            or issubclass(type(data), type(self))
+            # > pp = PreProcess(data=Process)
+            or issubclass(type(self), type(data))
+            # > pp = PreProcess(data=ZStack)
+            or type(self).__bases__ == type(data).__bases__
+        ):
+            return True
+        else:
+            return False
+
     def _check_data_type(
         self,
         data: T.source_of_imgs,
     ) -> None:
         """Check if data is a valid image source"""
-        types = (str, Path, list, T.array, l2Darrays)
         m = (
             " Either (list of) path, (list of) array or self"
             + " must be given."
         )
         if data is None:
             raise ValueError("No image source passed." + m)
-        # > Z = PreProcess(data=Imgs)
-        # > issubclass(data=PreProcess, self=Imgs)
         elif not (
-            isinstance(data, types) or issubclass(type(self), type(data))
+            isinstance(data, (str, Path, list, T.array, l2Darrays))
+            or self._is_like_self(data)
         ):
             raise ValueError(f"Unknown type of image source: {type(data)}." + m)
 
-    def _import(
+    def import_data(
         self,
-        data: (
-            str | Path | list[str | Path] | np.ndarray | list[np.ndarray] | Self
-        ),
+        data: T.source_of_imgs,
     ) -> None:
         """Main import function. Calls the appropriate import function."""
 
@@ -159,7 +181,7 @@ class StackImport:
         ### Importing from Instance
         # > Z = PreProcess(data=Imgs)
         # > issubclass(self=PreProcess, data=Imgs)
-        elif issubclass(type(self), type(data)):
+        elif self._is_like_self(data):
             # !! Can't use data.verbose, because it's not set yet
             self.from_instance(data, verbose=self.verbose)
 
@@ -297,8 +319,9 @@ class StackImport:
                 indices = val
         elif isinstance(self.imgs, l2Darrays):
             # > Let the ListOfArrays handle the slicing
-            # > Re-initialize as ListOfArrays to preserve the type
             imgs: T.array | l2Darrays = self.imgs[val]
+            # > Re-initialize as ListOfArrays to preserve the type
+            # ? Why?
             _self.imgs = l2Darrays(arrays=imgs)
             # > Z[0] or Z[1,2,5] or Z[[1,2,5]]
             if isinstance(val, int):
@@ -334,6 +357,7 @@ class StackImport:
 
 
 # %%
+
 
 #
 # == Class ImgsColored =================================================

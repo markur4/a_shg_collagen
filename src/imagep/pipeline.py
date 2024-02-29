@@ -76,16 +76,16 @@ class Pipeline(Process):
             keep_original=keep_original,
             **importfunc_kws,
         )
-        ### Initialize components that can be added by composition
-        self.snapshots: OrderedDict[str, np.ndarray] = OrderedDict()
-        self.background: Background = None
-        self.filter: Filter = None
+        ### Declare types of composition
+        self.snapshots: OrderedDict[str, np.ndarray]  # = OrderedDict()
+        self.background: Background  # = None
+        self.filter: Filter  # = None
 
     def preprocess(
         self,
         median: bool = False,
         denoise: bool = True,
-        normalize: bool = True,
+        normalize: bool = "stack",
         subtract_bg: bool = True,
         subtract_bg_kws: dict = dict(method="otsu", sigma=3, per_img=False),
     ) -> Process:
@@ -162,13 +162,25 @@ if __name__ == "__main__":
         pixel_length=pixel_length,
     )
     # %%
+    isinstance(PPL, Process)  # True
+    # %%
+    issubclass(type(PPL), Process)  # True
+
+    # %%
     PPL = PPL.preprocess(
         median=False,
         denoise=True,
-        normalize=True,
+        normalize="stack",
         subtract_bg=True,
-        subtract_bg_kws=dict(method="otsu", sigma=3, per_img=False),
+        subtract_bg_kws=dict(
+            method="otsu",
+            sigma=3,
+            # per_img=False,
+        ),
     )
 
     # %%
     PPL.plot_snapshots()
+    
+    # %%
+    # PPL.background.threshold
