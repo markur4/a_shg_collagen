@@ -472,6 +472,7 @@ if __name__ == "__main__":
     ### Present entropy filter
     _entr = Z.filter.entropy(normalize=False)
     _entr_raw = Z_RAW.filter.entropy(normalize=False)
+    _entr
     # %%
     m = _entr.max()
     ip.imshow(

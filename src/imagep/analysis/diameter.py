@@ -24,13 +24,14 @@ import skimage as ski
 
 
 # > Local
-from imagep.processing.preprocess import PreProcess
+# from imagep.processing.preprocess import PreProcess
 from imagep.segmentation.segment import Segment
+from imagep.processing.process import Process
 
 # %%
 
 
-class FibreDiameter(Segment):
+class FibreDiameter(Process):
     def __init__(
         self,
         *imgs_args,
@@ -49,7 +50,7 @@ class FibreDiameter(Segment):
 
         # ### Segment Image
         # # TODO: Implement Segmentation
-        # self.segmented = np.zeros(self.imgs.shape)
+        self.segmented = np.zeros(self.imgs.shape)
 
         ### Intermediates of Diameter Analysis
         self.edt = np.zeros(self.segmented.shape)
@@ -501,7 +502,7 @@ class FibreDiameter(Segment):
             skel = self.skeleton_edt_nointersect[I]
 
         ### Burn Scalebar into image
-        skel = self._add_scalebar_to_img(img=skel, µm=10, thickness_μm=3)
+        # skel = self._add_scalebar_to_img(img=skel, µm=10, thickness_μm=3)
 
         ### Mask
         skel = np.ma.masked_where(skel == 0, skel)
@@ -533,17 +534,43 @@ class FibreDiameter(Segment):
 if __name__ == "__main__":
     pass
     # %%
-    ### Define scaling
+    
+    parent = (
+        "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/"
+    )
+    # path_rough = parent + "1 healthy z-stack rough/"
+    path_detailed = parent + "2 healthy z-stack detailed/"
     kws = dict(
-        x_µm=1.5 * 115.4,
+        pixel_length=(1.5 * 115.4) / 1024,
     )
     # %%
-    # > Detailed
-    path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/2 healthy z-stack detailed/"
-    # > Rough
-    # path = "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/1 healthy z-stack rough/"
+    import imagep as ip
+    I = 6
+    Z = ip.PreProcess(
+        data=path_detailed,
+        fname_extension=".txt",
+        imgname_position=1,
+        denoise=True,
+        normalize="stack",
+        subtract_bg=True,
+        subtract_bg_kws=dict(
+            method="otsu",
+            sigma=3,
+            per_img=False,
+            factor=3,
+        ),
+        scalebar_length=10,
+        snapshot_index=I,
+        remove_empty_slices=True,
+        # fast axis amplitude 1.5 V * calibration 115.4 µm/V
+        **kws,
+    )
+    #%%
+    Z.plot_snapshots()
+    #%%
+    
     Z = FibreDiameter(
-        path=path,
+        data=Z,
         use_mip=False,
         # prune=None,
         prune=5,
@@ -562,16 +589,18 @@ if __name__ == "__main__":
     Z
     # %%
     ### Plot with intersections
-    Z.plot_segmented_and_skeleton(intersects=True)
+    # Z.plot_segmented_and_skeleton(intersects=True)
     # %%
     ### Plot without intersections
-    Z.plot_segmented_and_skeleton(intersects=False)
+    # Z.plot_segmented_and_skeleton(intersects=False)
     # %%
     Z.plot_histogram(
         # I=I,
         # bins=50,
         in_µm=True,
     )
+    
+    
     # %%
     ###Plot Diameter Statistics
     Z.plot_diameters_statistics(in_µm=True)

@@ -235,11 +235,10 @@ if __name__ == "__main__":
         "/Users/martinkuric/_REPOS/ImageP/ANALYSES/data/231215_adipose_tissue/"
     )
     path_rough = parent + "1 healthy z-stack rough/"
-    kws = dict()
+    path_detailed = parent + "2 healthy z-stack detailed/"
     # %%
     I = 8
-    Z = PreProcess(
-        data=path_rough,
+    kws = dict(
         fname_extension=".txt",
         imgname_position=1,
         denoise=True,
@@ -256,8 +255,9 @@ if __name__ == "__main__":
         remove_empty_slices=True,
         # fast axis amplitude 1.5 V * calibration 115.4 µm/V
         pixel_length=(1.5 * 115.4) / 1024,
-        **kws,
     )
+    Z = PreProcess(data=path_rough, **kws)
+    Z_D = PreProcess(data=path_detailed, **kws)
     # %%
     Z.pixel_length
     # %%
@@ -270,6 +270,13 @@ if __name__ == "__main__":
         scalebar_length=10,
         z_length=10 * 0.250,  # stepsize * 0.250 µm
     )
+    ZS_D = ZStack(
+        data=Z_D,
+        # init_metadata=False,
+        remove_empty_slices=False,
+        scalebar_length=10,
+        z_length=2 * 0.250,  # stepsize * 0.250 µm
+    )
     # %%
     ZS.metadata
     # %%
@@ -281,10 +288,11 @@ if __name__ == "__main__":
     # ZS.info
     # %%
     ZS.mip(axis="all", save_as="4_mip_all.pdf")
+    #%%
+    ZS_D.mip(axis="all", save_as="4_mip_all_detailed.pdf")
     # %%
     ### .gif No median filter
     ZS.makegif_rotate(save_as="4_rough", angle_per_frame=3)
-
 
     # %%
     ### .gif with median filter
