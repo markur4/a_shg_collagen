@@ -108,6 +108,12 @@ def arrays_from_folder(
     if not fname_extension.startswith("."):
         fname_extension = "." + fname_extension
 
+    ### Make sure fname_extensiton is not just a dot
+    if fname_extension == ".":
+        raise ValueError(
+            "Please specify fname_extension, e.g. '.jpg', '.txt', etc."
+        )
+
     ### Define filepattern
     pattern = fname_pattern if fname_pattern else "*" + fname_extension
 
@@ -115,7 +121,7 @@ def arrays_from_folder(
     _imgpaths = list(folder.glob(pattern))
     if len(_imgpaths) == 0:
         raise ValueError(f"No files found with pattern '{pattern}'")
-    
+
     _imgpaths = _order_imgpaths(
         _imgpaths,
         sort=sort,
@@ -217,6 +223,10 @@ def _scan_extension(path: str | Path) -> str:
 def _pick_func_from_extension(fname_extension: str) -> Callable:
     """Pick the right function to import the fname_extension"""
 
+    ### Debug
+    # print("fname_extension", fname_extension)
+
+    ### Pick the right function to import
     if fname_extension == ".txt":
         return _array_from_txtfile
     if fname_extension in (".tif"):

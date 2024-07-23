@@ -1,5 +1,6 @@
 """Here, we collect parameters to be re-used by different functions.
-Each parameter is a dictionary that assigns
+- Allow for different values as input for a parameter
+- Provide the error messages if the input is not recognized
 """
 
 # %%
@@ -79,11 +80,18 @@ if __name__ == "__main__":
     funcname = "blafunc"
     for val in vals:
         try:
-            print(val, handle_param(ACROSS, param=val, funcname=funcname))
+            print(
+                val,
+                handle_param(
+                    paramconfig=ACROSS,
+                    param=val,
+                    funcname=funcname,
+                ),
+            )
         except ValueError as e:
             # print(f"ERROR: Value '{val}' not recognized")
             print(e)
-            
-    #%%
+
+    # %%
     True in ACROSS["alts"]
     True in ACROSS["alts"]

@@ -186,12 +186,14 @@ def _axtitle_from_img(
     ### Name
     if hasattr(img, "name"):
         # if img.name != "unnamed":
-        folder = Path(img.folder).parent
-        l.append(f"'{folder}': '{img.name}'")
+        parent = Path(img.folder).parent
+        folder = Path(img.folder).name
+        l.append(f"'{parent} / {folder} / {img.name}'")
 
     ### Index, shape, dtype
     l.append(
-        f"Image {i_in_total+1}/{i_total+1} (i={i_in_total}/{i_total})"
+        f"Image {i_in_total+1} of {i_total+1}"
+        # f" (i={i_in_total}/{i_total})"
         f"    {img.shape[0]}x{img.shape[1]}  {img.dtype}"
     )
     return "\n".join(l)

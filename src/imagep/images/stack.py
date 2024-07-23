@@ -76,7 +76,7 @@ class Stack(StackMeta):
         :type scalebar_length: int, optional
         """
 
-        ### Collect kws
+        ### Collect kws & pass to super().__init__() 
         import_kws = dict(data=data, verbose=verbose)
         meta_kws = dict(
             pixel_length=pixel_length,
@@ -91,7 +91,7 @@ class Stack(StackMeta):
             invertorder=invertorder,
             dtype=dtype,
         )
-        ### super().__init__(), OR retrieve attributes from instance
+        # > super().__init__(), OR retrieve attributes from instance
         self._get_attributes(
             import_kws=import_kws,
             meta_kws=meta_kws,
@@ -113,8 +113,8 @@ class Stack(StackMeta):
         fileimport_kws: dict,
         **importfunc_kws,
     ):
-        """Import images from another Collection instance. This will
-        transfer all attributes from the Collection instance. Methods
+        """Import images from another Stack instance. This will
+        transfer all attributes from the Stack instance. Methods
         are transferred by inheritance, because we want the option to
         import images at every stage of the processing pipeline.
         
@@ -129,7 +129,7 @@ class Stack(StackMeta):
         ### Get user input on source data
         data = import_kws["data"]
 
-        ### If data is an instance of Collection, just transfer its attributes
+        ### If data is an instance of Stack, just transfer its attributes
         # todo: It's not this class' job to handle import functionalities. Rethink this. 
         if self._is_like_self(data):
         # if isinstance(data, type(self)):
@@ -138,7 +138,7 @@ class Stack(StackMeta):
                 **import_kws,
                 # **meta_kws, # !! Assume user wants same metadata
             )
-        ### If data is not a Collection, run full inheritance
+        ### If data is not a Stack, run full inheritance
         else:
             super().__init__(
                 **import_kws,
